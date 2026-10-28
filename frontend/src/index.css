@@ -1,0 +1,355 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-poppins: 'Poppins', sans-serif;
+
+  /* Customer Topbar & Header Custom Theme */
+  --color-topbar-bg: #01390f;
+  --color-header-bg: #EDF7EE;
+  --color-header-link: #136fa2;
+  --color-header-underline: #01390f;
+
+  /* User-Defined Green Color System */
+  --color-brand-base-green: #7fae46;
+  --color-brand-dark-green: #5f8534;
+  --color-brand-forest-green: #476325;
+  --color-brand-darkest-green: #01390f;
+
+  --color-primary-sage: #7fae46;
+  --color-sage-hover: #5f8534;
+  --color-rice-milk: #F7F5F0;
+  --color-card-surface: #FEFEFD;
+  --color-earth-charcoal: #2D3732;
+  --color-herbal-mint: #7fae46;
+  --color-dusty-teal: #136fa2;
+
+  /* Global Theme Aliases */
+  --color-primary-blue: #136fa2;
+  --color-primary-hover: #01390f;
+  --color-deep-blue: #01390f;
+  --color-secondary-green: #7fae46;
+  --color-secondary-hover: #5f8534;
+  --color-light-green: #A3CC72;
+  --color-dark-slate: #2D3732;
+  --color-ink-text: #2D3732;
+  --color-soft-green: #EDF7EE;
+  --color-off-white: #F7F5F0;
+  --color-light-gray: #D5EAD7;
+  --color-brand-white: #FEFEFD;
+
+  /* Backward-compatible variables */
+  --color-leaf-green: #7fae46;
+  --color-deep-teal: #136fa2;
+  --color-fresh-aloe: #7fae46;
+  --color-aloe-hover: #5f8534;
+}
+
+:root {
+  /* Customer Topbar & Header Custom Theme */
+  --brand-topbar-bg: #01390f;
+  --brand-header-bg: #EDF7EE;
+  --brand-header-link: #136fa2;
+  --brand-header-underline: #01390f;
+
+  /* User-Defined Green Color System */
+  --brand-base-green: #7fae46;
+  --brand-dark-green: #5f8534;
+  --brand-forest-green: #476325;
+  --brand-darkest-green: #01390f;
+
+  --brand-primary-sage: #7fae46;
+  --brand-sage-hover: #5f8534;
+  --brand-rice-milk: #F7F5F0;
+  --brand-card-surface: #FEFEFD;
+  --brand-earth-charcoal: #2D3732;
+  --brand-herbal-mint: #7fae46;
+  --brand-dusty-teal: #136fa2;
+
+  /* Global Theme Aliases */
+  --brand-primary-blue: #136fa2;
+  --brand-primary-hover: #01390f;
+  --brand-deep-blue: #01390f;
+  --brand-secondary-green: #7fae46;
+  --brand-secondary-hover: #5f8534;
+  --brand-light-green: #A3CC72;
+  --brand-dark-slate: #2D3732;
+  --brand-ink-text: #2D3732;
+  --brand-soft-green: #EDF7EE;
+  --brand-off-white: #F7F5F0;
+  --brand-light-gray: #D5EAD7;
+  --brand-white: #FEFEFD;
+
+  /* Backward-compatible variables */
+  --brand-leaf-green: #7fae46;
+  --brand-deep-teal: #136fa2;
+  --brand-fresh-aloe: #7fae46;
+  --brand-aloe-hover: #5f8534;
+}
+
+html,
+body {
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Customer Storefront Header & Tabs Navigation Typography */
+.customer-header-nav,
+.customer-header-nav * {
+  font-family: 'Poppins', sans-serif !important;
+}
+
+/* Staff Role Frontend Modern Clean Typography (Matches Reference Screenshot) */
+.crm-role-theme-wrapper,
+.crm-role-theme-wrapper *,
+.crm-staff-portal,
+.crm-staff-portal * {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+/* Ensure ALL form controls across the entire system use consistent Inter font and balanced weights */
+input,
+select,
+textarea,
+button {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Universal, consistent placeholder typography across all inputs in all components and modals */
+input::placeholder,
+textarea::placeholder {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-weight: 400 !important;
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+  letter-spacing: normal !important;
+}
+
+/* Monospace strictly for code tags and raw debug pre blocks */
+code,
+pre.code-block {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+}
+
+/* Disable spin buttons / scroll increment on number inputs to prevent human error */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Hide default browser black triangle indicator on datalist / input list dropdowns */
+input::-webkit-calendar-picker-indicator,
+input::-webkit-list-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
+@media print {
+
+  /* Itago ang lahat ng bagay sa screen maliban sa modal backdrop at mismong modal */
+  body>* {
+    visibility: hidden;
+  }
+
+  /* Ipakita lamang ang modal container at mga laman nito */
+  .fixed.inset-0.z-50,
+  .fixed.inset-0.z-50 * {
+    visibility: visible;
+  }
+
+  .fixed.inset-0.z-50 {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  /* Itago ang mga buttons sa mismong PDF */
+  .print\:hidden {
+    display: none !important;
+  }
+}
+
+/* =========================================================================
+   GLOBAL SYSTEM-WIDE ULTRA-CLEAN SLIM SCROLLBARS (100% Consistent UI)
+   ========================================================================= */
+
+/* Firefox standard */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Chrome, Edge, Safari, Opera (Webkit) Global Defaults */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Custom scrollbar utility class */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Utility to completely hide scrollbar when needed */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Modal and Banner UI Animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.animate-scaleUp {
+  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ---------------------------------------------------- */
+/* Dynamic Role Solid Color Theming (Buttons, Tables, Hover) */
+/* ---------------------------------------------------- */
+:root {
+  --role-solid: #01390f;
+  --role-solid-hover: #01250a;
+  --role-sidebar-hover: #0a5219;
+}
+
+.crm-role-theme-wrapper table thead,
+.crm-role-theme-wrapper table thead tr,
+.crm-role-theme-wrapper table thead th,
+.crm-role-theme-wrapper thead tr.bg-\[\#01390f\],
+.crm-role-theme-wrapper thead th.bg-\[\#01390f\],
+.crm-role-theme-wrapper thead tr.bg-\[\#012b0b\],
+.crm-role-theme-wrapper thead th.bg-\[\#012b0b\],
+.crm-role-theme-wrapper thead.bg-\[\#01390f\],
+.crm-role-theme-wrapper tr.bg-\[\#01390f\],
+.crm-role-theme-wrapper th.bg-\[\#01390f\] {
+  background-color: var(--role-solid, #01390f) !important;
+}
+
+.crm-role-theme-wrapper button.bg-\[\#01390f\],
+.crm-role-theme-wrapper button.bg-\[\#012b0b\],
+.crm-role-theme-wrapper a.bg-\[\#01390f\],
+.crm-role-theme-wrapper a.bg-\[\#012b0b\],
+.crm-role-theme-wrapper div.bg-\[\#01390f\],
+.crm-role-theme-wrapper span.bg-\[\#01390f\],
+.crm-role-theme-wrapper .crm-btn-primary {
+  background-color: var(--role-solid, #01390f) !important;
+}
+
+.crm-role-theme-wrapper button.hover\:bg-\[\#01250a\]:hover,
+.crm-role-theme-wrapper button.hover\:bg-\[\#01280a\]:hover,
+.crm-role-theme-wrapper button.hover\:bg-\[\#012409\]:hover,
+.crm-role-theme-wrapper button.hover\:bg-\[\#024a14\]:hover,
+.crm-role-theme-wrapper button.hover\:bg-\[\#01390f\]:hover,
+.crm-role-theme-wrapper button.hover\:bg-\[\#0a5219\]:hover,
+.crm-role-theme-wrapper a.hover\:bg-\[\#01250a\]:hover,
+.crm-role-theme-wrapper a.hover\:bg-\[\#01280a\]:hover,
+.crm-role-theme-wrapper a.hover\:bg-\[\#012409\]:hover,
+.crm-role-theme-wrapper a.hover\:bg-\[\#024a14\]:hover,
+.crm-role-theme-wrapper a.hover\:bg-\[\#01390f\]:hover,
+.crm-role-theme-wrapper a.hover\:bg-\[\#0a5219\]:hover {
+  background-color: var(--role-solid-hover, #01250a) !important;
+}
+
+.crm-role-theme-wrapper .text-\[\#01390f\] {
+  color: var(--role-solid, #01390f) !important;
+}
+
+.crm-role-theme-wrapper .border-\[\#01390f\] {
+  border-color: var(--role-solid, #01390f) !important;
+}
+
+/* Sidebar Hover Solid Color Override */
+.crm-role-theme-wrapper .sidebar-nav-btn:not(.is-active):hover {
+  background: var(--role-sidebar-hover, #0a5219) !important;
+}

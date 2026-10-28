@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/indexlogo.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/indexlogo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mhira Natural Soap & Cosmetics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <script id="cf-turnstile-script" src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script>
+    (function () {
+      // 1. Prominent Self-XSS Warning in Browser Console
+      function printStopWarning() {
+        var titleStyle = 'color: #ef4444; font-size: 64px; font-weight: 900; -webkit-text-stroke: 1.5px #991b1b; text-shadow: 2px 2px 0 rgba(0,0,0,0.25); font-family: system-ui, -apple-system, sans-serif;';
+        var messageStyle = 'color: #ffffff; background: #b91c1c; font-size: 16px; font-weight: 700; padding: 10px 14px; border-radius: 6px; line-height: 1.6; display: inline-block; font-family: system-ui, -apple-system, sans-serif;';
+        var linkStyle = 'color: #dc2626; font-size: 13px; font-weight: 600; font-family: system-ui, -apple-system, sans-serif;';
+
+        console.log('%cSTOP!', titleStyle);
+        console.log(
+          "%cThis is a browser feature intended for developers. If someone told you to copy and paste something here to enable a feature or hack someone's account, it is a scam and could give them access to your One Inventory account.",
+          messageStyle
+        );
+        console.log('%cSee https://en.wikipedia.org/wiki/Self-XSS for more information.', linkStyle);
+      }
+
+      printStopWarning();
+
+      // Re-print warning if console is cleared
+      var origClear = console.clear;
+      console.clear = function () {
+        if (origClear) {
+          try { origClear.apply(console, arguments); } catch (e) {}
+        }
+        printStopWarning();
+      };
+
+      // 2. Filter out noisy third-party iframe development notices
+      var shouldFilter = function (str) {
+        if (!str || typeof str !== 'string') return false;
+        return (
+          str.includes('React DevTools') ||
+          str.includes('postMessage') ||
+          str.includes('challenges.cloudflare.com') ||
+          str.includes('GSI_LOGGER') ||
+          str.includes('The given origin is not allowed')
+        );
+      };
+
+      var origInfo = console.info;
+      console.info = function () {
+        if (shouldFilter(arguments[0])) return;
+        if (origInfo) origInfo.apply(console, arguments);
+      };
+
+      var origLog = console.log;
+      console.log = function () {
+        if (shouldFilter(arguments[0])) return;
+        if (origLog) origLog.apply(console, arguments);
+      };
+
+      var origWarn = console.warn;
+      console.warn = function () {
+        if (shouldFilter(arguments[0])) return;
+        if (origWarn) origWarn.apply(console, arguments);
+      };
+
+      var origError = console.error;
+      console.error = function () {
+        if (shouldFilter(arguments[0])) return;
+        if (origError) origError.apply(console, arguments);
+      };
+
+      window.addEventListener('error', function (e) {
+        if (e && shouldFilter(e.message)) {
+          e.preventDefault && e.preventDefault();
+          e.stopImmediatePropagation && e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      // 3. Disable React DevTools inspection to prevent viewing component state, props, and hooks
+      if (typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object') {
+        for (var key in window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+          if (Object.prototype.hasOwnProperty.call(window.__REACT_DEVTOOLS_GLOBAL_HOOK__, key)) {
+            window.__REACT_DEVTOOLS_GLOBAL_HOOK__[key] = typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__[key] === 'function' ? function () {} : null;
+          }
+        }
+      }
+    })();
+  </script>
+</head>
+
+<body class="font-sans antialiased bg-[#f8faf7]">
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

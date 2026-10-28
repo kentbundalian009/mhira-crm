@@ -1,0 +1,43 @@
+{
+  "siteName": "Mhira Natural Soap & Cosmetics",
+  "contactEmail": "support@mhiracosmetics.ph",
+  "currency": "PHP (₱)",
+  "timezone": "Asia/Manila (GMT+8)",
+  "maintenanceMode": false,
+  "maintenanceMessage": "System is temporarily unavailable for maintenance. We are performing scheduled system upgrades and database optimizations.",
+  "maintenanceEstimatedTime": "1-2 Hours",
+  "autoEmailNotif": true,
+  "enableReviews": true,
+  "autoDailyBackup": true,
+  "roleAppearances": {
+    "Admin": {
+      "sidebarGradient": "linear-gradient(135deg, #0c0d0d 0%, #111212 50%, #0f0f0f 100%)",
+      "headerGradient": "linear-gradient(135deg, #0c0d0d 0%, #111212 50%, #0f0f0f 100%)",
+      "solidColor": "#1d4ed8",
+      "solidHover": "#0028b2",
+      "sidebarHover": "#0c0d0d"
+    },
+    "Inventory": {
+      "sidebarGradient": "linear-gradient(135deg, #012b0b 0%, #01390f 50%, #0a5219 100%)",
+      "headerGradient": "linear-gradient(90deg, #012b0b 0%, #01390f 50%, #0a5219 100%)",
+      "solidColor": "#1d4ed8",
+      "solidHover": "#0028b2",
+      "sidebarHover": "#0a5219"
+    },
+    "Logistics": {
+      "sidebarGradient": "linear-gradient(135deg, #0a192f 0%, #1e3a8a 50%, #2563eb 100%)",
+      "headerGradient": "linear-gradient(135deg, #0a192f 0%, #1e3a8a 50%, #2563eb 100%)",
+      "solidColor": "#1d4ed8",
+      "solidHover": "#0028b2",
+      "sidebarHover": "#1d4ed8"
+    },
+    "Marketing": {
+      "sidebarGradient": "linear-gradient(135deg, #1e0836 0%, #4a044e 50%, #a21caf 100%)",
+      "headerGradient": "linear-gradient(135deg, #1e0836 0%, #4a044e 50%, #a21caf 100%)",
+      "solidColor": "#1d4ed8",
+      "solidHover": "#0028b2",
+      "sidebarHover": "#7c1185"
+    }
+  },
+  "updatedAt": "2026-10-23T05:38:28.113Z"
+}
