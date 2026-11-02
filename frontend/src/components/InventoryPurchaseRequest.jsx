@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
+import { getUserFullName } from '../utils/userId';
 import {
   FileSpreadsheet,
   Download,
@@ -49,6 +50,51 @@ const DEFAULT_UOM_THRESHOLDS = {
   meter: { criticalLevel: 0, restockWarningPoint: 20, overstockLimitPoint: 200 },
 };
 
+// Helper to load image as base64 for jsPDF
+const loadBase64Image = (url) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
+// Helper to create watermark image with controlled opacity
+const loadWatermarkImage = (url, opacity = 0.08) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
 function InventoryPurchaseRequest() {
   const API_URL =
     import.meta.env.MODE === 'production'
@@ -83,6 +129,7 @@ function InventoryPurchaseRequest() {
 
   // Preview Modal State
   const [previewRequest, setPreviewRequest] = useState(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Threshold Rules States (synced with Raw Materials module)
   const globalThresholds = useMemo(() => {
@@ -498,174 +545,248 @@ function InventoryPurchaseRequest() {
   };
 
   // Generate and Download PDF for a single Raw Material Requisition
-  const handleDownloadRawMatPDF = (item) => {
+  const handleDownloadRawMatPDF = async (item) => {
     try {
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
+
       const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
 
-      // Header Banner
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 210, 26, 'F');
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
 
-      doc.setTextColor(255, 255, 255);
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) {}
+      }
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.text('MHIRA NATURAL CRM SYSTEM', 14, 12);
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
 
-      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
       doc.setFont('helvetica', 'normal');
-      doc.text('WAREHOUSE & PROCUREMENT - RAW MATERIAL PURCHASE REQUISITION', 14, 19);
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Official Material Requisition & Procurement Authorization Form', 36, 26);
 
-      // Requisition Metadata Box
-      doc.setDrawColor(220, 226, 235);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 32, 182, 36, 3, 3, 'FD');
-
-      doc.setTextColor(51, 65, 85);
-      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
 
-      // Left Column
-      doc.text('REQUISITION NO:', 18, 40);
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MATERIAL PURCHASE REQUISITION', pageWidth - 14, 16.5, { align: 'right' });
+
       doc.setFont('helvetica', 'normal');
-      doc.text(item.prNumber, 52, 40);
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`DOC NO: ${item.prNumber || 'PR-RESTOCK'}`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`DATE GENERATED: ${new Date().toLocaleDateString()}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`CONDITION: ${item.conditionLabel ? item.conditionLabel.toUpperCase() : 'NORMAL'}`, pageWidth - 14, 30, { align: 'right' });
 
-      doc.setFont('helvetica', 'bold');
-      doc.text('RAW MATERIAL:', 18, 47);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${item.materialName} (${item.materialCode})`, 52, 47);
+      // Clean dividing line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
 
-      doc.setFont('helvetica', 'bold');
-      doc.text('CATEGORY / BRAND:', 18, 54);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${item.category} / ${item.brand}`, 52, 54);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('SPECIFICATION:', 18, 61);
-      doc.setFont('helvetica', 'normal');
-      doc.text(item.specification || 'Standard Spec', 52, 61);
-
-      // Right Column
-      doc.setFont('helvetica', 'bold');
-      doc.text('DATE GENERATED:', 120, 40);
-      doc.setFont('helvetica', 'normal');
-      doc.text(new Date().toLocaleDateString(), 155, 40);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('INVENTORY LEVEL:', 120, 47);
-      doc.setTextColor(item.isCritical ? 190 : 180, item.isCritical ? 24 : 83, item.isCritical ? 93 : 9);
-      doc.text(item.conditionLabel.toUpperCase(), 155, 47);
-
-      doc.setTextColor(51, 65, 85);
-      doc.setFont('helvetica', 'bold');
-      doc.text('CURRENT STOCK:', 120, 54);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${item.currentStock} ${item.uom}`, 155, 54);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('SUGGESTED PR QTY:', 120, 61);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(1, 57, 15);
-      doc.text(`${item.suggestedOrderQty} ${item.uom}`, 155, 61);
-
-      // Section Title
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('PURCHASE REQUISITION ORDER SPECIFICATION', 14, 76);
-
-      const tableData = [
-        [
-          item.materialCode,
-          item.materialName,
-          item.category,
-          `${item.currentStock} ${item.uom}`,
-          `${item.criticalLevel} ${item.uom}`,
-          `${item.restockWarningPoint} ${item.uom}`,
-          `${item.suggestedOrderQty} ${item.uom}`,
-          item.conditionLabel,
-        ],
-      ];
-
+      // Metadata Table (4-column Summary)
       autoTable(doc, {
-        startY: 80,
-        head: [
-          [
-            'Material Code',
-            'Material Description',
-            'Category',
-            'Current Stock',
-            'Critical Point',
-            'Restock Point',
-            'Suggested Order Qty',
-            'Stock Condition',
-          ],
-        ],
-        body: tableData,
+        startY: 36,
+        margin: { left: 14, right: 14 },
+        head: [['REQUISITION NO', 'MATERIAL NAME & CODE', 'CATEGORY / BRAND', 'STOCK & SUGGESTED ORDER']],
+        body: [[
+          item.prNumber || 'N/A',
+          `${item.materialName || 'Raw Material'}\n(${item.materialCode || 'N/A'})`,
+          `${item.category || 'General'}\n${item.brand || 'Standard'}`,
+          `Stock: ${item.currentStock || 0} ${item.uom || 'pcs'}\nSuggested: ${item.suggestedOrderQty || 0} ${item.uom || 'pcs'}`,
+        ]],
+        theme: 'grid',
         headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
+          fillColor: [241, 245, 249],
+          textColor: [71, 85, 105],
           fontStyle: 'bold',
-          fontSize: 8,
+          fontSize: 5.6,
           halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         bodyStyles: {
-          fontSize: 8,
-          textColor: 51,
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
           halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        columnStyles: {
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
+        },
+      });
+
+      // Main Specification Table
+      const specStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+      autoTable(doc, {
+        startY: specStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
+        head: [['ITEM CODE', 'MATERIAL DESCRIPTION', 'CATEGORY', 'CURRENT STOCK', 'RESTOCK POINT', 'SUGGESTED PR QTY', 'INVENTORY CONDITION']],
+        body: [[
+          item.materialCode || 'N/A',
+          item.materialName || 'Raw Material',
+          item.category || 'Raw Materials',
+          `${item.currentStock || 0} ${item.uom || 'pcs'}`,
+          `${item.restockWarningPoint || 0} ${item.uom || 'pcs'}`,
+          `${item.suggestedOrderQty || 0} ${item.uom || 'pcs'}`,
+          item.conditionLabel ? item.conditionLabel.toUpperCase() : 'NORMAL',
+        ]],
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          halign: 'center',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
         },
         columnStyles: {
           0: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 42 },
-          2: { halign: 'left', cellWidth: 22 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 46 },
+          2: { halign: 'left', cellWidth: 26 },
           3: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
-          4: { halign: 'center', cellWidth: 18 },
-          5: { halign: 'center', cellWidth: 18 },
-          6: { halign: 'center', fontStyle: 'bold', textColor: [1, 57, 15], cellWidth: 22 },
-          7: { halign: 'center', fontStyle: 'bold', cellWidth: 22 },
+          4: { halign: 'center', cellWidth: 20 },
+          5: { halign: 'center', fontStyle: 'bold', textColor: [21, 62, 151], cellWidth: 24 },
+          6: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
         },
-        theme: 'grid',
       });
 
-      const finalY = doc.lastAutoTable.finalY + 12;
+      let finalY = (doc.lastAutoTable?.finalY || 100) + 6;
 
-      // Instructions
-      doc.setDrawColor(241, 245, 249);
-      doc.setFillColor(254, 252, 232);
-      doc.roundedRect(14, finalY, 182, 22, 2, 2, 'FD');
+      // Procurement Action Plan box
+      if (finalY + 22 < pageHeight - 40) {
+        doc.setFillColor(248, 250, 255);
+        doc.setDrawColor(21, 62, 151);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(14, finalY, 182, 18, 1.5, 1.5, 'FD');
 
-      doc.setTextColor(133, 77, 14);
-      doc.setFontSize(8);
+        doc.setTextColor(21, 62, 151);
+        doc.setFontSize(6.8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PROCUREMENT ACTION PLAN & WAREHOUSE INSTRUCTIONS:', 18, finalY + 5.5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text('1. Purchase order must be issued to accredited raw material supplier based on requested quantity.', 18, finalY + 10);
+        doc.text('2. Delivery must be inspected and recorded via Inbound Receiving module upon arrival at warehouse.', 18, finalY + 14.5);
+        finalY += 23;
+      } else {
+        finalY += 2;
+      }
+
+      // Executive Audit Sign-off Section
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
+      }
+
       doc.setFont('helvetica', 'bold');
-      doc.text('PROCUREMENT ACTION PLAN:', 18, finalY + 7);
+      doc.setFontSize(7);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
 
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName1 = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName1.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName1, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.text(
-        '1. Purchase order must be issued to accredited raw material supplier based on requested quantity.',
-        18,
-        finalY + 12
-      );
-      doc.text(
-        '2. Delivery must be inspected and recorded via Inbound Receiving module upon arrival at warehouse.',
-        18,
-        finalY + 17
-      );
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
 
-      // Signature Blocks
-      const signY = finalY + 38;
-      doc.setDrawColor(180, 180, 180);
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
+      // Final pass: watermark & footer on every page
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) {}
+        }
 
-      doc.line(14, signY, 65, signY);
-      doc.text('REQUESTED BY (Warehouse Officer)', 14, signY + 5);
+        const footerY = pageHeight - 7;
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
 
-      doc.line(78, signY, 130, signY);
-      doc.text('VERIFIED BY (Inventory Manager)', 78, signY + 5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
 
-      doc.line(144, signY, 196, signY);
-      doc.text('APPROVED BY (Purchasing Lead)', 144, signY + 5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
 
       const fileName = `Material_Request_${item.materialCode}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
@@ -677,7 +798,7 @@ function InventoryPurchaseRequest() {
   };
 
   // Generate Bulk PDF for Selected / Filtered Raw Materials
-  const handleDownloadBulkRawMatPDF = (itemsToExport) => {
+  const handleDownloadBulkRawMatPDF = async (itemsToExport) => {
     const list = itemsToExport && itemsToExport.length > 0 ? itemsToExport : filteredRawMatRequisitions;
     if (list.length === 0) {
       showErrorToast('No materials selected or available to export.');
@@ -685,77 +806,275 @@ function InventoryPurchaseRequest() {
     }
 
     try {
-      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
-
-      // Header Banner
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 297, 24, 'F');
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.text('MHIRA NATURAL CRM SYSTEM', 14, 11);
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('BULK RAW MATERIAL PURCHASE REQUISITIONS (INVENTORY RESTOCK PR)', 14, 18);
-
-      doc.setFontSize(8);
-      doc.text(`Exported: ${new Date().toLocaleString()} | Items Count: ${list.length}`, 200, 18);
-
-      const tableRows = list.map((r) => [
-        r.prNumber,
-        r.materialCode,
-        r.materialName,
-        r.category,
-        r.brand,
-        `${r.currentStock} ${r.uom}`,
-        `${r.restockWarningPoint} ${r.uom}`,
-        `${r.suggestedOrderQty} ${r.uom}`,
-        r.conditionLabel.toUpperCase(),
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
       ]);
 
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
+
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
+
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) {}
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Bulk Raw Material Purchase Requisitions (Consolidated Restock Ledger)', 36, 26);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
+
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('BULK RESTOCK REQUISITIONS', pageWidth - 14, 16.5, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`ITEMS COUNT: ${list.length} Materials`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`FILTER: ${conditionFilter.toUpperCase()}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`GENERATED: ${new Date().toLocaleString()}`, pageWidth - 14, 30, { align: 'right' });
+
+      // Clean dividing line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
+
+      // KPI Summary Table
+      const criticalCount = list.filter((r) => r.isCritical).length;
+      const warningCount = list.filter((r) => !r.isCritical && (r.conditionLabel || '').toLowerCase().includes('low')).length;
+      const totalSuggested = list.reduce((acc, r) => acc + (Number(r.suggestedOrderQty) || 0), 0);
+
       autoTable(doc, {
-        startY: 30,
-        head: [
-          [
-            'PR Number',
-            'Item Code',
-            'Raw Material Description',
-            'Category',
-            'Brand',
-            'Current Stock',
-            'Restock Point',
-            'Suggested Order Qty',
-            'Inventory Condition',
-          ],
-        ],
-        body: tableRows,
+        startY: 36,
+        margin: { left: 14, right: 14 },
+        head: [['CONSOLIDATED ITEMS', 'CRITICAL SHORTAGE', 'LOW / REORDER POINT', 'TOTAL SUGGESTED UNITS']],
+        body: [[
+          `${list.length} Materials`,
+          `${criticalCount} Urgent Items`,
+          `${warningCount} Low Buffer Items`,
+          `${totalSuggested.toLocaleString()} Units Required`,
+        ]],
+        theme: 'grid',
         headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
+          fillColor: [241, 245, 249],
+          textColor: [71, 85, 105],
           fontStyle: 'bold',
-          fontSize: 8,
+          fontSize: 5.6,
           halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         bodyStyles: {
-          fontSize: 7.5,
-          textColor: 51,
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
           halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         columnStyles: {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 32 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
-          2: { halign: 'left', cellWidth: 50 },
-          3: { halign: 'left', cellWidth: 25 },
-          4: { halign: 'left', cellWidth: 25 },
-          5: { halign: 'center', fontStyle: 'bold', cellWidth: 25 },
-          6: { halign: 'center', cellWidth: 25 },
-          7: { halign: 'center', fontStyle: 'bold', textColor: [1, 57, 15], cellWidth: 30 },
-          8: { halign: 'center', fontStyle: 'bold', cellWidth: 35 },
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
         },
-        theme: 'grid',
       });
+
+      // Main Table
+      const tableRows = list.map((r) => [
+        r.prNumber || 'N/A',
+        r.materialCode || 'N/A',
+        r.materialName || 'Raw Material',
+        r.category || 'Raw Materials',
+        `${r.currentStock || 0} ${r.uom || 'pcs'}`,
+        `${r.restockWarningPoint || 0} ${r.uom || 'pcs'}`,
+        `${r.suggestedOrderQty || 0} ${r.uom || 'pcs'}`,
+        r.conditionLabel ? r.conditionLabel.toUpperCase() : 'NORMAL',
+      ]);
+
+      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+      autoTable(doc, {
+        startY: mainTableStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
+        head: [[
+          'PR NUMBER',
+          'ITEM CODE',
+          'MATERIAL DESCRIPTION',
+          'CATEGORY',
+          'CURRENT STOCK',
+          'RESTOCK POINT',
+          'SUGGESTED QTY',
+          'CONDITION',
+        ]],
+        body: tableRows,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          halign: 'center',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 22 },
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 40 },
+          3: { halign: 'left', cellWidth: 26 },
+          4: { halign: 'center', cellWidth: 18 },
+          5: { halign: 'center', cellWidth: 18 },
+          6: { halign: 'center', fontStyle: 'bold', textColor: [21, 62, 151], cellWidth: 18 },
+          7: { halign: 'center', fontStyle: 'bold', cellWidth: 14 },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const txt = String(data.cell.raw || '');
+            if (txt.includes('CRITICAL') || txt.includes('SHORTAGE')) {
+              data.cell.styles.textColor = [190, 18, 60];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (txt.includes('LOW') || txt.includes('WARNING')) {
+              data.cell.styles.textColor = [180, 83, 9];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const thumbH = 7;
+            const thumbW = thumbH * logoRatio;
+            if (logoBase64) {
+              try {
+                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+              } catch (e) {}
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(21, 62, 151);
+            doc.text('MHIRA NATURAL BEAUTY PRODUCTS  •  BULK MATERIAL REQUISITIONS', 14 + thumbW + 4, 11.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Exported: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(14, 16, pageWidth - 14, 16);
+          }
+
+          const footerY = pageHeight - 7;
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+        },
+      });
+
+      // Executive Audit Sign-off Section
+      let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
+
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName2 = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName2.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName2, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
+
+      // Final pass: watermark & dynamic page numbers on every page
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) {}
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
 
       const fileName = `Bulk_Material_Purchase_Requisitions_${conditionFilter}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
@@ -767,160 +1086,258 @@ function InventoryPurchaseRequest() {
   };
 
   // Generate WIP Shortage PDF
-  const handleDownloadWipPDF = (request) => {
+  const handleDownloadWipPDF = async (request) => {
     try {
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
+
       const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
 
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 210, 26, 'F');
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
 
-      doc.setTextColor(255, 255, 255);
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) {}
+      }
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.text('MHIRA NATURAL CRM SYSTEM', 14, 12);
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
 
-      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
       doc.setFont('helvetica', 'normal');
-      doc.text('LOGISTICS & PROCUREMENT - WIP SHORTAGE PURCHASE REQUISITION', 14, 19);
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Official Work-in-Progress (WIP) Shortage Material Requisition Slip', 36, 26);
 
-      doc.setDrawColor(220, 226, 235);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 32, 182, 34, 3, 3, 'FD');
-
-      doc.setTextColor(51, 65, 85);
-      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
 
-      doc.text('REQUISITION NO:', 18, 40);
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('WIP SHORTAGE REQUISITION', pageWidth - 14, 16.5, { align: 'right' });
+
       doc.setFont('helvetica', 'normal');
-      doc.text(request.prNumber, 52, 40);
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`REQ NO: ${request.prNumber || 'WIP-SHORTAGE'}`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`WIP BATCH: ${request.wipBatchCode || 'N/A'}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`DATE: ${new Date().toLocaleDateString()}`, pageWidth - 14, 30, { align: 'right' });
 
-      doc.setFont('helvetica', 'bold');
-      doc.text('WIP BATCH NO:', 18, 47);
-      doc.setFont('helvetica', 'normal');
-      doc.text(request.wipBatchCode, 52, 47);
+      // Clean dividing line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
 
-      doc.setFont('helvetica', 'bold');
-      doc.text('TARGET FINISHED GOOD:', 18, 54);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${request.productName} (${request.productCode || 'N/A'})`, 52, 54);
+      // Metadata Table (4-column Summary)
+      autoTable(doc, {
+        startY: 36,
+        margin: { left: 14, right: 14 },
+        head: [['WIP BATCH NO', 'TARGET FINISHED GOOD', 'PENDING SHORTAGE QTY', 'MFG & EXPIRY DATES']],
+        body: [[
+          request.wipBatchCode || 'N/A',
+          `${request.productName || 'Product'}\n(${request.productCode || 'N/A'})`,
+          `${request.pendingQuantity || 0} pcs remaining to fulfill`,
+          `Mfg: ${request.mfgDate || 'N/A'}\nExp: ${request.expDate || 'N/A'}`,
+        ]],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [71, 85, 105],
+          fontStyle: 'bold',
+          fontSize: 5.6,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        bodyStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        columnStyles: {
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
+        },
+      });
 
-      doc.setFont('helvetica', 'bold');
-      doc.text('PENDING SHORTAGE QTY:', 18, 61);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${request.pendingQuantity} pcs remaining to fulfill`, 52, 61);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('DATE GENERATED:', 120, 40);
-      doc.setFont('helvetica', 'normal');
-      doc.text(new Date().toLocaleDateString(), 155, 40);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('MFG DATE:', 120, 47);
-      doc.setFont('helvetica', 'normal');
-      doc.text(request.mfgDate || 'N/A', 155, 47);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('EXPIRY DATE:', 120, 54);
-      doc.setFont('helvetica', 'normal');
-      doc.text(request.expDate || 'N/A', 155, 54);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('URGENCY LEVEL:', 120, 61);
-      doc.setTextColor(request.isUrgentShortage ? 190 : 16, request.isUrgentShortage ? 24 : 140, request.isUrgentShortage ? 93 : 70);
-      doc.text(request.isUrgentShortage ? 'CRITICAL SHORTAGE' : 'SUFFICIENT STOCK', 155, 61);
-
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SPECIFIC RAW MATERIAL SHORTAGE BREAKDOWN', 14, 74);
-
+      // Specific Raw Material Shortage Breakdown
       const tableData = (request.ingredients || []).map((ing) => [
         ing.materialCode || 'RAW-MAT',
         ing.materialName || 'Raw Material',
-        `${ing.unitRequired} ${ing.uom}`,
-        `${ing.totalNeededForPending} ${ing.uom}`,
-        `${ing.currentStock} ${ing.uom}`,
-        `${ing.shortageAmount > 0 ? ing.shortageAmount : 0} ${ing.uom}`,
+        `${ing.unitRequired || 0} ${ing.uom || 'pcs'}`,
+        `${ing.totalNeededForPending || 0} ${ing.uom || 'pcs'}`,
+        `${ing.currentStock || 0} ${ing.uom || 'pcs'}`,
+        `${(ing.shortageAmount || 0) > 0 ? ing.shortageAmount : 0} ${ing.uom || 'pcs'}`,
         ing.isUrgentShortage ? 'PURCHASE NEEDED' : 'IN STOCK',
       ]);
 
+      const specStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
       autoTable(doc, {
-        startY: 78,
-        head: [
-          [
-            'Material Code',
-            'Material Name / Description',
-            'Recipe / Unit',
-            'Needed for Shortage',
-            'Warehouse Stock',
-            'Missing Stock (PR Qty)',
-            'Status',
-          ],
-        ],
-        body: tableData,
-        headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 8,
-          halign: 'center',
+        startY: specStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
+        head: [[
+          'MATERIAL CODE',
+          'RAW MATERIAL INGREDIENT',
+          'RECIPE / UNIT',
+          'TOTAL NEEDED',
+          'WAREHOUSE STOCK',
+          'SHORTAGE (PR QTY)',
+          'STATUS',
+        ]],
+        body: tableData.length > 0 ? tableData : [['-', 'No ingredient shortage details available', '-', '-', '-', '-', '-']],
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
         },
-        bodyStyles: {
-          fontSize: 8,
-          textColor: 51,
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
           halign: 'center',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
         },
         columnStyles: {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 28 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 44 },
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 46 },
           2: { halign: 'center', cellWidth: 20 },
-          3: { halign: 'center', fontStyle: 'bold', cellWidth: 25 },
+          3: { halign: 'center', fontStyle: 'bold', cellWidth: 22 },
           4: { halign: 'center', cellWidth: 22 },
-          5: { halign: 'center', fontStyle: 'bold', textColor: [190, 24, 93], cellWidth: 25 },
+          5: { halign: 'center', fontStyle: 'bold', textColor: [190, 18, 60], cellWidth: 24 },
           6: { halign: 'center', fontStyle: 'bold', cellWidth: 22 },
         },
-        theme: 'grid',
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const txt = String(data.cell.raw || '');
+            if (txt.includes('PURCHASE NEEDED')) {
+              data.cell.styles.textColor = [190, 18, 60];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (txt.includes('IN STOCK')) {
+              data.cell.styles.textColor = [21, 62, 151];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
       });
 
-      const finalY = doc.lastAutoTable.finalY + 12;
+      let finalY = (doc.lastAutoTable?.finalY || 100) + 6;
 
-      doc.setDrawColor(241, 245, 249);
-      doc.setFillColor(254, 252, 232);
-      doc.roundedRect(14, finalY, 182, 22, 2, 2, 'FD');
+      if (finalY + 22 < pageHeight - 40) {
+        doc.setFillColor(248, 250, 255);
+        doc.setDrawColor(21, 62, 151);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(14, finalY, 182, 18, 1.5, 1.5, 'FD');
 
-      doc.setTextColor(133, 77, 14);
-      doc.setFontSize(8);
+        doc.setTextColor(21, 62, 151);
+        doc.setFontSize(6.8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PROCUREMENT & WAREHOUSE INSTRUCTIONS:', 18, finalY + 5.5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text('1. Upon receiving this Material Purchase Request, procurement must issue a Purchase Order (PO) to authorized suppliers.', 18, finalY + 10);
+        doc.text('2. Received stock must be logged in Inbound Receiving module to automatically unblock the pending WIP batch fulfillment.', 18, finalY + 14.5);
+        finalY += 23;
+      } else {
+        finalY += 2;
+      }
+
+      // Executive Audit Sign-off Section
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
+      }
+
       doc.setFont('helvetica', 'bold');
-      doc.text('PROCUREMENT & WAREHOUSE INSTRUCTIONS:', 18, finalY + 7);
+      doc.setFontSize(7);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
 
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName3 = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName3.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName3, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.text(
-        '1. Upon receiving this Material Purchase Request, procurement must issue a Purchase Order (PO) to authorized suppliers.',
-        18,
-        finalY + 12
-      );
-      doc.text(
-        '2. Received stock must be logged in Inbound Receiving module to automatically unblock the pending WIP batch fulfillment.',
-        18,
-        finalY + 17
-      );
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
 
-      const signY = finalY + 38;
-      doc.setDrawColor(180, 180, 180);
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-
-      doc.line(14, signY, 65, signY);
-      doc.text('PREPARED BY (WIP Operations)', 14, signY + 5);
-
-      doc.line(78, signY, 130, signY);
-      doc.text('VERIFIED BY (Inventory Head)', 78, signY + 5);
-
-      doc.line(144, signY, 196, signY);
-      doc.text('APPROVED BY (Logistics Lead)', 144, signY + 5);
+      // Final pass: watermark & dynamic page numbers on every page
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) {}
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
 
       const fileName = `Material_Request_Batch_${request.wipBatchCode}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
@@ -928,6 +1345,312 @@ function InventoryPurchaseRequest() {
     } catch (err) {
       console.error('Error generating PDF:', err);
       showErrorToast('Failed to generate PDF document.');
+    }
+  };
+
+  // Generate Bulk PDF for WIP Batch Shortages
+  const handleDownloadBulkWipPDF = async (itemsToExport) => {
+    const list = itemsToExport && itemsToExport.length > 0 ? itemsToExport : filteredWipRequests;
+    if (list.length === 0) {
+      showErrorToast('No WIP shortages available to export.');
+      return;
+    }
+
+    try {
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
+
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
+
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
+
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) {}
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Consolidated WIP Production Shortage & Formulation Requisition Ledger', 36, 26);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
+
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('WIP BATCH SHORTAGES AUDIT', pageWidth - 14, 16.5, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`TOTAL BATCHES: ${list.length} WIP Batches`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`FILTER STATUS: ${selectedStatus.toUpperCase()}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`GENERATED: ${new Date().toLocaleString()}`, pageWidth - 14, 30, { align: 'right' });
+
+      // Clean dividing line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
+
+      // 4-column KPI Summary Table
+      const urgentCount = list.filter((r) => r.isUrgentShortage).length;
+      const readyCount = list.filter((r) => !r.isUrgentShortage).length;
+      const uniqueProducts = new Set(list.map((r) => r.productName)).size;
+
+      autoTable(doc, {
+        startY: 36,
+        margin: { left: 14, right: 14 },
+        head: [['CONSOLIDATED BATCHES', 'CRITICAL SHORTAGE', 'SUFFICIENT / READY', 'TARGET PRODUCTS']],
+        body: [[
+          `${list.length} Batches`,
+          `${urgentCount} Urgent Purchase Needed`,
+          `${readyCount} Sufficient Stock`,
+          `${uniqueProducts} Finished Products`,
+        ]],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [71, 85, 105],
+          fontStyle: 'bold',
+          fontSize: 5.6,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        bodyStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        columnStyles: {
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
+        },
+      });
+
+      // Main Table
+      const tableRows = list.map((req) => {
+        const ingredientsDesc = (req.ingredients || [])
+          .map((ing) => `${ing.materialName} (${ing.totalNeededForPending} ${ing.uom})`)
+          .join(', ');
+        const shortagesDesc = (req.ingredients || [])
+          .filter((ing) => (ing.shortageAmount || 0) > 0)
+          .map((ing) => `${ing.materialCode}: -${ing.shortageAmount} ${ing.uom}`)
+          .join(', ') || '0 (None)';
+
+        return [
+          req.prNumber || 'N/A',
+          req.wipBatchCode || 'N/A',
+          `${req.productName || 'Product'} (${req.productCode || 'FG'})`,
+          ingredientsDesc || 'Standard BOM',
+          shortagesDesc,
+          req.isUrgentShortage ? 'PURCHASE NEEDED' : 'IN STOCK',
+        ];
+      });
+
+      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+      autoTable(doc, {
+        startY: mainTableStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
+        head: [[
+          'PR NO.',
+          'WIP BATCH',
+          'TARGET FINISHED GOOD',
+          'INGREDIENTS NEEDED',
+          'SHORTAGE / TO BUY',
+          'STATUS',
+        ]],
+        body: tableRows,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          halign: 'center',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 38 },
+          3: { halign: 'left', cellWidth: 46 },
+          4: { halign: 'center', fontStyle: 'bold', textColor: [190, 18, 60], cellWidth: 26 },
+          5: { halign: 'center', fontStyle: 'bold', cellWidth: 22 },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const txt = String(data.cell.raw || '');
+            if (txt.includes('PURCHASE NEEDED')) {
+              data.cell.styles.textColor = [190, 18, 60];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (txt.includes('IN STOCK')) {
+              data.cell.styles.textColor = [21, 62, 151];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const thumbH = 7;
+            const thumbW = thumbH * logoRatio;
+            if (logoBase64) {
+              try {
+                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+              } catch (e) {}
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(21, 62, 151);
+            doc.text('MHIRA NATURAL BEAUTY PRODUCTS  •  WIP BATCH SHORTAGES', 14 + thumbW + 4, 11.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Exported: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(14, 16, pageWidth - 14, 16);
+          }
+
+          const footerY = pageHeight - 7;
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+        },
+      });
+
+      // Executive Audit Sign-off Section
+      let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
+
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName4 = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName4.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName4, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
+
+      // Final pass: watermark & dynamic page numbers on every page
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) {}
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
+
+      const fileName = `Bulk_WIP_Batch_Shortages_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      showSuccessToast(`Exported ${list.length} WIP batch shortages to PDF!`);
+    } catch (err) {
+      console.error('Error generating bulk WIP PDF:', err);
+      showErrorToast('Failed to export bulk WIP PDF.');
+    }
+  };
+
+  // Unified PDF Export handler for Toolbar Button
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      if (activeSourceTab === 'wip-shortages') {
+        await handleDownloadBulkWipPDF();
+      } else {
+        await handleDownloadBulkRawMatPDF();
+      }
+    } finally {
+      setIsExportingPDF(false);
     }
   };
 
@@ -1000,36 +1723,107 @@ function InventoryPurchaseRequest() {
             </div>
           </div>
 
-          {/* MS EXCEL-STYLE RIBBON TOOLBAR (CLEAN WHITE BACKGROUND - 1 ROW NO WRAPPING) */}
-          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+          {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+          <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
 
-            {/* GROUP 1: ACTIONS (Reset Filters) */}
-            <div className="w-[140px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex items-center flex-1 py-1">
-                {/* Reset Filters */}
+            {/* GROUP 1: ACTIONS (Responsive: Full-width on mobile, fixed width on desktop) */}
+            <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+              <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
+                {/* 1 COLUMN NA 1 LAYER: Tall Full-Height Action Button */}
                 <button
                   type="button"
-                  onClick={handleClearAllFilters}
-                  disabled={activeFiltersCount === 0}
-                  className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-white transition-colors text-xs font-semibold cursor-pointer w-full disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
-                  title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
+                  onClick={handleExportPDF}
+                  disabled={isExportingPDF}
+                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f] disabled:opacity-60 disabled:cursor-wait"
+                  title={activeSourceTab === 'wip-shortages' ? "Download Official WIP Shortages PDF" : "Download Official Purchase Requisitions PDF"}
+                  aria-label={activeSourceTab === 'wip-shortages' ? "Download Official WIP Shortages PDF" : "Download Official Purchase Requisitions PDF"}
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="whitespace-nowrap">
-                    Reset Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
+                  {isExportingPDF ? (
+                    <Loader2 className="w-5.5 h-5.5 text-[#01390f] animate-spin mb-0.5" />
+                  ) : (
+                    <Download className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                  )}
+                  <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
+                    {isExportingPDF ? (
+                      <>Exporting...<br />(PDF)</>
+                    ) : (
+                      <>Download<br />(PDF)</>
+                    )}
                   </span>
                 </button>
+
+                {/* Stacked Compact Rows */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
+                  {/* Quick Filter: Critical PR / Urgent WIP */}
+                  {activeSourceTab === 'raw-materials' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConditionFilter((prev) => (prev === 'Critical Alert' || prev === 'Critical' ? 'All' : 'Critical Alert'));
+                        setRawPage(1);
+                      }}
+                      className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${
+                        conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
+                          ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold shadow-2xs'
+                          : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
+                      }`}
+                      title={
+                        conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
+                          ? 'Showing Critical Alert only (Click to show all)'
+                          : 'Filter by Critical Alert'
+                      }
+                    >
+                      <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${conditionFilter === 'Critical Alert' || conditionFilter === 'Critical' ? 'text-rose-600' : 'text-slate-500'}`} />
+                      <span className="whitespace-nowrap">Critical PR</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStatus((prev) => (prev === 'Urgent' ? 'All' : 'Urgent'));
+                        setWipPage(1);
+                      }}
+                      className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${
+                        selectedStatus === 'Urgent'
+                          ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold shadow-2xs'
+                          : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
+                      }`}
+                      title={
+                        selectedStatus === 'Urgent'
+                          ? 'Showing Urgent Shortages only (Click to show all)'
+                          : 'Filter by Urgent Shortages'
+                      }
+                    >
+                      <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${selectedStatus === 'Urgent' ? 'text-rose-600' : 'text-slate-500'}`} />
+                      <span className="whitespace-nowrap">Urgent WIP</span>
+                    </button>
+                  )}
+
+                  {/* Reset Filters */}
+                  <button
+                    type="button"
+                    onClick={handleClearAllFilters}
+                    disabled={activeFiltersCount === 0}
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
+                    title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="whitespace-nowrap">
+                      Reset Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
                 Actions
               </div>
             </div>
 
             {/* GROUP 2: SEARCH & FILTERS (Equal 3-Column Grid) */}
-            <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-1">
+            <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
 
                 {/* Layer 1: Search Bar */}
                 <div className="relative flex items-center w-full">
@@ -1251,7 +2045,7 @@ function InventoryPurchaseRequest() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none hidden lg:block">
                 Search & Filter
               </div>
             </div>
@@ -1361,15 +2155,25 @@ function InventoryPurchaseRequest() {
                             {item.conditionLabel}
                           </span>
                         </td>
-                        <td className="py-3 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewRequest({ ...item, type: 'RAW_MAT' })}
-                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            title="View Requisition Details"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
+                        <td className="py-3 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-36 min-w-[130px]">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewRequest({ ...item, type: 'RAW_MAT' })}
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              title="View Requisition Details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadRawMatPDF(item)}
+                              className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-[#01390f] hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              title="Download Requisition PDF"
+                            >
+                              <FileDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1506,15 +2310,25 @@ function InventoryPurchaseRequest() {
                           {req.statusLabel}
                         </span>
                       </td>
-                      <td className="py-3 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewRequest(req)}
-                          className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                          title="View Batch Shortage Details"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
+                      <td className="py-3 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-36 min-w-[130px]">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewRequest(req)}
+                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            title="View Batch Shortage Details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadWipPDF(req)}
+                            className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-[#01390f] hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            title="Download Batch Shortage PDF"
+                          >
+                            <FileDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

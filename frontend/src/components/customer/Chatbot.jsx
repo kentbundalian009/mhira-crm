@@ -329,7 +329,10 @@ function Chatbot({ isOpen: externalOpen }) {
       paymentMethod: orderToSend.paymentMethod || "Cash on Delivery",
       paymentStatus: orderToSend.paymentStatus || "Paid",
       customerName: orderToSend.customerName || orderToSend.userId?.name || "Customer",
-      shippingAddress: orderToSend.shippingAddress || "Default Delivery Address",
+      shippingAddress:
+        typeof orderToSend.shippingAddress === "object"
+          ? Object.values(orderToSend.shippingAddress).filter(Boolean).join(", ")
+          : (orderToSend.shippingAddress || "Default Delivery Address"),
     };
 
     setAttachedOrder(null);
@@ -764,7 +767,11 @@ function Chatbot({ isOpen: externalOpen }) {
                   <span>{attachedOrder.paymentMethod || "COD"} • {attachedOrder.paymentStatus || "Paid"}</span>
                 </div>
                 <p className="text-[10px] text-slate-500 truncate pt-0.5 border-t border-slate-100">
-                  Recipient: {attachedOrder.customerName || attachedOrder.userId?.name || "Customer"} ({attachedOrder.shippingAddress || "Delivery Address"})
+                  Recipient: {attachedOrder.customerName || attachedOrder.userId?.name || "Customer"} (
+                  {typeof attachedOrder.shippingAddress === "object"
+                    ? Object.values(attachedOrder.shippingAddress).filter(Boolean).join(", ")
+                    : (attachedOrder.shippingAddress || "Delivery Address")}
+                  )
                 </p>
               </div>
 

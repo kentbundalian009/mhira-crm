@@ -5,6 +5,7 @@ import Product from "../models/InventoryProduct.js";
 import { User } from "../models/AdminUser.js";
 import { calculateTier } from "./AdminAuthController.js";
 import { populateProductsList } from "./CustomerCartController.js";
+import { computeLocationShipping } from "./LogisticsShippingController.js";
 
 // Helper function to deduct or restore stock in Product inventory (Bulk execution)
 export const handleInventoryStockSync = async (order, newStatus) => {
@@ -132,7 +133,11 @@ export const createOrder = async (req, res) => {
     }
 
     const finalVoucherDiscount = Number(req.body.voucherDiscount || 0);
-    const finalShippingFee = Number(req.body.shippingFee || 0);
+    const computedShipping = await computeLocationShipping({
+      address: shippingAddress,
+      subtotal: totalAmount,
+    });
+    const finalShippingFee = Number(computedShipping.shippingFee ?? req.body.shippingFee ?? 0);
     totalAmount = Math.max(0, Math.round((totalAmount - finalVoucherDiscount - discountFromPoints + finalShippingFee) * 100) / 100);
 
     const finalPaymentMethod = paymentMethod || "Cash on Delivery";
@@ -150,7 +155,7 @@ export const createOrder = async (req, res) => {
       paymentMethod: finalPaymentMethod,
       shippingAddress: shippingAddress || "Default Address",
       customerNotes: req.body.customerNotes || "",
-      shippingFee: Number(req.body.shippingFee || 0),
+      shippingFee: finalShippingFee,
       voucherCode: req.body.voucherCode || "",
       voucherDiscount: Number(req.body.voucherDiscount || 0),
       pointsRedeemed: discountFromPoints,

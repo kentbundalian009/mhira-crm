@@ -17,7 +17,6 @@ import {
   FileSpreadsheet,
   FileText,
   ArrowUpDown,
-  Phone,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -39,8 +38,6 @@ function InventorySuppliers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedName, setSelectedName] = useState('All');
   const [selectedAddress, setSelectedAddress] = useState('All');
-  const [hasContactPerson, setHasContactPerson] = useState(false);
-  const [hasContactNumber, setHasContactNumber] = useState(false);
   const [viewMode, setViewMode] = useState('active'); // 'all' | 'active' | 'archived'
   const [sortBy, setSortBy] = useState('default'); // 'default' | 'name_asc' | 'name_desc' | 'code_asc' | 'address_asc'
 
@@ -58,8 +55,6 @@ function InventorySuppliers() {
     code: '',
     name: '',
     address: '',
-    contactPerson: '',
-    contactNumber: '',
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -136,25 +131,6 @@ function InventorySuppliers() {
     return suppliers.filter((item) => item.isArchived).length;
   }, [suppliers]);
 
-  // Quick filter counts
-  const withPersonCount = useMemo(() => {
-    return suppliers.filter((item) => {
-      const isItemArchived = Boolean(item.isArchived);
-      if (viewMode === 'active' && isItemArchived) return false;
-      if (viewMode === 'archived' && !isItemArchived) return false;
-      return Boolean(item.contactPerson && item.contactPerson.trim() !== '' && item.contactPerson !== '-');
-    }).length;
-  }, [suppliers, viewMode]);
-
-  const withNumberCount = useMemo(() => {
-    return suppliers.filter((item) => {
-      const isItemArchived = Boolean(item.isArchived);
-      if (viewMode === 'active' && isItemArchived) return false;
-      if (viewMode === 'archived' && !isItemArchived) return false;
-      return Boolean(item.contactNumber && item.contactNumber.trim() !== '' && item.contactNumber !== '-');
-    }).length;
-  }, [suppliers, viewMode]);
-
   const statusModules = useMemo(() => [
     { id: 'active', label: 'Suppliers' },
     { id: 'archived', label: 'Archive Vault' },
@@ -189,14 +165,6 @@ function InventorySuppliers() {
         if ((item.address || '') !== selectedAddress) return false;
       }
 
-      // 5. Quick Checkboxes
-      if (hasContactPerson) {
-        if (!item.contactPerson || item.contactPerson.trim() === '' || item.contactPerson === '-') return false;
-      }
-      if (hasContactNumber) {
-        if (!item.contactNumber || item.contactNumber.trim() === '' || item.contactNumber === '-') return false;
-      }
-
       return true;
     });
 
@@ -211,12 +179,12 @@ function InventorySuppliers() {
     }
 
     return list;
-  }, [suppliers, viewMode, searchQuery, selectedName, selectedAddress, hasContactPerson, hasContactNumber, sortBy]);
+  }, [suppliers, viewMode, searchQuery, selectedName, selectedAddress, sortBy]);
 
   // Reset pagination on filter/search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, viewMode, selectedName, selectedAddress, hasContactPerson, hasContactNumber, sortBy]);
+  }, [searchQuery, viewMode, selectedName, selectedAddress, sortBy]);
 
   // Paginated Slices
   const paginatedSuppliers = useMemo(() => {
@@ -229,19 +197,15 @@ function InventorySuppliers() {
     if (searchQuery && searchQuery.trim() !== '') count++;
     if (selectedName !== 'All') count++;
     if (selectedAddress !== 'All') count++;
-    if (hasContactPerson) count++;
-    if (hasContactNumber) count++;
     if (sortBy !== 'default') count++;
     if (viewMode !== 'active') count++;
     return count;
-  }, [searchQuery, selectedName, selectedAddress, hasContactPerson, hasContactNumber, sortBy, viewMode]);
+  }, [searchQuery, selectedName, selectedAddress, sortBy, viewMode]);
 
   const handleClearAllFilters = () => {
     setSearchQuery('');
     setSelectedName('All');
     setSelectedAddress('All');
-    setHasContactPerson(false);
-    setHasContactNumber(false);
     setSortBy('default');
     setViewMode('active');
     setCurrentPage(1);
@@ -291,35 +255,19 @@ function InventorySuppliers() {
       code: item.code || '',
       name: item.name || '',
       address: item.address || '',
-      contactPerson: item.contactPerson || '',
-      contactNumber: item.contactNumber || '',
     });
     setIsModalOpen(true);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'contactNumber') {
-      const sanitized = value.replace(/[^0-9+\-()\s]/g, '');
-      setFormData((prev) => ({ ...prev, [name]: sanitized }));
-      return;
-    }
-    if (name === 'contactPerson') {
-      const sanitized = value.replace(/[^a-zA-Z\s.\-]/g, '');
-      setFormData((prev) => ({ ...prev, [name]: sanitized }));
-      return;
-    }
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.contactPerson?.trim()) {
-      showErrorToast('Contact Person is mandatory.');
-      return;
-    }
-    if (!formData.contactNumber?.trim()) {
-      showErrorToast('Contact Number is mandatory.');
+    if (!formData.name?.trim()) {
+      showErrorToast('Supplier Name is mandatory.');
       return;
     }
 
@@ -392,14 +340,13 @@ function InventorySuppliers() {
       );
 
       const tableHead = [
-        ['#', 'Supplier Code', 'Supplier Name', 'Contact Person & Number', 'Office Address']
+        ['#', 'Supplier Code', 'Supplier Name', 'Office Address']
       ];
 
       const tableBody = filteredSuppliers.map((s, idx) => [
         idx + 1,
         s.code || 'N/A',
         s.name || 'N/A',
-        s.contactNumber ? `${s.contactPerson || '-'}\nTel: ${s.contactNumber}` : (s.contactPerson || '-'),
         s.address || 'N/A'
       ]);
 
@@ -419,11 +366,10 @@ function InventorySuppliers() {
           textColor: [30, 41, 59]
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 12 },
-          1: { fontStyle: 'bold', halign: 'center', cellWidth: 35 },
-          2: { fontStyle: 'bold', cellWidth: 70 },
-          3: { cellWidth: 70 },
-          4: { cellWidth: 80 }
+          0: { halign: 'center', cellWidth: 15 },
+          1: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
+          2: { fontStyle: 'bold', cellWidth: 90 },
+          3: { cellWidth: 115 }
         },
         alternateRowStyles: {
           fillColor: [248, 250, 252]
@@ -552,7 +498,7 @@ function InventorySuppliers() {
                   )}
                 </div>
 
-                {/* Layer 2: Filter Dropdowns (Equal 3 Columns) */}
+                {/* Layer 2: Filter Dropdowns (Equal 3 Columns: Supplier Name, Address, Sort) */}
                 <div className="grid grid-cols-3 gap-2 w-full">
                   {/* Supplier Name Dropdown */}
                   <div className="relative inline-flex items-center w-full min-w-0">
@@ -585,68 +531,6 @@ function InventorySuppliers() {
                       ))}
                     </select>
                   </div>
-
-                  {/* Contact Filter Dropdown */}
-                  <div className="relative inline-flex items-center w-full min-w-0">
-                    <Phone className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
-                    <select
-                      value={hasContactPerson && hasContactNumber ? 'both' : hasContactPerson ? 'person' : hasContactNumber ? 'number' : 'All'}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === 'All') {
-                          setHasContactPerson(false);
-                          setHasContactNumber(false);
-                        } else if (val === 'person') {
-                          setHasContactPerson(true);
-                          setHasContactNumber(false);
-                        } else if (val === 'number') {
-                          setHasContactPerson(false);
-                          setHasContactNumber(true);
-                        } else if (val === 'both') {
-                          setHasContactPerson(true);
-                          setHasContactNumber(true);
-                        }
-                      }}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
-                      title="Filter by Contact Status"
-                    >
-                      <option value="All">All Contact Types</option>
-                      <option value="person">With Contact Person ({withPersonCount})</option>
-                      <option value="number">With Contact Number ({withNumberCount})</option>
-                      <option value="both">Complete Contact Info</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Layer 3: Quick Filter Toggles & Sort (Exact Same 3 Columns) */}
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  {/* With Contact Person */}
-                  <button
-                    type="button"
-                    onClick={() => setHasContactPerson(!hasContactPerson)}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${hasContactPerson
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}
-                    title="Filter suppliers with Contact Person"
-                  >
-                    <span>With Contact Person</span>
-                    <span className="font-mono text-[11px]">({withPersonCount})</span>
-                  </button>
-
-                  {/* With Contact Number */}
-                  <button
-                    type="button"
-                    onClick={() => setHasContactNumber(!hasContactNumber)}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${hasContactNumber
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}
-                    title="Filter suppliers with Contact Number"
-                  >
-                    <span>With Contact No.</span>
-                    <span className="font-mono text-[11px]">({withNumberCount})</span>
-                  </button>
 
                   {/* Sort Select */}
                   <div className="relative inline-flex items-center w-full min-w-0">
@@ -700,7 +584,6 @@ function InventorySuppliers() {
                 <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
                   <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">SUPPLIER CODE</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px] font-semibold text-white">SUPPLIER NAME</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CONTACT PERSON & NUMBER</th>
                   <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">ADDRESS</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
                 </tr>
@@ -708,11 +591,17 @@ function InventorySuppliers() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td colSpan="4" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Fetching supplier records...</span>
                       </div>
+                    </td>
+                  </tr>
+                ) : paginatedSuppliers.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="text-center py-12 text-slate-400 font-medium whitespace-nowrap">
+                      No suppliers found.
                     </td>
                   </tr>
                 ) : paginatedSuppliers.map((item) => (
@@ -726,31 +615,13 @@ function InventorySuppliers() {
                     </td>
 
                     {/* SUPPLIER NAME */}
-                    <td className="py-3.5 px-4 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      <span className="inline-flex items-center gap-1 text-xs text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded-md font-semibold border border-violet-200/70 uppercase">
-                        {item.name}
-                      </span>
+                    <td className="py-3.5 px-4 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                      {item.name}
                     </td>
 
-                    {/* CONTACT PERSON & NUMBER */}
-                    <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-semibold text-slate-800 text-xs sm:text-sm">
-                          {item.contactPerson || '-'}
-                        </span>
-                        {item.contactNumber ? (
-                          <span className="font-mono text-xs text-slate-500 flex items-center gap-1.5">
-                            <Phone className="w-3 h-3 text-[#01390f] shrink-0" />
-                            <span>{item.contactNumber}</span>
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{item.address || 'N/A'}</span>
-                      </div>
+                    {/* ADDRESS */}
+                    <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-medium text-slate-700 transition-colors">
+                      {item.address || 'N/A'}
                     </td>
 
                     {/* ACTION (STICKY RIGHT) */}
@@ -868,69 +739,6 @@ function InventorySuppliers() {
                     value={formData.name}
                     onChange={handleInputChange}
                     placeholder="Enter Supplier Name..."
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#01390f] focus:bg-white transition-all shadow-2xs"
-                  />
-                </div>
-
-                {/* CONTACT PERSON (MANDATORY - LETTERS ONLY) */}
-                <div>
-                  <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">
-                    Contact Person
-                  </label>
-                  <input
-                    type="text"
-                    name="contactPerson"
-                    required
-                    value={formData.contactPerson}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => {
-                      if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-                      if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
-                      if (!/^[a-zA-Z\s.\-]$/.test(e.key)) {
-                        e.preventDefault();
-                      }
-                    }}
-                    onPaste={(e) => {
-                      e.preventDefault();
-                      const paste = (e.clipboardData || window.clipboardData).getData('text');
-                      const sanitized = paste.replace(/[^a-zA-Z\s.\-]/g, '');
-                      if (sanitized) {
-                        setFormData((prev) => ({ ...prev, contactPerson: sanitized }));
-                      }
-                    }}
-                    placeholder="e.g. Maria Santos, Juan Dela Cruz"
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#01390f] focus:bg-white transition-all shadow-2xs"
-                  />
-                </div>
-
-                {/* CONTACT NUMBER (MANDATORY - NUMBERS ONLY) */}
-                <div>
-                  <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">
-                    Contact Number <span className="text-rose-500 font-bold">*</span> <span className="text-[10px] text-slate-500 font-bold">(Numbers only)</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="tel"
-                    name="contactNumber"
-                    required
-                    value={formData.contactNumber}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => {
-                      if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-                      if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
-                      if (!/^[0-9+\-()\s]$/.test(e.key)) {
-                        e.preventDefault();
-                      }
-                    }}
-                    onPaste={(e) => {
-                      e.preventDefault();
-                      const paste = (e.clipboardData || window.clipboardData).getData('text');
-                      const sanitized = paste.replace(/[^0-9+\-()\s]/g, '');
-                      if (sanitized) {
-                        setFormData((prev) => ({ ...prev, contactNumber: sanitized }));
-                      }
-                    }}
-                    placeholder="e.g. +63 917 123 4567 / 09171234567"
                     className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#01390f] focus:bg-white transition-all shadow-2xs"
                   />
                 </div>

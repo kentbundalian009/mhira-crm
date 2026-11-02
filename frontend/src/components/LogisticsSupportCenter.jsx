@@ -509,11 +509,10 @@ function LogisticsSupportCenter() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-[#01390f] text-[#01390f] bg-slate-50'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                }`}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.id
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -527,25 +526,27 @@ function LogisticsSupportCenter() {
           </div>
         </div>
 
-        {/* EXCEL RIBBON TOOLBAR */}
-        <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+        {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+        <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
           {/* ACTIONS GROUP */}
-          <div className="w-[226px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-            <div className="flex items-stretch gap-1.5 flex-1">
+          <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+            <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
               <button
                 type="button"
                 onClick={() => handleDownloadMasterSupportPdf(filteredTickets)}
-                className="w-[76px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
                 title="Export Master Inquiries Summary Report PDF"
               >
-                <FileDown className="w-5 h-5 mb-0.5 text-[#01390f] group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-bold text-center leading-tight">Export PDF</span>
+                <FileDown className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
+                  Export<br />PDF
+                </span>
               </button>
-              <div className="flex-1 min-w-[135px] flex flex-col justify-between py-0.5 space-y-0.5">
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
                 <button
                   type="button"
                   onClick={fetchTickets}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-slate-700 hover:text-[#01390f] hover:bg-slate-100 transition-colors cursor-pointer w-full"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 hover:text-[#01390f] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-slate-500 shrink-0 ${loading ? 'animate-spin' : ''}`} />
                   <span className="truncate">Refresh Chats</span>
@@ -553,21 +554,21 @@ function LogisticsSupportCenter() {
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                   <span className="truncate">Reset Filters</span>
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Actions
             </div>
           </div>
 
           {/* SEARCH & FILTER GROUP */}
-          <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-            <div className="flex flex-col justify-between flex-1 gap-1.5 py-0.5">
+          <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+            <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
               {/* Layer 1: Search */}
               <div className="relative flex items-center w-full">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
@@ -590,13 +591,13 @@ function LogisticsSupportCenter() {
               </div>
 
               {/* Layer 2: 3-column Dropdowns / Pickers */}
-              <div className="grid grid-cols-3 gap-2 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                 {/* Date Picker */}
                 <div
                   onClick={() => {
                     try {
                       dateInputRef.current?.showPicker();
-                    } catch (err) {}
+                    } catch (err) { }
                   }}
                   className="relative w-full cursor-pointer"
                 >
@@ -609,12 +610,12 @@ function LogisticsSupportCenter() {
                     onClick={(e) => {
                       try {
                         e.currentTarget.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     onFocus={(e) => {
                       try {
                         e.currentTarget.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -623,12 +624,11 @@ function LogisticsSupportCenter() {
                         e.preventDefault();
                         try {
                           e.currentTarget.showPicker();
-                        } catch (err) {}
+                        } catch (err) { }
                       }
                     }}
-                    className={`w-full h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer ${
-                      selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
-                    }`}
+                    className={`w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer shadow-2xs ${selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
+                      }`}
                   />
                   {selectedDate && (
                     <button
@@ -650,7 +650,7 @@ function LogisticsSupportCenter() {
                   <select
                     value={selectedTopic}
                     onChange={(e) => setSelectedTopic(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="All">All Inquiry Topics</option>
                     {existingTopics.map((topic, idx) => (
@@ -663,12 +663,12 @@ function LogisticsSupportCenter() {
                 </div>
 
                 {/* Sort Order */}
-                <div className="relative w-full">
+                <div className="relative w-full sm:col-span-2 md:col-span-1">
                   <SlidersHorizontal className="w-3.5 h-3.5 absolute left-2 top-1 text-slate-400 pointer-events-none" />
                   <select
                     value={selectedSort}
                     onChange={(e) => setSelectedSort(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="newest">Sort: Newest First</option>
                     <option value="oldest">Sort: Oldest First</option>
@@ -680,15 +680,14 @@ function LogisticsSupportCenter() {
               </div>
 
               {/* Layer 3: 3-column Quick Toggles */}
-              <div className="grid grid-cols-3 gap-2 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                 <button
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    activeTab === 'pending'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'pending'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Pending Only
                 </button>
@@ -696,11 +695,10 @@ function LogisticsSupportCenter() {
                 <button
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'resolved' ? 'all' : 'resolved')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    activeTab === 'resolved'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'resolved'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Resolved Only
                 </button>
@@ -711,17 +709,16 @@ function LogisticsSupportCenter() {
                     const todayStr = new Date().toISOString().split('T')[0];
                     setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                   }}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedDate === new Date().toISOString().split('T')[0]
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${selectedDate === new Date().toISOString().split('T')[0]
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Today's Chats
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Search & Filter
             </div>
           </div>
@@ -796,70 +793,72 @@ function LogisticsSupportCenter() {
                       <tr
                         key={t.ticketId}
                         onClick={() => handleSelectTicket(t)}
-                        className="hover:bg-slate-50/90 transition-colors group cursor-pointer"
+                        className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm cursor-pointer"
                       >
-                        {/* Ticket ID */}
-                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap min-w-[140px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200">
-                            #{t.ticketId}
-                          </span>
+                        {/* 1. TICKET ID */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          #{t.ticketId}
                         </td>
 
-                        {/* Date Filed */}
-                        <td className="py-3.5 px-4 text-slate-500 font-mono whitespace-nowrap">
+                        {/* 2. DATE FILED */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs text-slate-600 font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {ticketDate}
                         </td>
 
-                        {/* Customer */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-[#01390f]/10 text-[#01390f] font-bold text-[11px] flex items-center justify-center shrink-0">
-                              {t.customerName?.slice(0, 2).toUpperCase() || 'CU'}
-                            </div>
-                            <span className="font-bold text-slate-900">{t.customerName || 'Customer'}</span>
-                          </div>
-                        </td>
-
-                        {/* Topic / Subject */}
-                        <td className="py-3.5 px-4 text-slate-700 max-w-[170px] truncate" title={t.subject || 'General Inquiry'}>
-                          <span className="font-semibold text-slate-800 truncate block">
-                            {t.subject || 'Order Inquiry'}
+                        {/* 3. CUSTOMER (Name + Email) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
+                          <span className="font-bold text-slate-900 block truncate max-w-[200px]" title={t.customerName}>
+                            {t.customerName || 'Customer'}
                           </span>
-                        </td>
-
-                        {/* Latest Message */}
-                        <td className="py-3.5 px-4 text-slate-600 max-w-[220px] truncate" title={lastMsg?.text || ''}>
-                          <span className="truncate block text-slate-500">
-                            {lastMsg?.text || (hasAttachment ? 'Photo attachment' : 'Inquiry opened')}
-                          </span>
-                        </td>
-
-                        {/* Attachments */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          {hasAttachment ? (
-                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded text-[11px] font-bold">
-                              <ImageIcon className="w-3 h-3" />
-                              <span>Photo</span>
+                          {t.customerEmail && (
+                            <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[200px]">
+                              {t.customerEmail}
                             </span>
-                          ) : (
-                            <span className="text-slate-400 font-mono text-[11px]">None</span>
                           )}
                         </td>
 
-                        {/* Messages Count */}
-                        <td className="py-3.5 px-4 font-mono text-slate-700 whitespace-nowrap">
+                        {/* 4. INQUIRY TOPIC */}
+                        <td
+                          className="px-4 py-3.5 whitespace-nowrap font-bold text-slate-800 truncate max-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={t.subject || 'General Inquiry'}
+                        >
+                          {t.subject || 'General Inquiry'}
+                        </td>
+
+                        {/* 5. LATEST MESSAGE */}
+                        <td
+                          className="px-4 py-3.5 whitespace-nowrap text-slate-500 truncate max-w-[220px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={lastMsg?.text || ''}
+                        >
+                          {lastMsg?.text || (hasAttachment ? 'Attachment sent' : 'Inquiry opened')}
+                        </td>
+
+                        {/* 6. ATTACHMENTS (Blue Accent Style) */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                          {hasAttachment ? (
+                            <span className="inline-flex items-center justify-center gap-1">
+                              <ImageIcon className="w-3.5 h-3.5 text-blue-900 shrink-0" />
+                              <span>Photo</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-500/80 font-normal">None</span>
+                          )}
+                        </td>
+
+                        {/* 7. MESSAGES COUNT */}
+                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-800 text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {t.messages?.length || 0} msgs
                         </td>
 
-                        {/* Status */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        {/* 8. STATUS */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {getStatusBadge(t.status)}
                         </td>
 
-                        {/* ACTION CELL - EYE ICON ONLY (STICKY RIGHT) */}
+                        {/* 9. ACTION (Sticky Right - Matching Finished Goods / Catalog Table) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
-                          className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]"
+                          className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px] transition-colors"
                         >
                           <div className="flex items-center justify-center">
                             <button
@@ -867,9 +866,9 @@ function LogisticsSupportCenter() {
                               onClick={() => handleSelectTicket(t)}
                               title="View & Respond to Inquiry"
                               aria-label="View & Respond to Inquiry"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                             </button>
                           </div>
                         </td>
@@ -895,7 +894,7 @@ function LogisticsSupportCenter() {
           {/* Slide-over Container (Right Side) */}
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-2xl bg-white shadow-2xl border-l border-slate-200 flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
-              
+
               {/* DRAWER TOP BAR HEADER */}
               <div className="p-6 bg-slate-50/90 border-b border-slate-200/80 flex items-start justify-between shrink-0">
                 <div className="flex flex-col gap-1">
@@ -931,7 +930,7 @@ function LogisticsSupportCenter() {
 
               {/* DRAWER SCROLLABLE CONTENT */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-xs sm:text-sm">
-                
+
                 {/* 3-CARD SUMMARY STATS */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
@@ -984,20 +983,18 @@ function LogisticsSupportCenter() {
                       return (
                         <div key={idx} className="relative z-10 flex flex-col items-center gap-2">
                           <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${
-                              isPassed
-                                ? "bg-[#01390f] text-white"
-                                : isCurrent
+                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${isPassed
+                              ? "bg-[#01390f] text-white"
+                              : isCurrent
                                 ? "bg-[#01390f] text-white ring-4 ring-[#01390f]/20 scale-110"
                                 : "bg-slate-100 text-slate-400 border border-slate-200"
-                            }`}
+                              }`}
                           >
                             {isPassed ? <Check className="w-3.5 h-3.5" /> : idx + 1}
                           </div>
                           <span
-                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight ${
-                              isCurrent ? "text-[#01390f]" : isPassed ? "text-slate-700" : "text-slate-400"
-                            }`}
+                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight ${isCurrent ? "text-[#01390f]" : isPassed ? "text-slate-700" : "text-slate-400"
+                              }`}
                           >
                             {step.label}
                           </span>
@@ -1012,11 +1009,10 @@ function LogisticsSupportCenter() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("chat")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === "chat"
-                        ? "bg-[#01390f] text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "chat"
+                      ? "bg-[#01390f] text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
                   >
                     Live Interaction Chat
                   </button>
@@ -1024,11 +1020,10 @@ function LogisticsSupportCenter() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("templates")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === "templates"
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "templates"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
                   >
                     Canned Replies
                   </button>
@@ -1036,11 +1031,10 @@ function LogisticsSupportCenter() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("customer")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === "customer"
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "customer"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
                   >
                     Customer Profile
                   </button>
@@ -1048,11 +1042,10 @@ function LogisticsSupportCenter() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("transcript")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === "transcript"
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "transcript"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
                   >
                     Transcript PDF
                   </button>
@@ -1082,13 +1075,12 @@ function LogisticsSupportCenter() {
                               </span>
 
                               <div
-                                className={`max-w-[82%] p-3.5 rounded-2xl text-xs leading-relaxed shadow-2xs ${
-                                  isCust
-                                    ? "bg-white text-slate-800 border border-slate-200 rounded-tl-xs"
-                                    : isStaff
+                                className={`max-w-[82%] p-3.5 rounded-2xl text-xs leading-relaxed shadow-2xs ${isCust
+                                  ? "bg-white text-slate-800 border border-slate-200 rounded-tl-xs"
+                                  : isStaff
                                     ? "bg-[#01390f] text-white rounded-tr-xs"
                                     : "bg-slate-200 text-slate-800 rounded-tr-xs"
-                                }`}
+                                  }`}
                               >
                                 {/* RICH ORDER CARD IF SENT BY CUSTOMER */}
                                 {m.orderData && (

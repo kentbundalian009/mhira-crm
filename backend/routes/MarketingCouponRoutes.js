@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getCoupons,
   createCoupon,
+  updateCoupon,
   updateCouponStatus,
   deleteCoupon,
   validateCoupon,
@@ -12,6 +13,8 @@ const router = express.Router();
 router.get('/', getCoupons);
 router.post('/validate', validateCoupon);
 router.post('/', createCoupon);
+router.put('/:id', updateCoupon);
+router.patch('/:id', updateCoupon);
 router.patch('/:id/status', updateCouponStatus);
 router.delete('/:id', deleteCoupon);
 

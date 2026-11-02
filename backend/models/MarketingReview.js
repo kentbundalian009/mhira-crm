@@ -23,6 +23,10 @@ const reviewSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    userEmail: {
+      type: String,
+      default: "",
+    },
     userTier: {
       type: String,
       default: "Bronze",
@@ -66,6 +70,10 @@ const reviewSchema = new mongoose.Schema(
     adminReply: {
       type: String,
       default: "",
+    },
+    adminReplyAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

@@ -86,7 +86,7 @@ export const getPublicProducts = async (req, res) => {
         } else {
             // Fetch from Marketing Collections & Inventory Products (Lean fast parallel queries)
             const [marketingDocs, inventoryDocs] = await Promise.all([
-                Collection.find({ isPublished: { $ne: false } }).lean().maxTimeMS(8000).catch(() => []),
+                Collection.find({ isPublished: { $ne: false }, isArchived: { $ne: true } }).lean().maxTimeMS(8000).catch(() => []),
                 Product.find({ isArchived: { $ne: true } }).lean().maxTimeMS(8000).catch(() => [])
             ]);
 
@@ -390,6 +390,20 @@ export const deleteCatalogProduct = async (req, res) => {
     }
 };
 
+// 8. Toggle Archive Status
+export const toggleArchiveCatalogProduct = async (req, res) => {
+    try {
+        const product = await Collection.findById(req.params.id);
+        if (!product) return res.status(404).json({ message: 'Catalog product not found' });
+        product.isArchived = !product.isArchived;
+        await product.save();
+        invalidateProductsCache();
+        return res.status(200).json(product);
+    } catch (error) {
+        return res.status(400).json({ message: 'Error toggling archive status', error: error.message });
+    }
+};
+
 export default {
     getPublicProducts,
     getPublicProductById,
@@ -398,5 +412,6 @@ export default {
     getInventoryProducts,
     createCatalogProduct,
     updateCatalogProduct,
-    deleteCatalogProduct
+    deleteCatalogProduct,
+    toggleArchiveCatalogProduct
 };

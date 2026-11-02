@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Clock } from 'lucide-react';
 
 export default function ProductionTimeCalculatorModal({
   isOpen,
@@ -264,76 +265,92 @@ export default function ProductionTimeCalculatorModal({
 
           {/* BATCH PRODUCTION TIME BREAKDOWN SETTINGS */}
           <div className="border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-3 bg-white">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Per-Batch Phase Duration (Customizable)
-            </span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-[#01390f]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Per-Batch Phase Duration (Customizable)
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                {(Number(prepTimeMinutes) || 0) + (Number(processingTimeMinutes) || 0) + (Number(qaCoolingTimeMinutes) || 0) + (Number(packagingTimeMinutes) || 0)} mins / batch
+              </span>
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  1. Setup & Weighing
-                </label>
-                <div className="flex items-center border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50">
+              {/* Phase 1 */}
+              <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between gap-2.5 hover:border-slate-300 transition-colors">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-[#01390f] text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+                  <span className="text-[11px] font-semibold text-slate-700 truncate" title="Setup & Weighing">Setup & Weighing</span>
+                </div>
+                <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus-within:border-[#01390f] focus-within:ring-1 focus-within:ring-[#01390f]/20 transition-all">
                   <input
                     type="number"
                     min="0"
                     step="5"
                     value={prepTimeMinutes}
                     onChange={(e) => setPrepTimeMinutes(Number(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none"
+                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="text-[10px] text-slate-400 font-bold ml-1">mins</span>
+                  <span className="text-[10px] text-slate-400 font-bold ml-1.5 shrink-0 select-none">mins</span>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  2. Blending & Cooking
-                </label>
-                <div className="flex items-center border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50">
+              {/* Phase 2 */}
+              <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between gap-2.5 hover:border-slate-300 transition-colors">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-[#01390f] text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
+                  <span className="text-[11px] font-semibold text-slate-700 truncate" title="Blending & Cooking">Blending & Cooking</span>
+                </div>
+                <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus-within:border-[#01390f] focus-within:ring-1 focus-within:ring-[#01390f]/20 transition-all">
                   <input
                     type="number"
                     min="0"
                     step="5"
                     value={processingTimeMinutes}
                     onChange={(e) => setProcessingTimeMinutes(Number(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:none"
+                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="text-[10px] text-slate-400 font-bold ml-1">mins</span>
+                  <span className="text-[10px] text-slate-400 font-bold ml-1.5 shrink-0 select-none">mins</span>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  3. Resting & Quality Check
-                </label>
-                <div className="flex items-center border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50">
+              {/* Phase 3 - Quality Check */}
+              <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between gap-2.5 hover:border-slate-300 transition-colors">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-[#01390f] text-[10px] font-bold flex items-center justify-center shrink-0">3</span>
+                  <span className="text-[11px] font-semibold text-slate-700 truncate" title="Quality Check">Quality Check</span>
+                </div>
+                <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus-within:border-[#01390f] focus-within:ring-1 focus-within:ring-[#01390f]/20 transition-all">
                   <input
                     type="number"
                     min="0"
                     step="5"
                     value={qaCoolingTimeMinutes}
                     onChange={(e) => setQaCoolingTimeMinutes(Number(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none"
+                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="text-[10px] text-slate-400 font-bold ml-1">mins</span>
+                  <span className="text-[10px] text-slate-400 font-bold ml-1.5 shrink-0 select-none">mins</span>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  4. Packaging & Bottling
-                </label>
-                <div className="flex items-center border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50">
+              {/* Phase 4 */}
+              <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between gap-2.5 hover:border-slate-300 transition-colors">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-[#01390f] text-[10px] font-bold flex items-center justify-center shrink-0">4</span>
+                  <span className="text-[11px] font-semibold text-slate-700 truncate" title="Packaging & Bottling">Packaging & Bottling</span>
+                </div>
+                <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus-within:border-[#01390f] focus-within:ring-1 focus-within:ring-[#01390f]/20 transition-all">
                   <input
                     type="number"
                     min="0"
                     step="5"
                     value={packagingTimeMinutes}
                     onChange={(e) => setPackagingTimeMinutes(Number(e.target.value) || 0)}
-                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none"
+                    className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="text-[10px] text-slate-400 font-bold ml-1">mins</span>
+                  <span className="text-[10px] text-slate-400 font-bold ml-1.5 shrink-0 select-none">mins</span>
                 </div>
               </div>
             </div>

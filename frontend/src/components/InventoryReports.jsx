@@ -17,6 +17,7 @@ import {
   RotateCcw,
   ChevronDown,
   Activity,
+  Eye,
   EyeOff,
   Info,
   ArrowUpDown,
@@ -27,11 +28,74 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
+import ItemImageModal, { resolveItemImageUrl } from './common/ItemImageModal';
+import { getStoredThresholds } from './common/MasterCategoryUomModal';
 import { INITIAL_DEFAULT_PRODUCTS } from './InventoryFinishedGoods';
+import { getUserFullName } from '../utils/userId';
+
+// Helper to convert image URL to base64 for crisp PDF header thumbnail
+const loadBase64Image = (url) => {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 300;
+          canvas.height = img.naturalHeight || img.height || 300;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    } catch (e) {
+      resolve(null);
+    }
+  });
+};
+
+// Helper to create a transparent watermark image with subtle opacity (~0.075) for background
+const loadWatermarkImage = (url, opacity = 0.075) => {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 500;
+          canvas.height = img.naturalHeight || img.height || 500;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.globalAlpha = opacity;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    } catch (e) {
+      resolve(null);
+    }
+  });
+};
 
 function InventoryReports() {
-  // Selected Tab: 'raw-materials' | 'finished-goods' | 'expiry-monitoring'
+  // Selected Tab: 'raw-materials' | 'finished-goods'
   const [activeTab, setActiveTab] = useState('raw-materials');
+  // Expiry filter type: 'all' | 'raw-materials' | 'finished-goods'
+  const [expiryFilterType, setExpiryFilterType] = useState('all');
+  const [showExpiryOnly, setShowExpiryOnly] = useState(false);
+  const [selectedExpiryDetail, setSelectedExpiryDetail] = useState(null);
+  const [selectedImageItem, setSelectedImageItem] = useState(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Filter States - Default to 'All' so all active warehouse records show immediately
   const [selectedMonth, setSelectedMonth] = useState('All');
@@ -150,6 +214,57 @@ function InventoryReports() {
     fetchReportsData();
   }, [fetchReportsData]);
 
+  // Dynamic stock threshold and condition resolution
+  const defaultThresholds = useMemo(() => {
+    return getStoredThresholds(activeTab === 'finished-goods' ? 'finished_goods' : 'raw_materials');
+  }, [activeTab]);
+
+  const getResolvedThreshold = useCallback((item) => {
+    return {
+      criticalLevel: Number(item?.criticalLevel !== undefined && item?.criticalLevel !== '' ? item.criticalLevel : (defaultThresholds.criticalLevel ?? 0)),
+      restockWarningPoint: Number(item?.restockWarningPoint !== undefined && item?.restockWarningPoint !== '' ? item.restockWarningPoint : (defaultThresholds.restockWarningPoint ?? 10)),
+      overstockLimitPoint: Number(item?.overstockLimitPoint !== undefined && item?.overstockLimitPoint !== '' ? item.overstockLimitPoint : (defaultThresholds.overstockLimitPoint ?? 1000)),
+    };
+  }, [defaultThresholds]);
+
+  const getStockCondition = useCallback((qty, resolvedThreshold) => {
+    const val = Number(qty) || 0;
+    const critical = Number(resolvedThreshold?.criticalLevel ?? 0);
+    const restock = Number(resolvedThreshold?.restockWarningPoint ?? 10);
+    const overstock = Number(resolvedThreshold?.overstockLimitPoint ?? 1000);
+
+    if (val <= critical) {
+      return {
+        key: 'Critical Alert',
+        label: 'Critical Alert',
+        badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/70 font-semibold',
+        dotClass: 'bg-rose-500',
+      };
+    }
+    if (val <= restock) {
+      return {
+        key: 'Restock Warning',
+        label: 'Restock Warning',
+        badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/70 font-semibold',
+        dotClass: 'bg-amber-500',
+      };
+    }
+    if (val <= overstock) {
+      return {
+        key: 'Healthy',
+        label: 'Healthy',
+        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
+        dotClass: 'bg-emerald-500',
+      };
+    }
+    return {
+      key: 'Overstock',
+      label: 'Overstock',
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
+      dotClass: 'bg-blue-500',
+    };
+  }, []);
+
   // MONTH & DATE FILTER HELPER
   const matchesDateFilter = (dateString) => {
     if (!dateString) return true;
@@ -230,13 +345,34 @@ function InventoryReports() {
     });
   }, [rawMaterials, searchQuery, hideZeroQty, showZeroOnly, selectedMonth, selectedYear, selectedStatus]);
 
+  // Helpers to distinguish Raw Materials vs Finished Goods for expiry monitoring
+  const isRawMaterialExpiry = useCallback((item) => {
+    if (item.source === 'Inbound Receiving') return true;
+    if (item.source === 'WIP Production') return false;
+    const code = (item.code || item.itemCode || '').toUpperCase();
+    if (code.startsWith('RM')) return true;
+    if (code.startsWith('FG')) return false;
+    const cat = (item.category || '').toLowerCase();
+    if (cat.includes('raw')) return true;
+    if (cat.includes('finish')) return false;
+    return true;
+  }, []);
+
+  const isFinishedGoodExpiry = useCallback((item) => {
+    return !isRawMaterialExpiry(item);
+  }, [isRawMaterialExpiry]);
+
   // 3. FILTERED EXPIRY ITEMS
   const filteredExpiryItems = useMemo(() => {
     return expiryItems.filter((e) => {
+      // Filter by active tab (finished goods vs raw materials)
+      if (activeTab === 'raw-materials' && !isRawMaterialExpiry(e)) return false;
+      if (activeTab === 'finished-goods' && !isFinishedGoodExpiry(e)) return false;
+
       const q = searchQuery.toLowerCase().trim();
       const batch = (e.batchNo || '').toLowerCase();
-      const code = (e.itemCode || '').toLowerCase();
-      const name = (e.itemName || '').toLowerCase();
+      const code = (e.itemCode || e.code || '').toLowerCase();
+      const name = (e.itemName || e.itemDescription || '').toLowerCase();
       const cat = (e.category || '').toLowerCase();
 
       if (q && !batch.includes(q) && !code.includes(q) && !name.includes(q) && !cat.includes(q)) {
@@ -247,44 +383,45 @@ function InventoryReports() {
       if (hideZeroQty && qty === 0) return false;
       if (showZeroOnly && qty !== 0) return false;
 
-      if (!matchesDateFilter(e.expDate || e.mfgDate || e.createdAt)) return false;
+      if (!matchesDateFilter(e.expDate || e.expiryDate || e.mfgDate || e.createdAt)) return false;
 
       if (selectedStatus !== 'All') {
-        if (selectedStatus === 'Critical' && (e.daysRemaining === undefined || e.daysRemaining > 7)) return false;
-        if (selectedStatus === 'Active' && (e.daysRemaining !== undefined && e.daysRemaining <= 0)) return false;
+        const days = e.daysRemaining !== undefined ? Number(e.daysRemaining) : Number(e.daysUntilExpiry);
+        if (selectedStatus === 'Critical' && (isNaN(days) || days > 7)) return false;
+        if (selectedStatus === 'Active' && (!isNaN(days) && days <= 0)) return false;
       }
 
       return true;
     });
-  }, [expiryItems, searchQuery, hideZeroQty, showZeroOnly, selectedMonth, selectedYear, selectedStatus]);
+  }, [expiryItems, activeTab, isRawMaterialExpiry, isFinishedGoodExpiry, searchQuery, hideZeroQty, showZeroOnly, selectedMonth, selectedYear, selectedStatus]);
 
   // Reset pagination on filter, tab, or sort change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery, selectedMonth, selectedYear, selectedStatus, hideZeroQty, showZeroOnly, sortBy]);
+  }, [activeTab, showExpiryOnly, searchQuery, selectedMonth, selectedYear, selectedStatus, hideZeroQty, showZeroOnly, sortBy]);
 
   const activeDataset = useMemo(() => {
+    if (showExpiryOnly) {
+      return filteredExpiryItems;
+    }
     switch (activeTab) {
       case 'finished-goods':
         return filteredFinishedGoods;
       case 'raw-materials':
-        return filteredRawMaterials;
-      case 'expiry-monitoring':
-        return filteredExpiryItems;
       default:
-        return [];
+        return filteredRawMaterials;
     }
-  }, [activeTab, filteredFinishedGoods, filteredRawMaterials, filteredExpiryItems]);
+  }, [showExpiryOnly, filteredExpiryItems, activeTab, filteredFinishedGoods, filteredRawMaterials]);
 
   const sortedData = useMemo(() => {
     let result = [...activeDataset];
     if (sortBy === 'name_asc') {
       result.sort((a, b) =>
-        (a.itemName || a.name || a.materialName || '').localeCompare(b.itemName || b.name || b.materialName || '')
+        (a.itemName || a.name || a.materialName || a.itemDescription || '').localeCompare(b.itemName || b.name || b.materialName || b.itemDescription || '')
       );
     } else if (sortBy === 'name_desc') {
       result.sort((a, b) =>
-        (b.itemName || b.name || b.materialName || '').localeCompare(a.itemName || a.name || a.materialName || '')
+        (b.itemName || b.name || b.materialName || b.itemDescription || '').localeCompare(a.itemName || a.name || a.materialName || a.itemDescription || '')
       );
     } else if (sortBy === 'qty_desc') {
       result.sort((a, b) =>
@@ -296,7 +433,7 @@ function InventoryReports() {
       );
     } else if (sortBy === 'code_asc') {
       result.sort((a, b) =>
-        (a.code || a.materialCode || a.batchNo || '').localeCompare(b.code || b.materialCode || b.batchNo || '')
+        (a.code || a.itemCode || a.materialCode || a.batchNo || '').localeCompare(b.code || b.itemCode || b.materialCode || b.batchNo || '')
       );
     }
     return result;
@@ -309,164 +446,558 @@ function InventoryReports() {
 
   // Real-time count of items with 0 quantity
   const zeroQtyCount = useMemo(() => {
+    if (showExpiryOnly) {
+      return expiryItems.filter((e) => {
+        if (activeTab === 'raw-materials' && !isRawMaterialExpiry(e)) return false;
+        if (activeTab === 'finished-goods' && !isFinishedGoodExpiry(e)) return false;
+        return (Number(e.quantity) || 0) === 0;
+      }).length;
+    }
     switch (activeTab) {
       case 'finished-goods':
         return products.filter((p) => (Number(p.quantity) || 0) === 0).length;
       case 'raw-materials':
-        return rawMaterials.filter((r) => (Number(r.quantity) || 0) === 0).length;
-      case 'expiry-monitoring':
-        return expiryItems.filter((e) => (Number(e.quantity) || 0) === 0).length;
       default:
-        return 0;
+        return rawMaterials.filter((r) => (Number(r.quantity) || 0) === 0).length;
     }
-  }, [activeTab, products, rawMaterials, expiryItems]);
+  }, [showExpiryOnly, activeTab, expiryItems, products, rawMaterials, isRawMaterialExpiry, isFinishedGoodExpiry]);
 
   const activeTabTitle = useMemo(() => {
+    if (showExpiryOnly) {
+      return activeTab === 'finished-goods' ? 'Finished Goods Expiry' : 'Raw Materials Expiry';
+    }
     switch (activeTab) {
       case 'raw-materials':
         return 'Raw Materials';
       case 'finished-goods':
         return 'Finished Goods';
-      case 'expiry-monitoring':
-        return 'Expiry Monitoring';
       default:
         return 'Records';
     }
-  }, [activeTab]);
+  }, [showExpiryOnly, activeTab]);
 
   const reportTabs = useMemo(() => [
     { id: 'raw-materials', label: 'Raw Materials', icon: Layers },
     { id: 'finished-goods', label: 'Finished Goods', icon: Package },
-    { id: 'expiry-monitoring', label: 'Expiry Monitoring', icon: Clock },
   ], []);
 
-  // EXPORT AUDIT LEDGER TO PDF
-  const handleExportPDF = () => {
+  // EXPORT AUDIT LEDGER TO PDF (Official Executive Report in A4 Portrait with Summary Table & Blue Header)
+  const handleExportPDF = async () => {
+    if (isExportingPDF) return;
+    setIsExportingPDF(true);
+    showSuccessToast('Preparing official executive PDF audit report...');
+
     try {
-      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+      // 1. Load crisp logo thumbnail and transparent background watermark in parallel
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
 
-      // Theme Banner
-      doc.setFillColor(1, 57, 15); // #01390f
-      doc.rect(0, 0, 297, 24, 'F');
+      const doc = new jsPDF('p', 'mm', 'a4'); // Portrait A4 (210mm x 297mm)
+      const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+      const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
 
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
-      doc.text('MHIRA NATURAL CRM SYSTEM', 14, 11);
+      // Mhira Logo natural aspect ratio: 835 / 673 = 1.2407
+      const logoRatio = 835 / 673;
 
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'normal');
+      // Watermark geometry (centered on A4 portrait with natural aspect ratio)
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio; // ~72.5mm
+      const wmX = (pageWidth - wmWidth) / 2; // 60mm
+      const wmY = (pageHeight - wmHeight) / 2; // ~112.25mm
 
+      // Clean period label (fixes 'ALL All' issue)
+      const formattedPeriod =
+        selectedMonth === 'All' && selectedYear === 'All'
+          ? 'All Time (Full Ledger)'
+          : selectedMonth === 'All'
+          ? `Full Year ${selectedYear}`
+          : selectedYear === 'All'
+          ? `${selectedMonth} (All Years)`
+          : `${selectedMonth} ${selectedYear}`;
+
+      const yearTag = selectedYear !== 'All' ? selectedYear : new Date().getFullYear();
+      const monthTag = selectedMonth !== 'All' ? selectedMonth.slice(0, 3).toUpperCase() : 'FULL';
+      const typeTag = showExpiryOnly
+        ? (activeTab === 'finished-goods' ? 'FG-EXP' : 'RM-EXP')
+        : (activeTab === 'finished-goods' ? 'FG' : 'RM');
+      const docNo = `MN-INV-${typeTag}-${yearTag}-${monthTag}-${String(Date.now()).slice(-4)}`;
+
+      // Determine Report Title
       let reportTitle = 'INVENTORY AUDIT LEDGER';
-      let tableHead = [];
-      let tableBody = [];
-
-      if (activeTab === 'finished-goods') {
-        reportTitle = 'FINISHED GOODS INVENTORY & VALUATION LEDGER';
-        tableHead = [
-          ['Item Code', 'Product Name', 'Category', 'Net Wt / UOM', 'Stock Qty', 'Unit Price', 'Total Valuation', 'Status']
-        ];
-        tableBody = filteredFinishedGoods.map((p) => {
-          const qty = Number(p.quantity) || 0;
-          const price = Number(p.price) || 0;
-          const totalVal = qty * price;
-          return [
-            p.code || p.sku || 'N/A',
-            p.name || p.itemName || p.itemDescription || 'Finished Good',
-            p.category || 'Finished Goods',
-            p.netWeight || p.uom || 'pcs',
-            `${qty} pcs`,
-            `PHP ${price.toFixed(2)}`,
-            `PHP ${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-            qty > 10 ? 'IN-STOCK' : qty > 0 ? 'LOW STOCK' : 'OUT OF STOCK'
-          ];
-        });
-      } else if (activeTab === 'raw-materials') {
-        reportTitle = 'RAW MATERIALS & SUPPLIES INVENTORY LEDGER';
-        tableHead = [
-          ['Material Code', 'Material Name', 'Category', 'Current Stock', 'UOM', 'Reorder Point', 'Status']
-        ];
-        tableBody = filteredRawMaterials.map((r) => {
-          const qty = Number(r.quantity) || 0;
-          return [
-            r.code || 'N/A',
-            r.itemName || r.itemDescription || 'Raw Material',
-            r.category || 'Raw Materials',
-            `${qty}`,
-            r.uom || 'pcs',
-            '10',
-            qty > 10 ? 'SAFE BUFFER' : qty > 0 ? 'RESTOCK WARNING' : 'CRITICAL (0)'
-          ];
-        });
-      } else if (activeTab === 'expiry-monitoring') {
-        reportTitle = 'BATCH EXPIRY & SHELF-LIFE AUDIT REPORT';
-        tableHead = [
-          ['Batch No.', 'Item Name', 'Category', 'Stock Qty', 'UOM', 'Mfg Date', 'Expiry Date', 'Days Left', 'Status']
-        ];
-        tableBody = filteredExpiryItems.map((e) => [
-          e.batchNo || 'BATCH',
-          e.itemName || 'Item',
-          e.category || 'General',
-          `${e.quantity || 0}`,
-          e.uom || 'pcs',
-          e.mfgDate ? new Date(e.mfgDate).toLocaleDateString() : 'N/A',
-          e.expDate ? new Date(e.expDate).toLocaleDateString() : 'N/A',
-          e.daysRemaining !== undefined ? `${e.daysRemaining} days` : 'N/A',
-          e.status || 'Monitored'
-        ]);
+      if (showExpiryOnly) {
+        reportTitle = activeTab === 'finished-goods'
+          ? 'FINISHED GOODS EXPIRY MONITORING AUDIT'
+          : 'RAW MATERIALS EXPIRY MONITORING AUDIT';
+      } else if (activeTab === 'finished-goods') {
+        reportTitle = 'FINISHED GOODS INVENTORY AUDIT';
+      } else {
+        reportTitle = 'RAW MATERIALS INVENTORY AUDIT';
       }
 
-      doc.text(`${reportTitle} | Period: ${selectedMonth} ${selectedYear}`, 14, 18);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 210, 18);
+      // ========================================================
+      // 2. OFFICIAL COMPANY HEADER & NATURAL LOGO (NO CONTAINER)
+      // ========================================================
+      // Direct unboxed logo with natural aspect ratio (matches index/header perfectly)
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio; // ~18.6mm
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) {}
+      }
 
+      // Company Titles (starts at X=36, generously spaced in height)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Official Valuation Ledger, Material Movement & Expiry Audit Trail', 36, 26);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
+
+      // Top-Right Official Metadata (Clean text, generously spaced in height)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text(reportTitle.toUpperCase(), pageWidth - 14, 16.5, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`DOC NO: ${docNo}`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`AUDIT PERIOD: ${formattedPeriod}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`GENERATED: ${new Date().toLocaleString()}`, pageWidth - 14, 30, { align: 'right' });
+
+      // Clean dividing line under header
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
+
+      // ========================================================
+      // 3. STATISTICAL KPI AUDIT SUMMARY TABLE (Naka-Table, Hindi Container)
+      // ========================================================
+      let card1Label = '';
+      let card1Val = '';
+      let card2Label = '';
+      let card2Val = '';
+      let card3Label = '';
+      let card3Val = '';
+      let card4Label = '';
+      let card4Val = '';
+
+      if (showExpiryOnly) {
+        const totalItems = filteredExpiryItems.length;
+        const totalStock = filteredExpiryItems.reduce(
+          (acc, item) => acc + (Number(item.quantity ?? item.stockVolume ?? 0) || 0),
+          0
+        );
+        const expiredCount = filteredExpiryItems.filter((e) => {
+          const days = e.daysUntilExpiry !== undefined ? Number(e.daysUntilExpiry) : Number(e.daysRemaining);
+          return !isNaN(days) && days <= 0;
+        }).length;
+        const criticalCount = filteredExpiryItems.filter((e) => {
+          const days = e.daysUntilExpiry !== undefined ? Number(e.daysUntilExpiry) : Number(e.daysRemaining);
+          return !isNaN(days) && days > 0 && days <= 7;
+        }).length;
+        const healthyCount = filteredExpiryItems.filter((e) => {
+          const days = e.daysUntilExpiry !== undefined ? Number(e.daysUntilExpiry) : Number(e.daysRemaining);
+          return !isNaN(days) && days > 30;
+        }).length;
+
+        card1Label = activeTab === 'finished-goods' ? 'MONITORED FG BATCHES' : 'MONITORED RM BATCHES';
+        card1Val = `${totalItems.toLocaleString()} Active Lots`;
+        card2Label = 'TOTAL BATCH QUANTITY';
+        card2Val = `${totalStock.toLocaleString()} Stored Units`;
+        card3Label = 'SHELF LIFE CONDITION';
+        card3Val = `${healthyCount} Safe Buffer (>30d)`;
+        card4Label = 'CRITICAL & EXPIRY ALERTS';
+        card4Val = `${expiredCount} Expired | ${criticalCount} Critical (<= 7d)`;
+      } else if (activeTab === 'finished-goods') {
+        const totalItems = filteredFinishedGoods.length;
+        const totalStock = filteredFinishedGoods.reduce((acc, p) => acc + (Number(p.quantity ?? 0) || 0), 0);
+        let healthy = 0;
+        let restock = 0;
+        let critical = 0;
+
+        filteredFinishedGoods.forEach((p) => {
+          const resolved = getResolvedThreshold(p);
+          const cond = getStockCondition(Number(p.quantity ?? 0), resolved);
+          if (cond.key === 'Healthy' || cond.key === 'Overstock') healthy++;
+          else if (cond.key === 'Restock Warning') restock++;
+          else critical++;
+        });
+
+        card1Label = 'REGISTERED FINISHED GOODS';
+        card1Val = `${totalItems.toLocaleString()} Active SKUs`;
+        card2Label = 'TOTAL FINISHED GOODS QUANTITY';
+        card2Val = `${totalStock.toLocaleString()} Stored Units`;
+        card3Label = 'BUFFER HEALTH CONDITION';
+        card3Val = `${healthy} Safe Buffer (>10)`;
+        card4Label = 'CRITICAL & REORDER ALERTS';
+        card4Val = `${critical} Critical Shortage | ${restock} Low`;
+      } else {
+        const totalItems = filteredRawMaterials.length;
+        const totalStock = filteredRawMaterials.reduce(
+          (acc, r) => acc + (Number(r.quantity ?? r.qty ?? 0) || 0),
+          0
+        );
+        let healthy = 0;
+        let restock = 0;
+        let critical = 0;
+
+        filteredRawMaterials.forEach((r) => {
+          const resolved = getResolvedThreshold(r);
+          const cond = getStockCondition(Number(r.quantity ?? r.qty ?? 0), resolved);
+          if (cond.key === 'Healthy' || cond.key === 'Overstock') healthy++;
+          else if (cond.key === 'Restock Warning') restock++;
+          else critical++;
+        });
+
+        card1Label = 'REGISTERED RAW MATERIALS';
+        card1Val = `${totalItems.toLocaleString()} Active Materials`;
+        card2Label = 'TOTAL MATERIAL QUANTITY';
+        card2Val = `${totalStock.toLocaleString()} Stored Units`;
+        card3Label = 'BUFFER HEALTH CONDITION';
+        card3Val = `${healthy} Safe Buffer (>10)`;
+        card4Label = 'CRITICAL & REORDER ALERTS';
+        card4Val = `${critical} Critical Shortage | ${restock} Low`;
+      }
+
+      // Summary KPI Table (Formal 4-column Table, Hindi Card Container)
       autoTable(doc, {
-        startY: 28,
-        head: tableHead,
-        body: tableBody,
-        headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 8,
+        startY: 36.5,
+        margin: { left: 14, right: 14 },
+        head: [[card1Label, card2Label, card3Label, card4Label]],
+        body: [[card1Val, card2Val, card3Val, card4Val]],
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontStyle: 'normal',
+          fontSize: 6.0,
+          cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
           halign: 'center',
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [239, 246, 255], // Soft blue tint #eff6ff
+          textColor: [21, 62, 151], // Royal Blue text
+          fontStyle: 'bold',
+          fontSize: 5.6,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         bodyStyles: {
-          fontSize: 7.5,
-          textColor: 50,
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
           halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         columnStyles: {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 32 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 48 },
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
         },
-        theme: 'grid',
       });
 
-      const finalY = (doc.lastAutoTable?.finalY || 120) + 12;
+      // ========================================================
+      // 4. BUILD MAIN DATA TABLE (AutoTable - Blue Header & Strict Whitespace-Nowrap)
+      // ========================================================
+      let tableHead = [];
+      let tableBody = [];
+      let columnStyles = {};
 
-      // Signature Blocks
-      if (finalY + 30 < 200) {
-        doc.setDrawColor(180, 180, 180);
-        doc.setTextColor(71, 85, 105);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
+      if (showExpiryOnly) {
+        tableHead = [
+          ['ITEM CODE', 'BATCH / LOT NO', 'CATEGORY', 'ITEM NAME', 'STOCK VOLUME', 'MFG DATE', 'EXPIRY DATE', 'DAYS REMAINING']
+        ];
+        tableBody = filteredExpiryItems.map((item) => {
+          const days = item.daysUntilExpiry !== undefined ? Number(item.daysUntilExpiry) : Number(item.daysRemaining);
+          const isExpired = !isNaN(days) && days <= 0;
+          const isCritical = !isNaN(days) && days > 0 && days <= 7;
+          const isNear = !isNaN(days) && days > 7 && days <= 30;
 
-        doc.line(14, finalY + 20, 75, finalY + 20);
-        doc.text('PREPARED BY (Inventory Officer)', 14, finalY + 25);
+          const expDate = item.expiryDate || item.expDate;
+          const expStr = expDate && !isNaN(new Date(expDate).getTime()) ? new Date(expDate).toLocaleDateString() : 'N/A';
+          const mfgStr = item.mfgDate && !isNaN(new Date(item.mfgDate).getTime()) ? new Date(item.mfgDate).toLocaleDateString() : 'N/A';
+          const daysStr = item.status === 'Disposed'
+            ? 'Disposed'
+            : isExpired
+            ? '0d (Expired)'
+            : isCritical
+            ? `${days}d left (Critical)`
+            : isNear
+            ? `${days}d left (Near)`
+            : `${days}d left`;
 
-        doc.line(110, finalY + 20, 175, finalY + 20);
-        doc.text('VERIFIED BY (Warehouse Manager)', 110, finalY + 25);
+          return [
+            item.code || item.itemCode || 'N/A',
+            item.batchNo || 'N/A',
+            item.category || (activeTab === 'finished-goods' ? 'Finished Goods' : 'Raw Materials'),
+            item.itemName || item.itemDescription || 'N/A',
+            `${Number(item.quantity ?? item.stockVolume ?? 0).toLocaleString()} ${item.uom || (activeTab === 'finished-goods' ? 'pcs' : 'kg')}`,
+            mfgStr,
+            expStr,
+            daysStr,
+          ];
+        });
 
-        doc.line(210, finalY + 20, 275, finalY + 20);
-        doc.text('NOTED BY (Operations Head)', 210, finalY + 25);
+        // Exact 182mm total width in Portrait (Full text display without ellipsis)
+        columnStyles = {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 20 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 20 },
+          2: { halign: 'left', cellWidth: 32 }, // CATEGORY widened
+          3: { fontStyle: 'bold', halign: 'left', cellWidth: 30 }, // ITEM NAME reduced
+          4: { fontStyle: 'bold', halign: 'center', cellWidth: 22 },
+          5: { halign: 'center', cellWidth: 18 },
+          6: { fontStyle: 'bold', halign: 'center', cellWidth: 18 },
+          7: { fontStyle: 'bold', halign: 'center', cellWidth: 22 },
+        };
+      } else if (activeTab === 'finished-goods') {
+        tableHead = [
+          ['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'SPECIFICATION & UOM']
+        ];
+        tableBody = filteredFinishedGoods.map((p) => {
+          const qty = Number(p.quantity ?? 0);
+          const resolved = getResolvedThreshold(p);
+          const condition = getStockCondition(qty, resolved);
+          const specUom = `${p.specification ? p.specification : '-'} • ${p.uom || 'PCS'}`;
+
+          return [
+            p.code || p.sku || 'N/A',
+            p.category || 'Finished Goods',
+            p.itemName || p.name || p.itemDescription || 'Finished Good',
+            `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
+            specUom,
+          ];
+        });
+
+        // Exact 182mm total width in Portrait (Full text display without ellipsis)
+        columnStyles = {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
+          1: { halign: 'left', cellWidth: 42 }, // CATEGORY widened from 28 to 42
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 41 }, // ITEM NAME reduced from 55 to 41
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
+          4: { halign: 'center', cellWidth: 30 },
+        };
+      } else {
+        tableHead = [
+          ['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'UOM']
+        ];
+        tableBody = filteredRawMaterials.map((r) => {
+          const qty = Number(r.quantity ?? r.qty ?? 0);
+          const resolved = getResolvedThreshold(r);
+          const condition = getStockCondition(qty, resolved);
+
+          return [
+            r.code || r.itemCode || 'N/A',
+            r.category || 'Raw Materials',
+            r.itemName || r.itemDescription || 'Raw Material',
+            `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
+            (r.uom || r.unit || 'pcs').toUpperCase(),
+          ];
+        });
+
+        // Exact 182mm total width in Portrait (Full text display without ellipsis)
+        columnStyles = {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
+          1: { halign: 'left', cellWidth: 44 }, // CATEGORY widened from 28 to 44
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 49 }, // ITEM NAME reduced from 65 to 49
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
+          4: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
+        };
       }
 
-      const fileName = `Inventory_Report_${activeTab.replace('-', '_')}_${selectedMonth}_${selectedYear}.pdf`;
+      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+
+      autoTable(doc, {
+        startY: mainTableStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
+        head: tableHead,
+        body: tableBody,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85], // matches text-slate-700
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240], // matches divide-slate-100/border-slate-200
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak', // FULL TEXT DISPLAY! No '...' clipping!
+        },
+        headStyles: {
+          fillColor: [21, 62, 151], // Royal Blue #153E97
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          halign: 'center',
+          valign: 'middle',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255], // Subtle cool blue tint
+        },
+        columnStyles: columnStyles,
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const txt = String(data.cell.raw || '');
+            if (txt.includes('Expired') || txt.includes('Critical')) {
+              data.cell.styles.textColor = [190, 18, 60]; // rose-700
+              data.cell.styles.fontStyle = 'bold';
+            } else if (txt.includes('Warning') || txt.includes('Near') || txt.includes('Low')) {
+              data.cell.styles.textColor = [180, 83, 9]; // amber-700
+              data.cell.styles.fontStyle = 'bold';
+            } else if (txt.includes('Healthy') || txt.includes('Safe Buffer')) {
+              data.cell.styles.textColor = [21, 62, 151]; // royal blue
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          // Thumbnail Logo & Running Header on Page 2+
+          if (data.pageNumber > 1) {
+            // Mhira Thumbnail on Page 2+ (unboxed natural aspect ratio)
+            const thumbH = 7;
+            const thumbW = thumbH * logoRatio; // ~8.68mm
+            if (logoBase64) {
+              try {
+                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+              } catch (e) {}
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(21, 62, 151);
+            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  •  ${reportTitle.toUpperCase()}`, 14 + thumbW + 4, 11.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Period: ${formattedPeriod}`, pageWidth - 14, 11.5, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(14, 16, pageWidth - 14, 16);
+          }
+
+          // Running Footer on Every Page
+          const footerY = pageHeight - 7;
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+          // Left-aligned Confidentiality (Hindi magpapatong sa page number)
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+        },
+      });
+
+      // ========================================================
+      // 5. EXECUTIVE AUDIT SIGN-OFF SECTION (Single Signatory: Inventory Staff)
+      // ========================================================
+      let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
+      const sigSectionH = 24;
+
+      // If remaining space on the current page is not enough, add a new page
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
+      }
+
+      // Section Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
+
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      // Role title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff (Single line, no date)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
+
+      // ========================================================
+      // 6. FINAL PASS: CENTER WATERMARK & DYNAMIC PAGE NUMBERING (EVERY PAGE)
+      // ========================================================
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+
+        // Center Mhira Watermark Logo on EVERY page (kahit may table, visible pa din)
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) {}
+        }
+
+        // Running Page Numbering
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
+
+      // Download PDF
+      const dateTag = new Date().toISOString().slice(0, 10);
+      const fileName = `MHIRA_Inventory_Report_${activeTab.replace('-', '_')}${showExpiryOnly ? '_Expiry' : ''}_${selectedMonth}_${selectedYear}_${dateTag}.pdf`;
       doc.save(fileName);
-      showSuccessToast(`Exported ${activeTabTitle} report to PDF: ${fileName}`);
+      showSuccessToast(`Exported ${activeTabTitle} official audit report to PDF: ${fileName}`);
     } catch (err) {
       console.error('Error generating PDF:', err);
       showErrorToast('Failed to export PDF report.');
+    } finally {
+      setIsExportingPDF(false);
     }
   };
 
@@ -479,8 +1010,9 @@ function InventoryReports() {
     if (hideZeroQty) count++;
     if (showZeroOnly) count++;
     if (sortBy !== 'default') count++;
+    if (showExpiryOnly) count++;
     return count;
-  }, [searchQuery, selectedMonth, selectedYear, selectedStatus, hideZeroQty, showZeroOnly, sortBy]);
+  }, [searchQuery, selectedMonth, selectedYear, selectedStatus, hideZeroQty, showZeroOnly, sortBy, showExpiryOnly]);
 
   const handleClearAllFilters = () => {
     setSearchQuery('');
@@ -490,6 +1022,8 @@ function InventoryReports() {
     setHideZeroQty(false);
     setShowZeroOnly(false);
     setSortBy('default');
+    setExpiryFilterType('all');
+    setShowExpiryOnly(false);
   };
 
   return (
@@ -514,6 +1048,7 @@ function InventoryReports() {
                     type="button"
                     onClick={() => {
                       setActiveTab(tab.id);
+                      setShowExpiryOnly(false);
                       setCurrentPage(1);
                     }}
                     className={`px-3.5 py-1.5 text-xs transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
@@ -532,46 +1067,67 @@ function InventoryReports() {
             </div>
           </div>
 
-          {/* MS EXCEL-STYLE RIBBON TOOLBAR (CLEAN WHITE BACKGROUND - 1 ROW NO WRAPPING) */}
-          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+          {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+          <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
             
-            {/* GROUP 1: ACTIONS (Fixed Width: Tall Full-Height + Stacked Layers) */}
-            <div className="w-[230px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex items-stretch gap-1.5 flex-1">
+            {/* GROUP 1: ACTIONS (Responsive: Full-width on mobile, fixed width on desktop) */}
+            <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+              <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
                 {/* 1 COLUMN NA 1 LAYER: Tall Full-Height Action Button */}
                 <button
                   type="button"
                   onClick={handleExportPDF}
-                  className="w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
-                  title="Download PDF Report"
-                  aria-label="Download PDF Report"
+                  disabled={isExportingPDF}
+                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f] disabled:opacity-60 disabled:cursor-wait"
+                  title="Download Official PDF Report"
+                  aria-label="Download Official PDF Report"
                 >
-                  <Download className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                  {isExportingPDF ? (
+                    <Loader2 className="w-5.5 h-5.5 text-[#01390f] animate-spin mb-0.5" />
+                  ) : (
+                    <Download className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                  )}
                   <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
-                    Download<br />(PDF)
+                    {isExportingPDF ? (
+                      <>Exporting...<br />(PDF)</>
+                    ) : (
+                      <>Download<br />(PDF)</>
+                    )}
                   </span>
                 </button>
 
-                {/* 2 LAYERS (Stacked Compact Rows) */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 py-0.5">
-                  {/* Layer 1: Refresh Data */}
+                {/* Stacked Compact Rows */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
+                  {/* Expiry FG or Expiry RM Button */}
                   <button
                     type="button"
-                    onClick={fetchAllData}
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
-                    title="Refresh inventory reports data"
-                    aria-label="Refresh Data"
+                    onClick={() => {
+                      setShowExpiryOnly((prev) => !prev);
+                      setCurrentPage(1);
+                    }}
+                    className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${
+                      showExpiryOnly
+                        ? 'bg-emerald-50 text-[#01390f] border-emerald-300 font-bold shadow-2xs'
+                        : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
+                    }`}
+                    title={
+                      showExpiryOnly
+                        ? `Showing ${activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'} (Click to view standard list)`
+                        : `Filter by ${activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}`
+                    }
                   >
-                    <RefreshCw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="truncate">Refresh</span>
+                    <Clock className={`w-3.5 h-3.5 shrink-0 ${showExpiryOnly ? 'text-[#01390f]' : 'text-slate-500'}`} />
+                    <span className="whitespace-nowrap">
+                      {activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}
+                    </span>
                   </button>
 
-                  {/* Layer 2: Reset Filters */}
+                  {/* Reset Filters */}
                   <button
                     type="button"
                     onClick={handleClearAllFilters}
                     disabled={activeFiltersCount === 0}
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
                     title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -583,14 +1139,14 @@ function InventoryReports() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
                 Actions
               </div>
             </div>
 
             {/* GROUP 2: SEARCH & FILTERS (Equal 3-Column Grid) */}
-            <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-1">
+            <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
                 
                 {/* Layer 1: Search Bar */}
                 <div className="relative flex items-center w-full">
@@ -743,7 +1299,7 @@ function InventoryReports() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none hidden lg:block">
                 Search & Filters
               </div>
             </div>
@@ -769,43 +1325,44 @@ function InventoryReports() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                  {/* TAB 1: FINISHED GOODS HEADERS */}
-                  {activeTab === 'finished-goods' && (
+                  {showExpiryOnly ? (
                     <>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Code</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px]">Item Profile / Name</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Category / Seg</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Net Wt / Unit</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Stock Qty</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Unit Price</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Valuation</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Status</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">ITEM CODE</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">BATCH / LOT NO</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">ITEM NAME</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STOCK VOLUME</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">MFG DATE</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">EXPIRY DATE</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">DAYS REMAINING</th>
+                      <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-20 min-w-[80px] font-semibold text-white">
+                        ACTION
+                      </th>
                     </>
-                  )}
-
-                  {/* TAB 2: RAW MATERIALS HEADERS */}
-                  {activeTab === 'raw-materials' && (
+                  ) : (
                     <>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Code</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px]">Material Description</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Category</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Stock Qty</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">UOM</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Threshold Condition</th>
-                    </>
-                  )}
+                      {/* TAB 1: FINISHED GOODS HEADERS */}
+                      {activeTab === 'finished-goods' && (
+                        <>
+                          <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">IMAGE</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">ITEM NAME</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QUANTITY & CONDITION</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">SPECIFICATION & UOM</th>
+                        </>
+                      )}
 
-                  {/* TAB 3: EXPIRY MONITORING HEADERS */}
-                  {activeTab === 'expiry-monitoring' && (
-                    <>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Batch No.</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px]">Item Name</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Category</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Stock Qty</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">UOM</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Expiry Date</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Days Left</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Shelf-Life Status</th>
+                      {/* TAB 2: RAW MATERIALS HEADERS */}
+                      {activeTab === 'raw-materials' && (
+                        <>
+                          <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">ITEM NAME</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QUANTITY & CONDITION</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">UOM</th>
+                        </>
+                      )}
                     </>
                   )}
                 </tr>
@@ -814,7 +1371,7 @@ function InventoryReports() {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td colSpan={showExpiryOnly ? 9 : (activeTab === 'finished-goods' ? 6 : 5)} className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-[#01390f]" />
                         <span>Loading {activeTabTitle} audit ledger...</span>
@@ -823,63 +1380,177 @@ function InventoryReports() {
                   </tr>
                 ) : activeDataset.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td colSpan={showExpiryOnly ? 9 : (activeTab === 'finished-goods' ? 6 : 5)} className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Info className="w-6 h-6 text-slate-300" />
                         <span>No {activeTabTitle.toLowerCase()} match the selected filters.</span>
                       </div>
                     </td>
                   </tr>
+                ) : showExpiryOnly ? (
+                  paginatedData.map((item, idx) => {
+                    const days = item.daysUntilExpiry !== undefined ? Number(item.daysUntilExpiry) : Number(item.daysRemaining);
+                    const isExpired = !isNaN(days) && days <= 0;
+                    const isCritical = !isNaN(days) && days > 0 && days <= 7;
+                    const isNear = !isNaN(days) && days > 7 && days <= 30;
+
+                    return (
+                      <tr
+                        key={item._id || item.id || idx}
+                        className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                      >
+                        {/* ITEM CODE */}
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.code || item.itemCode || 'N/A'}
+                        </td>
+
+                        {/* BATCH / LOT NO */}
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.batchNo || 'N/A'}
+                        </td>
+
+                        {/* CATEGORY */}
+                        <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.category || (activeTab === 'finished-goods' ? 'Finished Goods' : 'Raw Materials')}
+                        </td>
+
+                        {/* ITEM NAME */}
+                        <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.itemDescription || item.itemName || 'N/A'}
+                        </td>
+
+                        {/* STOCK VOLUME */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {Number(item.quantity ?? item.stockVolume ?? 0).toLocaleString()} {item.uom || (activeTab === 'finished-goods' ? 'pcs' : 'kg')}
+                        </td>
+
+                        {/* MFG DATE */}
+                        <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.mfgDate ? new Date(item.mfgDate).toLocaleDateString() : 'N/A'}
+                        </td>
+
+                        {/* EXPIRY DATE */}
+                        <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.expiryDate && item.expiryDate !== 'N/A' && !isNaN(new Date(item.expiryDate).getTime()) ? (
+                            <span className="text-rose-700">{new Date(item.expiryDate).toLocaleDateString()}</span>
+                          ) : item.expDate && item.expDate !== 'N/A' && !isNaN(new Date(item.expDate).getTime()) ? (
+                            <span className="text-rose-700">{new Date(item.expDate).toLocaleDateString()}</span>
+                          ) : (
+                            <span className="text-slate-500 font-semibold">N/A</span>
+                          )}
+                        </td>
+
+                        {/* DAYS REMAINING */}
+                        <td className="py-3.5 px-4 text-center font-mono text-xs font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.status === 'Disposed' ? (
+                            <span className="text-slate-400">Written Off</span>
+                          ) : isExpired ? (
+                            <span className="text-rose-600">0d (Expired)</span>
+                          ) : (
+                            <span className={isCritical ? 'text-rose-600' : isNear ? 'text-amber-700' : 'text-[#01390f]'}>
+                              {days}d left
+                            </span>
+                          )}
+                        </td>
+
+                        {/* ACTION (EYE ICON TO VIEW DETAIL) */}
+                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedExpiryDetail(item)}
+                              title="View Expiry Details"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <>
                     {/* TAB 1: FINISHED GOODS ROWS */}
                     {activeTab === 'finished-goods' &&
                       paginatedData.map((item, idx) => {
-                        const qty = Number(item.quantity) || 0;
-                        const price = Number(item.price) || 0;
-                        const totalVal = qty * price;
+                        const displayQty = Number(item.quantity ?? 0);
+                        const resolved = getResolvedThreshold(item);
+                        const condition = getStockCondition(displayQty, resolved);
 
                         return (
-                          <tr key={item._id || idx} className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap">
-                            <td className="py-3.5 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">
-                              <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                {item.code || item.sku || 'FG-001'}
-                              </span>
+                          <tr
+                            key={item._id || idx}
+                            className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                          >
+                            {/* CODE */}
+                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {item.code || item.sku || 'FG-001'}
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {item.name || item.itemName || item.itemDescription || 'Finished Good'}
+
+                            {/* IMAGE */}
+                            <td className="py-2.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex justify-center items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedImageItem({ ...item, type: 'Finished Good', condition })}
+                                  className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
+                                  title="Click to view full product image"
+                                >
+                                  <img
+                                    src={resolveItemImageUrl(item.image || item.imageUrl || (Array.isArray(item.images) ? item.images[0] : null))}
+                                    alt={item.itemName || item.itemDescription || 'Product'}
+                                    onError={(e) => {
+                                      e.currentTarget.onerror = null;
+                                      e.currentTarget.src = '/mhira_removebg.png';
+                                    }}
+                                    className="w-10 h-10 object-cover rounded-lg bg-slate-50 transition-transform duration-200 group-hover/img:scale-110"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white rounded-lg">
+                                    <Eye className="w-3.5 h-3.5 drop-shadow" />
+                                  </div>
+                                </button>
+                              </div>
                             </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span className="font-semibold text-slate-800">{item.category || 'Finished Goods'}</span>
+
+                            {/* CATEGORY */}
+                            <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                              {item.category || 'Finished Goods'}
                             </td>
-                            <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap">
-                              {item.netWeight || item.uom || '135g'}
+
+                            {/* ITEM NAME */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                              {item.itemName || item.name || item.itemDescription || 'Finished Good'}
                             </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-black text-slate-900 whitespace-nowrap">
-                              <span className={qty === 0 ? 'text-rose-600' : 'text-slate-900'}>
-                                {qty} <span className="text-[11px] font-normal text-slate-400">PCS</span>
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-700 whitespace-nowrap">
-                              ₱{price.toFixed(2)}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-[#01390f] whitespace-nowrap">
-                              ₱{totalVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              {qty > 10 ? (
-                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold px-2.5 py-1 rounded-full">
-                                  In-Stock
+
+                            {/* QUANTITY & CONDITION */}
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                  {displayQty}{' '}
+                                  <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                    / {resolved.overstockLimitPoint} max
+                                  </span>
                                 </span>
-                              ) : qty > 0 ? (
-                                <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold px-2.5 py-1 rounded-full">
-                                  Low Stock
+                                <span
+                                  className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
+                                  {condition.label}
                                 </span>
-                              ) : (
-                                <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold px-2.5 py-1 rounded-full">
-                                  Out of Stock
+                              </div>
+                            </td>
+
+                            {/* SPECIFICATION & UOM */}
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                  {item.specification ? item.specification : '-'}
                                 </span>
-                              )}
+                                <span className="inline-flex items-center justify-center text-xs font-bold px-2.5 py-0.5 rounded-md border border-slate-200 bg-slate-100 text-slate-700 uppercase">
+                                  {item.uom || 'PCS'}
+                                </span>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -888,103 +1559,51 @@ function InventoryReports() {
                     {/* TAB 2: RAW MATERIALS ROWS */}
                     {activeTab === 'raw-materials' &&
                       paginatedData.map((item, idx) => {
-                        const qty = Number(item.quantity) || 0;
+                        const displayQty = Number(item.quantity ?? item.qty ?? 0);
+                        const resolved = getResolvedThreshold(item);
+                        const condition = getStockCondition(displayQty, resolved);
 
                         return (
-                          <tr key={item._id || idx} className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap">
-                            <td className="py-3.5 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">
-                              <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                {item.code || 'RM0001'}
-                              </span>
+                          <tr
+                            key={item._id || idx}
+                            className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                          >
+                            {/* CODE */}
+                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {item.code || item.itemCode || 'RM0001'}
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+
+                            {/* CATEGORY */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                              {item.category || 'Raw Materials'}
+                            </td>
+
+                            {/* ITEM NAME */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
                               {item.itemName || item.itemDescription || 'Raw Material'}
                             </td>
-                            <td className="py-3.5 px-4 text-slate-700 font-semibold whitespace-nowrap">
-                              <span className="inline-flex items-center text-xs text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md font-semibold border border-orange-200/70">
-                                {item.category || 'Raw Materials'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-black text-slate-900 whitespace-nowrap">
-                              <span className={qty === 0 ? 'text-rose-600' : 'text-slate-900'}>
-                                {qty}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-500 uppercase text-xs whitespace-nowrap">
-                              {item.uom || 'pcs'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              {qty > 10 ? (
-                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold px-2.5 py-0.5 rounded-md">
-                                  Safe Buffer
-                                </span>
-                              ) : qty > 0 ? (
-                                <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold px-2.5 py-0.5 rounded-md">
-                                  Restock Warning
-                                </span>
-                              ) : (
-                                <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold px-2.5 py-0.5 rounded-md">
-                                  Critical (0)
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
 
-                    {/* TAB 3: EXPIRY MONITORING ROWS */}
-                    {activeTab === 'expiry-monitoring' &&
-                      paginatedData.map((item, idx) => {
-                        const days = Number(item.daysRemaining);
-                        const isExpired = !isNaN(days) && days <= 0;
-                        const isCritical = !isNaN(days) && days > 0 && days <= 7;
-                        const isNear = !isNaN(days) && days > 7 && days <= 30;
-
-                        return (
-                          <tr key={item._id || item.id || idx} className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap">
-                            <td className="py-3.5 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">
-                              <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                {item.batchNo || 'BATCH'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {item.itemName}
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
-                              {item.category || 'General'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-black text-slate-900 whitespace-nowrap">
-                              {item.quantity || 0}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono uppercase text-slate-500 whitespace-nowrap">
-                              {item.uom || 'pcs'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono text-slate-700 whitespace-nowrap">
-                              {item.expDate ? new Date(item.expDate).toLocaleDateString() : 'N/A'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap">
-                              {!isNaN(days) ? (
-                                <span className={isExpired ? 'text-rose-600' : isCritical ? 'text-amber-600' : 'text-slate-800'}>
-                                  {days}d
+                            {/* QUANTITY & CONDITION */}
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                  {displayQty}{' '}
+                                  <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                    / {resolved.overstockLimitPoint} max
+                                  </span>
                                 </span>
-                              ) : (
-                                '-'
-                              )}
+                                <span
+                                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
+                                  {condition.label}
+                                </span>
+                              </div>
                             </td>
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              <span
-                                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                                  isExpired
-                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                    : isCritical
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                    : isNear
-                                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                }`}
-                              >
-                                {isExpired ? 'Expired' : isCritical ? 'Critical (≤7d)' : isNear ? 'Near Expiry' : 'Safe Shelf-Life'}
-                              </span>
+
+                            {/* UOM */}
+                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-600 uppercase text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {item.uom || item.unit || 'pcs'}
                             </td>
                           </tr>
                         );
@@ -997,6 +1616,132 @@ function InventoryReports() {
         </div>
 
       </div>
+
+      {/* PRODUCT IMAGE PREVIEW MODAL */}
+      <ItemImageModal
+        isOpen={Boolean(selectedImageItem)}
+        onClose={() => setSelectedImageItem(null)}
+        item={selectedImageItem}
+      />
+
+      {/* EXPIRY DETAIL INSPECTION MODAL */}
+      {selectedExpiryDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[88vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
+                  Batch Expiry & Shelf Life Details
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  {selectedExpiryDetail.itemDescription || selectedExpiryDetail.itemName || (activeTab === 'finished-goods' ? 'Finished Good' : 'Raw Material')} • Batch: {selectedExpiryDetail.batchNo || 'N/A'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedExpiryDetail(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* SCROLLABLE BODY */}
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 custom-scrollbar text-xs sm:text-sm">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
+                <div className="flex justify-between items-center border-b border-slate-200/70 pb-2.5">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wide">
+                      Batch / Lot Number
+                    </span>
+                    <span className="font-bold text-slate-900 text-sm block font-mono">
+                      {selectedExpiryDetail.batchNo || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    {(() => {
+                      const days = selectedExpiryDetail.daysUntilExpiry !== undefined ? Number(selectedExpiryDetail.daysUntilExpiry) : Number(selectedExpiryDetail.daysRemaining);
+                      const isExpired = !isNaN(days) && days <= 0;
+                      const isCritical = !isNaN(days) && days > 0 && days <= 7;
+                      const isNear = !isNaN(days) && days > 7 && days <= 30;
+
+                      return (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                          isExpired
+                            ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                            : isCritical
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : isNear
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                : 'bg-[#EDF7EE] text-[#01390f] border border-[#d5ead7]'
+                        }`}>
+                          {isExpired ? 'Expired' : isCritical ? 'Critical (≤7d)' : isNear ? 'Near Expiry (≤30d)' : 'Good Condition'}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Item Code</span>
+                    <span className="font-bold text-slate-800 font-mono">{selectedExpiryDetail.code || selectedExpiryDetail.itemCode || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Stock Volume</span>
+                    <span className="font-bold text-[#01390f] font-mono">
+                      {Number(selectedExpiryDetail.quantity ?? selectedExpiryDetail.stockVolume ?? 0).toLocaleString()} {selectedExpiryDetail.uom || (activeTab === 'finished-goods' ? 'pcs' : 'kg')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Mfg / Production Date</span>
+                    <span className="font-bold text-slate-800 font-mono">
+                      {selectedExpiryDetail.mfgDate ? new Date(selectedExpiryDetail.mfgDate).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Expiration Date</span>
+                    <span className="font-bold text-slate-800 font-mono">
+                      {selectedExpiryDetail.expiryDate && selectedExpiryDetail.expiryDate !== 'N/A' && !isNaN(new Date(selectedExpiryDetail.expiryDate).getTime())
+                        ? new Date(selectedExpiryDetail.expiryDate).toLocaleDateString()
+                        : selectedExpiryDetail.expDate && selectedExpiryDetail.expDate !== 'N/A' && !isNaN(new Date(selectedExpiryDetail.expDate).getTime())
+                          ? new Date(selectedExpiryDetail.expDate).toLocaleDateString()
+                          : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <span className="text-slate-400 block font-semibold text-[11px]">Item Description</span>
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                      {selectedExpiryDetail.itemDescription || selectedExpiryDetail.itemName || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold text-[11px]">Category</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {selectedExpiryDetail.category || (activeTab === 'finished-goods' ? 'Finished Goods' : 'Raw Materials')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setSelectedExpiryDetail(null)}
+                className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

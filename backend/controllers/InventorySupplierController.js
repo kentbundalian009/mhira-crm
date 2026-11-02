@@ -34,14 +34,6 @@ export const createSupplier = async (req, res) => {
       return res.status(400).json({ message: 'Supplier name is required.' });
     }
 
-    if (!contactPerson || contactPerson.trim() === '') {
-      return res.status(400).json({ message: 'Contact person is required.' });
-    }
-
-    if (!contactNumber || contactNumber.trim() === '') {
-      return res.status(400).json({ message: 'Contact number is required.' });
-    }
-
     let supplierCode = code;
 
     // Auto-generate code starting from SL0001 if code missing or blank
@@ -72,8 +64,8 @@ export const createSupplier = async (req, res) => {
       code: supplierCode,
       name: name.trim(),
       address: (address || '').trim(),
-      contactPerson: contactPerson.trim(),
-      contactNumber: contactNumber.trim(),
+      contactPerson: (contactPerson || '').trim(),
+      contactNumber: (contactNumber || '').trim(),
     });
 
     const savedSupplier = await newSupplier.save();
@@ -94,20 +86,12 @@ export const updateSupplier = async (req, res) => {
       return res.status(400).json({ message: 'Supplier name is required.' });
     }
 
-    if (contactPerson !== undefined && (!contactPerson || contactPerson.trim() === '')) {
-      return res.status(400).json({ message: 'Contact person is required.' });
-    }
-
-    if (contactNumber !== undefined && (!contactNumber || contactNumber.trim() === '')) {
-      return res.status(400).json({ message: 'Contact number is required.' });
-    }
-
     const updatePayload = {};
     if (code) updatePayload.code = code.trim();
     if (name) updatePayload.name = name.trim();
     if (address !== undefined) updatePayload.address = address.trim();
-    if (contactPerson) updatePayload.contactPerson = contactPerson.trim();
-    if (contactNumber) updatePayload.contactNumber = contactNumber.trim();
+    if (contactPerson !== undefined) updatePayload.contactPerson = (contactPerson || '').trim();
+    if (contactNumber !== undefined) updatePayload.contactNumber = (contactNumber || '').trim();
 
     const updatedSupplier = await Supplier.findByIdAndUpdate(
       id,

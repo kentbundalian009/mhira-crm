@@ -251,7 +251,7 @@ function MarketingDashboard({ setActiveTab }) {
         {/* Card 1: Total Store Products with Live Progress Bar */}
         <div
           onClick={() => setActiveTab && setActiveTab("product-catalog")}
-          className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-[#01390f]/50 cursor-pointer group"
+          className="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-[#01390f]/50 cursor-pointer group"
           title="Click to view Product Catalog"
         >
           <div className="flex items-start justify-between w-full">
@@ -260,7 +260,7 @@ function MarketingDashboard({ setActiveTab }) {
                 Store Products
               </span>
               <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 leading-tight whitespace-nowrap">
+                <span className="text-xl sm:text-2xl font-black font-mono text-slate-900 leading-tight whitespace-nowrap">
                   {catalog.length}
                 </span>
                 <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
@@ -271,7 +271,7 @@ function MarketingDashboard({ setActiveTab }) {
           </div>
 
           {/* Live Storefront Progress / Loading Bar */}
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5 w-full">
+          <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-col gap-1.5 w-full">
             <div className="flex items-center justify-between text-[11px] gap-2">
               <span className="text-slate-700 font-medium truncate">
                 <strong className="text-slate-900 font-mono font-bold">
@@ -285,7 +285,7 @@ function MarketingDashboard({ setActiveTab }) {
             </div>
 
             {/* Loading / Progress Bar */}
-            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden relative">
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden relative">
               <div
                 className="bg-[#153E97] h-full rounded-full transition-all duration-700 ease-out"
                 style={{ width: `${Math.min(100, liveStorePct)}%` }}
@@ -297,7 +297,7 @@ function MarketingDashboard({ setActiveTab }) {
         {/* Card 2: Live on Storefront */}
         <div
           onClick={() => setActiveTab && setActiveTab("product-catalog")}
-          className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-[#153E97]/50 cursor-pointer group"
+          className="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-[#153E97]/50 cursor-pointer group"
           title="Click to view Live Storefront Products"
         >
           <div className="flex items-start justify-between w-full">
@@ -306,7 +306,7 @@ function MarketingDashboard({ setActiveTab }) {
                 Live on Storefront
               </span>
               <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 leading-tight whitespace-nowrap">
+                <span className="text-xl sm:text-2xl font-black font-mono text-slate-900 leading-tight whitespace-nowrap">
                   {publishedCount}
                 </span>
                 <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
@@ -315,7 +315,7 @@ function MarketingDashboard({ setActiveTab }) {
               </div>
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
             <span className="truncate">Visible to online buyers</span>
             <span className="text-[10px] font-medium text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
               Published
@@ -326,7 +326,7 @@ function MarketingDashboard({ setActiveTab }) {
         {/* Card 3: Draft / Hidden */}
         <div
           onClick={() => setActiveTab && setActiveTab("product-catalog")}
-          className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-[#153E97]/50 cursor-pointer group"
+          className="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:border-[#153E97]/50 cursor-pointer group"
           title="Click to view Draft & Hidden Catalog Items"
         >
           <div className="flex items-start justify-between w-full">
@@ -335,7 +335,7 @@ function MarketingDashboard({ setActiveTab }) {
                 Draft & Inactive
               </span>
               <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="text-2xl sm:text-3xl font-black font-mono text-[#153E97] leading-tight whitespace-nowrap">
+                <span className="text-xl sm:text-2xl font-black font-mono text-[#153E97] leading-tight whitespace-nowrap">
                   {draftCount}
                 </span>
                 <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
@@ -344,7 +344,7 @@ function MarketingDashboard({ setActiveTab }) {
               </div>
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
             <span className="truncate">Pending approval / restock</span>
             <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
               Drafts
@@ -355,7 +355,7 @@ function MarketingDashboard({ setActiveTab }) {
         {/* Card 4: Active Promos & Sale (#153E97 Solid Card) */}
         <div
           onClick={() => setActiveTab && setActiveTab("promotions-vouchers")}
-          className="bg-[#153E97] border border-[#153E97] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:brightness-105 cursor-pointer group text-white"
+          className="bg-[#153E97] border border-[#153E97] rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col justify-between transition-all hover:shadow-md hover:brightness-105 cursor-pointer group text-white"
           title="Click to view Promotions & Vouchers"
         >
           <div className="flex items-start justify-between w-full">
@@ -364,7 +364,7 @@ function MarketingDashboard({ setActiveTab }) {
                 Active Promos & Sale
               </span>
               <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="text-2xl sm:text-3xl font-black font-mono text-white leading-tight whitespace-nowrap">
+                <span className="text-xl sm:text-2xl font-black font-mono text-white leading-tight whitespace-nowrap">
                   {promoCount}
                 </span>
                 <span className="text-[11px] text-white/90 font-semibold uppercase tracking-wider">
@@ -373,7 +373,7 @@ function MarketingDashboard({ setActiveTab }) {
               </div>
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-white/20 flex items-center justify-between text-[11px] text-white">
+          <div className="mt-2.5 pt-2 border-t border-white/20 flex items-center justify-between text-[11px] text-white">
             <span className="truncate text-white font-medium">Badged with discount</span>
             <span className="text-[10px] font-bold text-white bg-white/20 px-1.5 py-0.5 rounded border border-white/30">
               Active

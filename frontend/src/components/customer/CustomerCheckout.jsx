@@ -28,6 +28,12 @@ import HeaderContainer from "../common/HeaderContainer";
 import Footer from "../common/Footer";
 import { showSuccessToast, showErrorToast } from "../../utils/toast";
 import { getUserId, isUserLoggedIn } from "../../utils/userId";
+import { subscribeLiveSync, notifyLiveSync } from "../../utils/liveSync";
+import {
+  getMergedPhDirectory,
+  getCityDetailsForCustomer,
+  findRegionByProvinceName,
+} from "../../utils/phLocations";
 
 const isLocalhost =
   typeof window !== "undefined" &&
@@ -130,6 +136,23 @@ function CustomerCheckout() {
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [isAddressSelectorOpen, setIsAddressSelectorOpen] = useState(false);
 
+  // Inline Add Address Modal for Customer Checkout (Nationwide PH Locations)
+  const [isAddAddressModalOpen, setIsAddAddressModalOpen] = useState(false);
+  const [phDirectory] = useState(() => getMergedPhDirectory());
+  const [addrRecipientName, setAddrRecipientName] = useState("");
+  const [addrStreet, setAddrStreet] = useState("");
+  const [addrRegionId, setAddrRegionId] = useState("region4a");
+  const [addrProvince, setAddrProvince] = useState("Laguna");
+  const [addrCity, setAddrCity] = useState("Calamba City");
+  const [addrBarangay, setAddrBarangay] = useState("Uwisan");
+  const [isCustomBarangay, setIsCustomBarangay] = useState(false);
+  const [customBarangayText, setCustomBarangayText] = useState("");
+  const [addrPostcode, setAddrPostcode] = useState("4027");
+  const [addrPhone, setAddrPhone] = useState("");
+  const [addrInstructions, setAddrInstructions] = useState("");
+  const [addrLabelType, setAddrLabelType] = useState("Home");
+  const [savingNewAddress, setSavingNewAddress] = useState(false);
+
   // Payment Option
   const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery"); // 'Cash on Delivery' | 'Bank Deposit' | 'E-Wallet / Online Payment (PayMongo)'
 
@@ -167,12 +190,27 @@ function CustomerCheckout() {
 
       // 0ms Instant Local Storage Read
       try {
-        const userCached = localStorage.getItem(`cached_cart_items_${activeUserId}`);
-        const stored = userCached || localStorage.getItem("cached_cart_items");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setCheckoutItems(parsed);
+        const selectedStored = localStorage.getItem("checkout_selected_items");
+        let initialItems = null;
+        if (selectedStored) {
+          try {
+            const parsedSel = JSON.parse(selectedStored);
+            if (Array.isArray(parsedSel) && parsedSel.length > 0) {
+              initialItems = parsedSel;
+            }
+          } catch (e) {}
+        }
+
+        if (initialItems) {
+          setCheckoutItems(initialItems);
+        } else {
+          const userCached = localStorage.getItem(`cached_cart_items_${activeUserId}`);
+          const stored = userCached || localStorage.getItem("cached_cart_items");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setCheckoutItems(parsed);
+            }
           }
         }
 
@@ -193,7 +231,21 @@ function CustomerCheckout() {
 
         if (cartRes.status === "fulfilled" && cartRes.value.data?.items) {
           const valid = cartRes.value.data.items.filter((i) => i && i.product);
-          setCheckoutItems(valid);
+          const selectedStored = localStorage.getItem("checkout_selected_items");
+          let filteredFromSelected = null;
+          if (selectedStored) {
+            try {
+              const parsedSel = JSON.parse(selectedStored);
+              if (Array.isArray(parsedSel) && parsedSel.length > 0) {
+                const selIds = parsedSel.map((i) => String(i.productId || i.product?._id || i.product?.id || i._id));
+                const matched = valid.filter((i) => selIds.includes(String(i.productId || i.product?._id || i.product?.id || i._id)));
+                if (matched.length > 0) {
+                  filteredFromSelected = matched;
+                }
+              }
+            } catch (e) {}
+          }
+          setCheckoutItems(filteredFromSelected || valid);
         }
 
         let prof = null;
@@ -203,22 +255,31 @@ function CustomerCheckout() {
         }
 
         let loadedAddresses = [];
-        if (addrRes.status === "fulfilled" && Array.isArray(addrRes.value.data?.addresses)) {
-          loadedAddresses = addrRes.value.data.addresses;
+        if (addrRes.status === "fulfilled") {
+          if (Array.isArray(addrRes.value.data?.addresses)) {
+            loadedAddresses = addrRes.value.data.addresses;
+          } else if (Array.isArray(addrRes.value.data)) {
+            loadedAddresses = addrRes.value.data;
+          }
         }
 
-        if (loadedAddresses.length === 0 && prof?.shippingAddress?.street) {
+        const profStreet =
+          typeof prof?.shippingAddress === "string"
+            ? prof.shippingAddress
+            : (prof?.shippingAddress?.streetAddress || prof?.shippingAddress?.street || prof?.address?.streetAddress || prof?.address?.street || "");
+
+        if (loadedAddresses.length === 0 && profStreet) {
           loadedAddresses = [{
             _id: "default_addr",
             fullName: prof.fullName || "Kent Bundalian",
             phoneNumber: prof.phoneNumber || "+63 9154673941",
-            streetAddress: prof.shippingAddress.street,
-            street: prof.shippingAddress.street,
-            apartment: prof.shippingAddress.apartment || "",
-            barangay: prof.shippingAddress.barangay || "",
-            city: prof.shippingAddress.city || "",
-            province: prof.shippingAddress.province || "Laguna",
-            postalCode: prof.shippingAddress.postalCode || "4027",
+            streetAddress: profStreet,
+            street: profStreet,
+            apartment: prof.shippingAddress?.apartment || "",
+            barangay: prof.shippingAddress?.barangay || "",
+            city: prof.shippingAddress?.city || "",
+            province: prof.shippingAddress?.province || "Laguna",
+            postalCode: prof.shippingAddress?.postalCode || "4027",
             label: "Home",
             isDefault: true,
           }];
@@ -260,7 +321,201 @@ function CustomerCheckout() {
     };
 
     fetchCheckoutData();
+
+    // Listen for customer delivery address updates from CustomerAccount or other tabs
+    const handleAddrUpdated = async (e) => {
+      try {
+        const activeUserId = getUserId();
+        if (!activeUserId) return;
+        const res = await axios.get(`${API_BASE_URL}/api/users/${activeUserId}/addresses`);
+        if (res.data?.addresses && Array.isArray(res.data.addresses)) {
+          setAddresses(res.data.addresses);
+          if (e?.detail?.address) {
+            setSelectedAddress(e.detail.address);
+          } else {
+            const def = res.data.addresses.find((a) => a.isDefault) || res.data.addresses[0];
+            if (def) setSelectedAddress(def);
+          }
+        }
+      } catch (_) {}
+    };
+
+    window.addEventListener("customer_address_updated", handleAddrUpdated);
+    return () => window.removeEventListener("customer_address_updated", handleAddrUpdated);
   }, [navigate]);
+
+  // Inline Add Address Helpers (Cascading Nationwide PH Locations)
+  const openCheckoutAddAddressModal = () => {
+    setAddrRecipientName(userProfile?.fullName || "Customer");
+    setAddrPhone(userProfile?.phoneNumber || "+63 9154673941");
+    setAddrStreet("");
+    const defaultRegion =
+      phDirectory.find((r) => r.regionId === "region4a") || phDirectory[0];
+    const defaultProv = defaultRegion?.provinces?.[0]?.name || "Laguna";
+    const defaultCity =
+      defaultRegion?.provinces?.[0]?.cities?.[0] || "Calamba City";
+    const cityDetails = getCityDetailsForCustomer(defaultProv, defaultCity);
+
+    setAddrRegionId(defaultRegion?.regionId || "region4a");
+    setAddrProvince(defaultProv);
+    setAddrCity(defaultCity);
+    const initialBgy = cityDetails.barangays?.[0] || "Poblacion";
+    setAddrBarangay(initialBgy);
+    setIsCustomBarangay(false);
+    setCustomBarangayText("");
+    setAddrPostcode(cityDetails.postalCode || "4027");
+    setAddrInstructions("");
+    setAddrLabelType("Home");
+    setIsAddAddressModalOpen(true);
+  };
+
+  const handleCheckoutRegionChange = (newRegionId) => {
+    setAddrRegionId(newRegionId);
+    const regObj =
+      phDirectory.find((r) => r.regionId === newRegionId) || phDirectory[0];
+    const firstProvObj = regObj?.provinces?.[0];
+    const firstProv = firstProvObj?.name || "";
+    const firstCity = firstProvObj?.cities?.[0] || "";
+    setAddrProvince(firstProv);
+    setAddrCity(firstCity);
+    if (firstProv && firstCity) {
+      const cityDetails = getCityDetailsForCustomer(firstProv, firstCity);
+      setAddrBarangay(cityDetails.barangays?.[0] || "Poblacion");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+      setAddrPostcode(cityDetails.postalCode || "");
+    } else {
+      setAddrBarangay("");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+      setAddrPostcode("");
+    }
+  };
+
+  const handleCheckoutProvinceChange = (newProvince) => {
+    setAddrProvince(newProvince);
+    const matchedReg = findRegionByProvinceName(newProvince, phDirectory);
+    if (matchedReg) {
+      setAddrRegionId(matchedReg.regionId);
+    }
+    const provObj = (matchedReg?.provinces || []).find(
+      (p) => p.name === newProvince
+    );
+    const cityList = provObj?.cities || [];
+    const firstCity = cityList[0] || "";
+    setAddrCity(firstCity);
+    if (firstCity) {
+      const cityDetails = getCityDetailsForCustomer(newProvince, firstCity);
+      setAddrBarangay(cityDetails.barangays?.[0] || "Poblacion");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+      setAddrPostcode(cityDetails.postalCode || "");
+    } else {
+      setAddrBarangay("");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+      setAddrPostcode("");
+    }
+  };
+
+  const handleCheckoutCityChange = (newCity) => {
+    setAddrCity(newCity);
+    const cityDetails = getCityDetailsForCustomer(addrProvince, newCity);
+    setAddrBarangay(cityDetails.barangays?.[0] || "Poblacion");
+    setIsCustomBarangay(false);
+    setCustomBarangayText("");
+    setAddrPostcode(cityDetails.postalCode || "");
+  };
+
+  const handleSaveCheckoutAddress = async (e) => {
+    e.preventDefault();
+    if (!addrStreet.trim()) {
+      showErrorToast("Please enter your Apt, Suite, Building address.");
+      return;
+    }
+
+    const finalBarangay = isCustomBarangay
+      ? customBarangayText.trim()
+      : addrBarangay === "__CUSTOM__"
+      ? customBarangayText.trim()
+      : addrBarangay;
+
+    if (!finalBarangay) {
+      showErrorToast("Please select or specify your Barangay.");
+      return;
+    }
+
+    setSavingNewAddress(true);
+    try {
+      const activeUserId = getUserId();
+      const currentRegionObj =
+        phDirectory.find((r) => r.regionId === addrRegionId) ||
+        findRegionByProvinceName(addrProvince, phDirectory) ||
+        phDirectory[0];
+
+      const payload = {
+        fullName: addrRecipientName.trim() || userProfile?.fullName || "Customer",
+        phoneNumber: addrPhone.trim() || userProfile?.phoneNumber || "+63 9154673941",
+        region: currentRegionObj?.regionName || "",
+        province: addrProvince,
+        city: addrCity,
+        barangay: finalBarangay,
+        postalCode: addrPostcode.trim(),
+        country: "Philippines",
+        streetAddress: addrStreet.trim(),
+        deliveryInstructions: addrInstructions.trim(),
+        label: addrLabelType,
+        isDefault: true,
+      };
+
+      const res = await axios.post(`${API_BASE_URL}/api/users/${activeUserId}/addresses`, payload);
+      showSuccessToast("Delivery address saved successfully!");
+
+      if (res.data && Array.isArray(res.data.addresses)) {
+        setAddresses(res.data.addresses);
+        const added = res.data.address || res.data.addresses[res.data.addresses.length - 1];
+        setSelectedAddress(added);
+      } else {
+        setSelectedAddress(payload);
+        setAddresses((prev) => [...prev, payload]);
+      }
+
+      window.dispatchEvent(new CustomEvent("customer_address_updated", { detail: { address: payload } }));
+      window.dispatchEvent(new Event("storage"));
+      notifyLiveSync("shipping");
+
+      setIsAddAddressModalOpen(false);
+      setIsAddressSelectorOpen(false);
+    } catch (err) {
+      console.error("Error adding address in checkout:", err);
+      showErrorToast(err.response?.data?.message || "Failed to save delivery address.");
+    } finally {
+      setSavingNewAddress(false);
+    }
+  };
+
+  const checkoutCurrentRegionObj = useMemo(() => {
+    return (
+      phDirectory.find((r) => r.regionId === addrRegionId) ||
+      findRegionByProvinceName(addrProvince, phDirectory) ||
+      phDirectory[0]
+    );
+  }, [phDirectory, addrRegionId, addrProvince]);
+
+  const checkoutCurrentRegionProvinces = useMemo(() => {
+    return checkoutCurrentRegionObj?.provinces || [];
+  }, [checkoutCurrentRegionObj]);
+
+  const checkoutCurrentProvinceCities = useMemo(() => {
+    const provObj =
+      checkoutCurrentRegionProvinces.find((p) => p.name === addrProvince) ||
+      checkoutCurrentRegionProvinces[0];
+    return provObj?.cities || [];
+  }, [checkoutCurrentRegionProvinces, addrProvince]);
+
+  const checkoutCurrentCityData = useMemo(() => {
+    return getCityDetailsForCustomer(addrProvince, addrCity);
+  }, [addrProvince, addrCity]);
 
   // Calculations
   const merchandiseSubtotal = useMemo(() => {
@@ -357,6 +612,17 @@ function CustomerCheckout() {
     };
 
     calculateDynamicShipping();
+
+    const unsub = subscribeLiveSync(() => {
+      calculateDynamicShipping();
+    });
+    const onFocus = () => calculateDynamicShipping();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      unsub();
+      window.removeEventListener("focus", onFocus);
+    };
   }, [selectedAddress, userProfile, merchandiseSubtotal, checkoutItems]);
 
   const availablePoints = Number(userProfile?.rewardPoints || 0);
@@ -426,30 +692,47 @@ function CustomerCheckout() {
   // Address Display Helper
   const formattedAddressText = useMemo(() => {
     if (selectedAddress) {
+      if (typeof selectedAddress === "string") return selectedAddress.trim();
       const street = selectedAddress.streetAddress || selectedAddress.street || "";
+      const streetStr = typeof street === "object" ? Object.values(street).join(" ") : String(street || "");
       const apt = selectedAddress.apartment || "";
       const brgy = selectedAddress.barangay
-        ? `Brgy. ${selectedAddress.barangay.replace(/^Brgy\.?\s*/i, "")}`
+        ? `Brgy. ${String(selectedAddress.barangay).replace(/^Brgy\.?\s*/i, "")}`
         : "";
       const city = selectedAddress.city || "";
       const prov = selectedAddress.province || selectedAddress.region || "";
       const zip = selectedAddress.postalCode || "";
 
-      const parts = [street, apt, brgy, city, prov, zip].filter(Boolean);
+      const parts = [streetStr, apt, brgy, city, prov, zip].filter(Boolean);
       return parts.join(", ");
     }
-    if (userProfile?.shippingAddress?.street) {
+    if (userProfile?.shippingAddress) {
       const s = userProfile.shippingAddress;
-      return [
-        s.street,
-        s.apartment,
-        s.barangay ? `Brgy. ${s.barangay.replace(/^Brgy\.?\s*/i, "")}` : "",
-        s.city,
-        s.province,
-        s.postalCode,
-      ]
-        .filter(Boolean)
-        .join(", ");
+      if (typeof s === "string") return s.trim();
+      if (typeof s === "object") {
+        return [
+          s.streetAddress || s.street,
+          s.apartment,
+          s.barangay ? `Brgy. ${String(s.barangay).replace(/^Brgy\.?\s*/i, "")}` : "",
+          s.city,
+          s.province || s.region,
+          s.postalCode,
+          s.country,
+        ]
+          .filter(Boolean)
+          .join(", ");
+      }
+    }
+    if (userProfile?.address) {
+      if (typeof userProfile.address === "string") return userProfile.address.trim();
+      if (typeof userProfile.address === "object") {
+        return [
+          userProfile.address.streetAddress || userProfile.address.street,
+          userProfile.address.apartment,
+          userProfile.address.city,
+          userProfile.address.province,
+        ].filter(Boolean).join(", ");
+      }
     }
     return "Citadel Residence, Block 25 Lot 1, Phase 1, Uwisan, Brgy. Uwisan, Calamba City, Laguna, 4027";
   }, [selectedAddress, userProfile]);
@@ -703,19 +986,40 @@ function CustomerCheckout() {
                 <div className="p-3.5 bg-slate-50/80 border-t border-gray-200 space-y-2.5 text-xs animate-in fade-in duration-200">
                   <div className="flex items-center justify-between px-1">
                     <p className="font-semibold text-slate-700">Select Delivery Address:</p>
-                    <Link
-                      to="/account?tab=addresses"
-                      className="text-[11px] font-semibold text-[#01390f] hover:underline"
-                    >
-                      + Manage Addresses
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCheckoutAddAddressModal();
+                        }}
+                        className="text-[11px] font-semibold text-[#01390f] hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add New Address</span>
+                      </button>
+                      <Link
+                        to="/account?tab=addresses"
+                        className="text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:underline"
+                      >
+                        Manage
+                      </Link>
+                    </div>
                   </div>
                   {addresses.length === 0 ? (
-                    <div className="p-3 bg-white rounded-xl border border-gray-200 text-slate-500 text-xs">
-                      No saved addresses found.{" "}
-                      <Link to="/account?tab=addresses" className="text-[#01390f] font-semibold underline">
-                        Add an address in your account
-                      </Link>
+                    <div className="p-3.5 bg-white rounded-xl border border-gray-200 text-slate-600 text-xs flex items-center justify-between gap-3">
+                      <span>No saved addresses found.</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCheckoutAddAddressModal();
+                        }}
+                        className="bg-[#01390f] text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#024a14] cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Address</span>
+                      </button>
                     </div>
                   ) : (
                     addresses.map((addr) => {
@@ -1401,6 +1705,295 @@ function CustomerCheckout() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= INLINE ADD ADDRESS MODAL (NATIONWIDE PH MODULE) ================= */}
+      {isAddAddressModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 sm:p-8 relative my-auto animate-fadeIn max-h-[92vh] overflow-y-auto">
+            {/* Top Right Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsAddAddressModalOpen(false)}
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer absolute top-6 right-6 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Modal Title */}
+            <div className="pr-8 mb-5">
+              <h3 className="text-xl font-normal text-slate-900 tracking-tight">
+                Add Delivery Address
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Enter your Philippine delivery address and courier instructions for checkout.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveCheckoutAddress} className="space-y-4">
+              {/* SECTION 1: ADDRESS INFORMATION */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+                  <MapPin className="w-4 h-4 text-[#01390f]" />
+                  <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                    Address Information
+                  </span>
+                </div>
+
+                {/* Recipient Full Name */}
+                <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                  <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                    Recipient Full Name*
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addrRecipientName}
+                    onChange={(e) => setAddrRecipientName(e.target.value)}
+                    placeholder="Recipient's Name"
+                    className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
+                  />
+                </div>
+
+                {/* Phone Number */}
+                <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                  <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                    Phone Number*
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addrPhone}
+                    onChange={(e) => setAddrPhone(e.target.value)}
+                    placeholder="+63 9154673941"
+                    className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
+                  />
+                </div>
+
+                {/* Apt, Suite, Building, Street */}
+                <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                  <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                    Apt, Suite, Building, Street*
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addrStreet}
+                    onChange={(e) => setAddrStreet(e.target.value)}
+                    placeholder="House/Unit No., Street name, Subdivision/Building"
+                    className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
+                  />
+                </div>
+
+                {/* Region* and Province* (2 Columns - Nationwide PH Module) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Region Dropdown */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      Region*
+                    </label>
+                    <select
+                      value={checkoutCurrentRegionObj?.regionId || addrRegionId}
+                      onChange={(e) => handleCheckoutRegionChange(e.target.value)}
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
+                    >
+                      {phDirectory.map((reg) => (
+                        <option key={reg.regionId} value={reg.regionId}>
+                          {reg.regionName}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* Province Dropdown */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      Province*
+                    </label>
+                    <select
+                      value={addrProvince}
+                      onChange={(e) => handleCheckoutProvinceChange(e.target.value)}
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
+                    >
+                      {checkoutCurrentRegionProvinces.map((prov) => (
+                        <option key={prov.name} value={prov.name}>
+                          {prov.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* City/Municipality* and Barangay* (2 Columns) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* City/Municipality Dropdown */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      City/Municipality*
+                    </label>
+                    <select
+                      value={addrCity}
+                      onChange={(e) => handleCheckoutCityChange(e.target.value)}
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
+                    >
+                      {checkoutCurrentProvinceCities.map((cityName) => (
+                        <option key={cityName} value={cityName}>
+                          {cityName}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* Barangay Dropdown */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      Barangay*
+                    </label>
+                    <select
+                      value={isCustomBarangay ? "__CUSTOM__" : addrBarangay}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__CUSTOM__") {
+                          setIsCustomBarangay(true);
+                          setAddrBarangay("__CUSTOM__");
+                        } else {
+                          setIsCustomBarangay(false);
+                          setAddrBarangay(val);
+                        }
+                      }}
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
+                    >
+                      {(checkoutCurrentCityData.barangays || []).map((bgy) => (
+                        <option key={bgy} value={bgy}>
+                          {bgy}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__">+ Other / Enter manually...</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Optional Custom Barangay Text Input */}
+                {isCustomBarangay && (
+                  <div className="relative border border-[#01390f]/40 rounded-xl px-4 py-3 focus-within:border-[#01390f] transition-colors bg-emerald-50/20">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-medium text-[#01390f]">
+                      Enter Barangay Name*
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={customBarangayText}
+                      onChange={(e) => setCustomBarangayText(e.target.value)}
+                      placeholder="Type your exact Barangay"
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
+                    />
+                  </div>
+                )}
+
+                {/* Postcode and Country* (2 Columns) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Postcode Input */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      Postcode
+                    </label>
+                    <input
+                      type="text"
+                      value={addrPostcode}
+                      onChange={(e) => setAddrPostcode(e.target.value)}
+                      placeholder="4027"
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
+                    />
+                  </div>
+
+                  {/* Country (Auto-selected Philippines) */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-slate-50/60">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      Country*
+                    </label>
+                    <div className="flex items-center justify-between text-sm text-slate-900 font-normal">
+                      <span>Philippines</span>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: ADD INSTRUCTION (OPTIONAL REMARKS) */}
+              <div className="pt-2 space-y-2">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                  <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                    Delivery Instruction
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                    Optional
+                  </span>
+                </div>
+                <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                  <input
+                    type="text"
+                    value={addrInstructions}
+                    onChange={(e) => setAddrInstructions(e.target.value)}
+                    placeholder="e.g., Near yellow gate, leave with guard, ring bell"
+                    className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
+                  />
+                </div>
+              </div>
+
+              {/* SECTION 3: LABEL */}
+              <div className="pt-2 space-y-2">
+                <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider block">
+                  Address Label
+                </span>
+                <div className="flex items-center gap-3">
+                  {["Home", "Work", "Other"].map((lbl) => (
+                    <button
+                      key={lbl}
+                      type="button"
+                      onClick={() => setAddrLabelType(lbl)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                        addrLabelType === lbl
+                          ? "bg-[#01390f] text-white border-[#01390f] shadow-xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAddressModalOpen(false)}
+                  className="px-5 py-2.5 rounded-full text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingNewAddress}
+                  className="inline-flex items-center gap-2 bg-[#01390f] hover:bg-[#024a14] text-white px-6 py-2.5 rounded-full text-xs font-semibold transition-all shadow-md active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                >
+                  {savingNewAddress ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Address</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

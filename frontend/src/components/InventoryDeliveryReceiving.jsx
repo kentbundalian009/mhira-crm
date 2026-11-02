@@ -38,6 +38,7 @@ import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
 import MasterCategoryUomModal from './common/MasterCategoryUomModal';
+import { getUserFullName } from '../utils/userId';
 
 const DEFAULT_GLOBAL_THRESHOLDS = {
   criticalLevel: 0,
@@ -90,6 +91,51 @@ const getAvailableReceivingUnits = (baseUom) => {
   if (b === 'g' || b === 'kg') return ['kg', 'g', 'lt'];
   if (b === 'ml' || b === 'l' || b === 'lt') return ['lt', 'ml', 'kg', 'l'];
   return [baseUom || 'pcs'];
+};
+
+// Helper to load image as base64 for jsPDF
+const loadBase64Image = (url) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
+// Helper to create watermark image with controlled opacity
+const loadWatermarkImage = (url, opacity = 0.08) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
 };
 
 function InventoryDeliveryReceiving() {
@@ -796,64 +842,111 @@ function InventoryDeliveryReceiving() {
   };
 
   // Generate & Download Inbound Delivery Receipt PDF
-  const handleDownloadInboundPdf = (log) => {
+  const handleDownloadInboundPdf = async (log) => {
     if (!log) return;
     try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
 
-      // Brand Header Banner
-      doc.setFillColor(1, 57, 15); // #01390f deep green
-      doc.rect(0, 0, 210, 22, 'F');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
 
-      doc.setTextColor(255, 255, 255);
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
+
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) { }
+      }
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('CRM INVENTORY SYSTEM', 14, 11);
-
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('GOODS INBOUND RECEIVING / DELIVERY RECEIPT SLIP', 14, 17);
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
 
       doc.setFont('helvetica', 'bold');
-      doc.text(`DR: ${log.batchPoNo || 'N/A'}`, 196, 14, { align: 'right' });
-
-      // Metadata Box
-      doc.setDrawColor(226, 232, 240);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 28, 182, 30, 3, 3, 'FD');
-
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
       doc.setTextColor(71, 85, 105);
-      doc.text('SUPPLIER BRAND:', 18, 36);
-      doc.text('ORIGIN / LOCATION:', 18, 44);
-      doc.text('RECEIVED BY:', 18, 52);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
 
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      doc.text(log.supplierBrand || 'N/A', 52, 36);
-      doc.text(log.originLocation || 'Main Warehouse', 52, 44);
-      doc.text(log.preparedBy || 'Inventory Clerk', 52, 52);
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Official Inbound Receiving Delivery Receipt & Material Inspection Slip', 36, 26);
 
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
+
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('DELIVERY RECEIPT SLIP', pageWidth - 14, 16.5, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
       doc.setTextColor(71, 85, 105);
-      doc.text('DATE RECEIVED:', 122, 36);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${new Date(log.dateReceived).toLocaleDateString()}`, 155, 36);
+      doc.text(`DR NO: DR-${log.batchPoNo || 'N/A'}`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`DATE RECEIVED: ${new Date(log.dateReceived).toLocaleDateString()}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`SUPPLIER: ${log.supplierBrand || 'N/A'}`, pageWidth - 14, 30, { align: 'right' });
 
-      doc.setFont('helvetica', 'bold');
-      doc.text('TOTAL ITEMS:', 122, 44);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${log.items?.length || 0} Materials`, 155, 44);
+      // Clean dividing line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
 
-      doc.setFont('helvetica', 'bold');
-      doc.text('RECORD LOGGED:', 122, 52);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${new Date(log.createdAt || Date.now()).toLocaleDateString()}`, 155, 52);
+      // Metadata Table (4-column Summary)
+      autoTable(doc, {
+        startY: 36,
+        margin: { left: 14, right: 14 },
+        head: [['DELIVERY RECEIPT NO', 'SUPPLIER / BRAND', 'ORIGIN LOCATION', 'TOTAL MATERIALS RECEIVED']],
+        body: [[
+          `DR #${log.batchPoNo || 'N/A'}`,
+          log.supplierBrand || 'N/A',
+          log.originLocation || 'Main Warehouse',
+          `${log.items?.length || 0} Materials Logged`,
+        ]],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [71, 85, 105],
+          fontStyle: 'bold',
+          fontSize: 5.6,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        bodyStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        columnStyles: {
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
+        },
+      });
 
       // Table of Received Items
       const tableHead = [
-        ['#', 'Item Code', 'Item Name / Description', 'Qty Received', 'UOM', 'Expiry Date', 'Status']
+        ['#', 'ITEM CODE', 'MATERIAL DESCRIPTION', 'QTY RECEIVED', 'UOM', 'EXPIRY DATE', 'RECEIVING STATUS']
       ];
 
       const tableBody = (log.items || []).map((item, idx) => {
@@ -867,7 +960,7 @@ function InventoryDeliveryReceiving() {
 
         return [
           idx + 1,
-          item.code || 'N/A',
+          item.code || item.itemCode || 'N/A',
           item.itemName || item.itemDescription || item.description || 'Raw Material',
           qtyText,
           (item.uom || 'pcs').toUpperCase(),
@@ -876,59 +969,150 @@ function InventoryDeliveryReceiving() {
         ];
       });
 
+      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
       autoTable(doc, {
-        startY: 64,
+        startY: mainTableStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
         head: tableHead,
         body: tableBody.length > 0 ? tableBody : [['-', '-', 'No materials recorded', '-', '-', '-', '-']],
-        headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 8,
-          halign: 'center',
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
         },
-        bodyStyles: {
-          fontSize: 7.5,
-          textColor: 50,
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
           halign: 'center',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
         },
         columnStyles: {
           0: { halign: 'center', cellWidth: 10 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 30 },
-          2: { fontStyle: 'bold', halign: 'left', cellWidth: 55 },
-          3: { halign: 'center', cellWidth: 24 },
-          4: { fontStyle: 'bold', halign: 'center', textColor: [1, 57, 15], cellWidth: 25 },
-          5: { halign: 'center', cellWidth: 14 },
-          6: { halign: 'center', cellWidth: 20 },
-          7: { halign: 'center', fontStyle: 'bold', cellWidth: 24 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 50 },
+          3: { halign: 'center', fontStyle: 'bold', cellWidth: 24 },
+          4: { fontStyle: 'bold', halign: 'center', cellWidth: 16 },
+          5: { halign: 'center', cellWidth: 24 },
+          6: { halign: 'center', fontStyle: 'bold', cellWidth: 32 },
         },
-        theme: 'grid',
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const txt = String(data.cell.raw || '');
+            if (txt.includes('HOLD') || txt.includes('Rejected')) {
+              data.cell.styles.textColor = [190, 18, 60];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (txt.includes('Stock Received')) {
+              data.cell.styles.textColor = [21, 62, 151];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const thumbH = 7;
+            const thumbW = thumbH * logoRatio;
+            if (logoBase64) {
+              try {
+                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+              } catch (e) { }
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(21, 62, 151);
+            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  •  DELIVERY RECEIPT SLIP`, 14 + thumbW + 4, 11.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`DR: ${log.batchPoNo || 'N/A'}`, pageWidth - 14, 11.5, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(14, 16, pageWidth - 14, 16);
+          }
+
+          const footerY = pageHeight - 7;
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+        },
       });
 
-      const finalY = doc.lastAutoTable.finalY + 14;
-
-      // Signatures
-      if (finalY + 35 < 285) {
-        doc.setDrawColor(180, 180, 180);
-        doc.setTextColor(71, 85, 105);
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'bold');
-
-        doc.line(14, finalY + 18, 65, finalY + 18);
-        doc.text('RECEIVED BY (Warehouse Clerk)', 14, finalY + 22);
-
-        doc.line(78, finalY + 18, 130, finalY + 18);
-        doc.text('INSPECTED BY (QC Inspector)', 78, finalY + 22);
-
-        doc.line(143, finalY + 18, 196, finalY + 18);
-        doc.text('NOTED BY (Inventory Officer)', 143, finalY + 22);
+      // Executive Audit Sign-off Section
+      let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
       }
 
-      // Footer
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Generated automatically by CRM Inventory System | Date: ${new Date().toLocaleString()}`, 14, 290);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
+
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
+
+      // Final pass: watermark & dynamic page numbers on every page
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) { }
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
 
       doc.save(`Inbound_Receipt_${log.batchPoNo || 'Slip'}.pdf`);
       showSuccessToast(`Downloaded PDF for DR #${log.batchPoNo}`);
@@ -948,6 +1132,20 @@ function InventoryDeliveryReceiving() {
       return current + received > limit;
     });
   }, [selectedItems, getResolvedThreshold]);
+
+  const hasBlockedSpec = hasOverstockItems;
+
+  const isFormComplete = useMemo(() => {
+    const hasHeader = Boolean((batchPoNo || '').trim()) && Boolean(supplierBrand) && Boolean(dateReceived);
+    const hasItems = selectedItems.length > 0;
+    const allQtysValid = hasItems && selectedItems.every(
+      (item) => (item.rawInputQty && Number(item.rawInputQty) > 0) || (Number(item.quantityReceived) > 0)
+    );
+    const allExpiriesValid = hasItems && selectedItems.every(
+      (item) => Boolean(item.expiryDate) || item.expiryDate === 'N/A'
+    );
+    return hasHeader && hasItems && allQtysValid && allExpiriesValid && !isDrDuplicate;
+  }, [batchPoNo, supplierBrand, dateReceived, selectedItems, isDrDuplicate]);
 
   return (
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif] text-slate-700">
@@ -1012,7 +1210,7 @@ function InventoryDeliveryReceiving() {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. DR-2026-001"
+                        placeholder="Enter DR Number"
                         value={batchPoNo}
                         onChange={(e) => setBatchPoNo(e.target.value)}
                         className={`w-full bg-slate-50/50 hover:bg-white focus:bg-white border rounded-lg pl-9 pr-3 py-2 text-xs font-mono font-bold focus:outline-none transition-all h-[34px] ${isDrDuplicate
@@ -1034,7 +1232,8 @@ function InventoryDeliveryReceiving() {
                       Supplier Name <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
-                      <Building2 className="w-4 h-4 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                      {/* Location icon sa loob ng input */}
+                      <MapPin className="w-4 h-4 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
                       <select
                         required
                         value={supplierBrand}
@@ -1050,10 +1249,10 @@ function InventoryDeliveryReceiving() {
                       </select>
                       <ChevronDown className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                     </div>
+                    {/* Tinanggal na ang icon dito sa labas */}
                     {selectedSupplierAddress && (
-                      <p className="text-[11px] text-slate-500 mt-1 truncate flex items-center gap-1">
-                        <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
-                        <span>{selectedSupplierAddress}</span>
+                      <p className="text-[11px] text-slate-500 mt-1 truncate">
+                        {selectedSupplierAddress}
                       </p>
                     )}
                   </div>
@@ -1218,81 +1417,85 @@ function InventoryDeliveryReceiving() {
             </div>
 
 
-            {/* MANIFEST HEADER */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  Inbound Receiving Manifest
-                </h3>
-                <span className="text-xs font-semibold font-mono px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md border border-slate-200">
-                  {selectedItems.length} {selectedItems.length === 1 ? 'Item' : 'Items'}
-                </span>
-              </div>
-              {selectedItems.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearManifest}
-                  className="inline-flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold hover:underline cursor-pointer"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Clear Manifest</span>
-                </button>
-              )}
-            </div>
+            {/* MANIFEST HEADER & TABLE (ONLY VISIBLE WHEN ITEMS ARE SELECTED - SAME AS WIP) */}
+            {selectedItems.length > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Inbound Receiving Manifest
+                    </h3>
+                    <span className="text-xs font-mono font-medium text-slate-400">
+                      ({selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearManifest}
+                    className="inline-flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Clear Manifest</span>
+                  </button>
+                </div>
 
-            {/* MANIFEST TABLE */}
-            <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden">
-              <div className="overflow-x-auto relative custom-scrollbar">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                      {/* 1. CODE */}
-                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
-                      {/* 2. ITEM NAME */}
-                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px] font-semibold text-white">
-                        ITEM NAME
-                      </th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">CURRENT STOCK</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QTY RECEIVED</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">AUTO-CONVERTED STOCK</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">PROJECTED STOCK & LIMIT</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">EXPIRY DATE *</th>
-                      <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[80px] font-semibold text-white">ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {selectedItems.map((item, index) => {
-                      const current = Number(item.currentStock || 0);
-                      const convertedQty = Number(item.quantityReceived || 0);
-                      const projected = current + convertedQty;
-                      const status = calculateProjectedStatus(current, convertedQty, item);
-                      const limit = status.maxLimit;
-                      const availableUnits = getAvailableReceivingUnits(item.uom);
-
-                      return (
-                        <tr key={item.lineKey || index} className="hover:bg-slate-50/90 transition-colors whitespace-nowrap group">
+                {/* MANIFEST TABLE */}
+                <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto relative custom-scrollbar">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
                           {/* 1. CODE */}
-                          <td className="py-3 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <span className="inline-flex items-center text-xs font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                              {item.code}
-                            </span>
+                          <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
+                          {/* 2. ITEM NAME */}
+                          <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px] font-semibold text-white">
+                            ITEM NAME
+                          </th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">CURRENT STOCK</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QTY RECEIVED</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">AUTO-CONVERTED STOCK</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">PROJECTED STOCK & LIMIT</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">EXPIRY DATE *</th>
+                          <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[80px] font-semibold text-white">ACTION</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedItems.map((item, index) => {
+                          const current = Number(item.currentStock || 0);
+                          const convertedQty = Number(item.quantityReceived || 0);
+                          const projected = current + convertedQty;
+                          const status = calculateProjectedStatus(current, convertedQty, item);
+                          const limit = status.maxLimit;
+                          const availableUnits = getAvailableReceivingUnits(item.uom);
+
+                          return (
+                            <tr
+                              key={item.lineKey || index}
+                              className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                        >
+                          {/* 1. CODE */}
+                          <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {item.code || 'N/A'}
                           </td>
 
                           {/* 2. ITEM NAME */}
-                          <td className="py-3.5 px-4 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <span className="font-bold text-slate-900 text-xs sm:text-sm block">
-                              {item.itemName || item.itemDescription || item.description || 'N/A'}
-                            </span>
+                          <td className="py-3.5 px-4 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                            {item.itemName || item.itemDescription || item.description || 'N/A'}
                           </td>
 
                           {/* 3. CURRENT STOCK */}
-                          <td className="py-3 px-4 text-center text-slate-600 font-mono font-semibold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            {current.toLocaleString()} <span className="text-[10px] text-slate-400 uppercase font-bold">{item.uom}</span>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <span className="font-mono font-bold text-slate-900 text-sm">
+                              {current.toLocaleString()}{' '}
+                              <span className="text-[10px] text-slate-400 font-normal font-sans uppercase">
+                                {item.uom}
+                              </span>
+                            </span>
                           </td>
 
                           {/* 4. QTY RECEIVED */}
-                          <td className="py-3 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <div className="inline-flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <div className="inline-flex items-center bg-white border border-slate-200 rounded-lg shadow-2xs focus-within:border-[#01390f] focus-within:ring-1 focus-within:ring-[#01390f]/30 overflow-hidden transition-all">
                               <input
                                 type="number"
                                 min="0.01"
@@ -1300,12 +1503,14 @@ function InventoryDeliveryReceiving() {
                                 value={item.rawInputQty ?? ''}
                                 onWheel={(e) => e.target.blur()}
                                 onChange={(e) => handleItemQtyChange(index, e.target.value)}
-                                className="w-16 text-center bg-white border border-slate-200 rounded-lg py-1 text-xs font-bold font-mono text-slate-900 focus:outline-none focus:border-[#01390f]"
+                                placeholder="0"
+                                className="w-16 text-center py-1.5 px-2 text-xs font-bold font-mono text-slate-900 bg-transparent focus:outline-none"
                               />
+                              <div className="h-4 w-[1px] bg-slate-200"></div>
                               <select
                                 value={item.receivingUnit || item.uom}
                                 onChange={(e) => handleItemUnitChange(index, e.target.value)}
-                                className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold font-mono text-[#01390f] uppercase focus:outline-none cursor-pointer"
+                                className="py-1.5 px-2 text-xs font-bold font-mono text-[#01390f] uppercase bg-transparent focus:outline-none cursor-pointer"
                               >
                                 {availableUnits.map((u) => (
                                   <option key={u} value={u}>
@@ -1317,20 +1522,31 @@ function InventoryDeliveryReceiving() {
                           </td>
 
                           {/* 5. AUTO-CONVERTED STOCK */}
-                          <td className="py-3 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <span className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-md whitespace-nowrap">
-                              +{convertedQty.toLocaleString()} <span className="uppercase text-[10px] text-emerald-600 font-semibold">{item.uom}</span>
-                            </span>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="font-mono font-bold text-slate-900 text-sm">
+                                +{convertedQty.toLocaleString()}{' '}
+                                <span className="text-[10px] text-slate-400 font-normal font-sans uppercase">
+                                  {item.uom}
+                                </span>
+                              </span>
+                              <span className="inline-flex items-center justify-center text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 uppercase">
+                                Converted
+                              </span>
+                            </div>
                           </td>
 
-                          {/* 7. PROJECTED STOCK & LIMIT */}
-                          <td className="py-3 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {/* 6. PROJECTED STOCK & LIMIT */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                             <div className="flex flex-col items-center gap-1">
-                              <span className="font-mono text-xs font-bold text-slate-900">
-                                {projected.toLocaleString()} <span className="text-slate-400 font-normal">/ {limit.toLocaleString()} max</span>
+                              <span className="font-mono font-bold text-slate-900 text-sm">
+                                {projected.toLocaleString()}{' '}
+                                <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                  / {limit.toLocaleString()} max
+                                </span>
                               </span>
                               <span
-                                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${status.badgeClass}`}
+                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-md border ${status.badgeClass}`}
                               >
                                 <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`}></span>
                                 {status.isOverLimit ? `Overstock (+${status.overAmount})` : status.label}
@@ -1338,11 +1554,11 @@ function InventoryDeliveryReceiving() {
                             </div>
                           </td>
 
-                          {/* 8. EXPIRY DATE */}
-                          <td className="py-3 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {/* 7. EXPIRY DATE */}
+                          <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                             <div className="flex items-center gap-1.5">
                               {item.expiryDate === 'N/A' ? (
-                                <div className="bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5 text-xs font-mono font-bold text-slate-700 select-none shadow-2xs whitespace-nowrap">
+                                <div className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-1 text-xs font-mono font-bold text-slate-700 select-none shadow-2xs whitespace-nowrap">
                                   N/A (No Expiry)
                                 </div>
                               ) : (
@@ -1357,7 +1573,9 @@ function InventoryDeliveryReceiving() {
                                     } catch (err) { }
                                   }}
                                   onKeyDown={(e) => e.preventDefault()}
-                                  className={`bg-white border rounded-full px-3 py-1.5 text-xs font-mono text-slate-700 focus:outline-none focus:border-[#01390f] cursor-pointer shadow-2xs transition-all ${!item.expiryDate ? 'border-amber-300 ring-1 ring-amber-300/60 bg-amber-50/20' : 'border-slate-200'
+                                  className={`bg-white border rounded-lg px-2.5 py-1 text-xs font-mono text-slate-700 focus:outline-none focus:border-[#01390f] cursor-pointer shadow-2xs transition-all ${!item.expiryDate
+                                    ? 'border-amber-300 ring-1 ring-amber-300/60 bg-amber-50/20'
+                                    : 'border-slate-200'
                                     }`}
                                 />
                               )}
@@ -1366,9 +1584,9 @@ function InventoryDeliveryReceiving() {
                                 type="button"
                                 onClick={() => handleToggleNoExpiry(index)}
                                 title={item.expiryDate === 'N/A' ? 'Click to select a date instead' : 'Set as N/A (Non-expiring)'}
-                                className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.98] cursor-pointer text-center whitespace-nowrap border ${item.expiryDate === 'N/A'
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer text-center whitespace-nowrap border ${item.expiryDate === 'N/A'
                                   ? 'bg-[#01390f] hover:bg-[#0a5219] text-white border-[#01390f]'
-                                  : 'bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] border-[#d5ead7]'
+                                  : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
                                   }`}
                               >
                                 {item.expiryDate === 'N/A' ? '✓ N/A' : 'N/A'}
@@ -1381,62 +1599,73 @@ function InventoryDeliveryReceiving() {
                             )}
                           </td>
 
-                          {/* 9. ACTION (STICKY RIGHT) */}
-                          <td className="py-3 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[80px]">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSelectedItem(index)}
-                              title="Delete Item from Manifest"
-                              className="w-8 h-8 rounded-full bg-white border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          {/* 8. ACTION (STICKY RIGHT) */}
+                          <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                            <div className="flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSelectedItem(index)}
+                                title="Delete Item from Manifest"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
                     })}
-
-                    {selectedItems.length === 0 && (
-                      <tr>
-                        <td colSpan="9" className="text-center py-10 text-slate-400 font-medium italic whitespace-nowrap">
-                          No raw materials added yet. Search and select items above to build the manifest.
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
             </div>
+          </>
+        )}
 
-            {hasOverstockItems && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex flex-col gap-1 text-xs">
-                <span className="font-bold text-amber-900">Overstock Warning Notice:</span>
-                <span>
-                  One or more raw materials will exceed their configured Overstock Buffer Limit after this shipment is received.
-                </span>
-              </div>
+        {hasOverstockItems && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex flex-col gap-1 text-xs">
+            <span className="font-bold text-amber-900">Overstock Warning Notice:</span>
+            <span>
+              One or more raw materials will exceed their configured Overstock Buffer Limit after this shipment is received.
+            </span>
+          </div>
+        )}
+
+        {/* ACTION BUTTONS FOOTER */}
+        <div className="flex items-center justify-end gap-2.5 pt-2">
+          <button
+            type="submit"
+            disabled={!isFormComplete || submitting || hasBlockedSpec}
+            title={
+              !isFormComplete
+                ? "Please complete all required fields and select raw materials"
+                : hasBlockedSpec
+                  ? "Blocked: Overstock Limit"
+                  : "Confirm Inbound Receipt"
+            }
+            className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 whitespace-nowrap ${hasBlockedSpec
+              ? 'bg-rose-100 text-rose-700 border border-rose-300 cursor-not-allowed opacity-80'
+              : !isFormComplete
+                ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-70 shadow-none'
+                : 'bg-[#01390f] hover:bg-[#0a5219] text-white active:scale-[0.99] cursor-pointer'
+              }`}
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : hasBlockedSpec ? (
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+            ) : (
+              <CheckCircle className="w-4 h-4" />
             )}
-
-            {/* ACTION BUTTONS FOOTER */}
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setViewMode('logs')}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                <span className="whitespace-nowrap">
-                  {submitting ? 'Confirming...' : 'Confirm'}
-                </span>
-              </button>
-            </div>
+            <span className="whitespace-nowrap">
+              {submitting
+                ? "Confirming..."
+                : hasBlockedSpec
+                  ? "Blocked: Overstock Limit"
+                  : "Confirm"}
+            </span>
+          </button>
+        </div>
           </form>
         )}
 
@@ -1479,11 +1708,11 @@ function InventoryDeliveryReceiving() {
                     <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Search DR Number, Supplier Brand, Location, Prepared By..."
+                      placeholder="Search DR Number, Supplier, Date..."
                       value={logSearchQuery}
                       onChange={(e) => setLogSearchQuery(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] h-[38px] font-normal shadow-2xs transition-colors"
-                      title="Search DR Number, Supplier, Origin..."
+                      title="Search DR Number, Supplier..."
                     />
                     {logSearchQuery && (
                       <button
@@ -1506,7 +1735,7 @@ function InventoryDeliveryReceiving() {
                         value={logSupplierFilter}
                         onChange={(e) => setLogSupplierFilter(e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
-                        title="Filter by Supplier Brand"
+                        title="Filter by Supplier"
                       >
                         <option value="All">All Suppliers ({uniqueLogSuppliers.length})</option>
                         {uniqueLogSuppliers.map((sup, idx) => (
@@ -1610,12 +1839,8 @@ function InventoryDeliveryReceiving() {
                       <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px] font-semibold text-white">
                         DR NUMBER
                       </th>
-                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">SUPPLIER BRAND</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">DATE RECEIVED</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">TOTAL MATERIALS</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">ORIGIN LOCATION</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">PREPARED BY</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STATUS</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px] font-semibold text-white">SUPPLIER</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">DATE</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-36 min-w-[130px] font-semibold text-white">ACTION</th>
                     </tr>
                   </thead>
@@ -1632,43 +1857,18 @@ function InventoryDeliveryReceiving() {
                           </span>
                         </td>
 
-                        {/* SUPPLIER BRAND */}
+                        {/* SUPPLIER */}
                         <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {log.supplierBrand}
                         </td>
 
-                        {/* DATE RECEIVED */}
+                        {/* DATE */}
                         <td className="py-3.5 px-4 font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {new Date(log.dateReceived).toLocaleDateString([], {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           })}
-                        </td>
-
-                        {/* TOTAL MATERIALS */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="font-mono font-bold text-slate-800 text-xs">
-                            {log.items?.length || 0} items
-                          </span>
-                        </td>
-
-                        {/* ORIGIN LOCATION */}
-                        <td className="py-3.5 px-4 text-slate-600 text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {log.originLocation || 'Main Warehouse'}
-                        </td>
-
-                        {/* PREPARED BY */}
-                        <td className="py-3.5 px-4 text-slate-600 text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {log.preparedBy || 'Inventory Staff'}
-                        </td>
-
-                        {/* STATUS */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md font-semibold">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>Received</span>
-                          </span>
                         </td>
 
                         {/* ACTIONS (STICKY RIGHT) */}
@@ -1697,7 +1897,7 @@ function InventoryDeliveryReceiving() {
 
                     {filteredInboundLogs.length === 0 && (
                       <tr>
-                        <td colSpan="8" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                        <td colSpan="4" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
                           No inbound shipment delivery receipts found.
                         </td>
                       </tr>
@@ -1772,61 +1972,83 @@ function InventoryDeliveryReceiving() {
                 </div>
               </div>
 
-              {/* RECEIVED MATERIALS BREAKDOWN */}
+              {/* RECEIVED MATERIALS TABLE */}
               <div className="flex flex-col gap-2">
-                <span className="font-bold text-xs text-slate-700 uppercase">
+                <span className="font-bold text-xs text-[#01390f] uppercase tracking-wider">
                   Received Materials List
                 </span>
-                <div className="border border-slate-200/80 rounded-2xl overflow-hidden divide-y divide-slate-100">
-                  {selectedLog.items?.map((item, idx) => {
-                    const isHeld = item.receivingStatus === 'Hold / Supplier Return' || item.receivingStatus === 'Rejected';
-                    return (
-                      <div
-                        key={idx}
-                        className={`flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 hover:bg-slate-50/60 gap-2 whitespace-nowrap ${isHeld ? 'bg-amber-400/15 border-l-4 border-amber-400' : 'bg-white'
-                          }`}
-                      >
-                        <div className="inline-flex items-center gap-2 text-xs bg-slate-50 text-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs whitespace-nowrap">
-                          <span className="font-mono text-[10px] text-slate-500 font-bold bg-white border border-slate-200 px-1.5 py-0.5 rounded">
-                            {item.code}
-                          </span>
-                          <span className="font-bold text-slate-900 whitespace-nowrap">
-                            {item.itemName || item.itemDescription || item.description}
-                          </span>
-                        </div>
+                <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
+                          <th className="py-2.5 px-3.5 whitespace-nowrap font-semibold">CODE</th>
+                          <th className="py-2.5 px-3.5 whitespace-nowrap font-semibold">MATERIAL NAME</th>
+                          <th className="py-2.5 px-3 text-center whitespace-nowrap font-semibold">QTY RECEIVED</th>
+                          <th className="py-2.5 px-3 text-center whitespace-nowrap font-semibold">EXPIRY DATE</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(!selectedLog.items || selectedLog.items.length === 0) ? (
+                          <tr>
+                            <td colSpan="4" className="py-6 text-center text-slate-400 italic">
+                              No materials found in this delivery log.
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedLog.items.map((item, idx) => {
+                            const isHeld = item.receivingStatus === 'Hold / Supplier Return' || item.receivingStatus === 'Rejected';
+                            const expDate = item.expiryDate || item.expirationDate;
+                            const qty = item.quantityReceived ?? item.actualQuantity ?? item.expectedQuantity ?? 0;
+                            const uom = item.uom || 'pcs';
 
-                        <div className="flex items-center gap-2.5 flex-wrap whitespace-nowrap">
+                            return (
+                              <tr
+                                key={idx}
+                                className={`hover:bg-slate-50/80 transition-colors whitespace-nowrap group ${isHeld ? 'bg-amber-50/50' : ''
+                                  }`}
+                              >
+                                {/* CODE */}
+                                <td className="py-3 px-3.5 font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                  {item.code || '-'}
+                                </td>
 
-                          {isHeld ? (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-mono font-bold text-amber-950 text-xs bg-amber-400/20 border border-amber-400 px-2 py-0.5 rounded-lg whitespace-nowrap flex items-center gap-1">
-                                <ShieldAlert className="w-3 h-3 text-amber-950" />
-                                0 Added (+{item.quantityReceived ?? item.actualQuantity ?? 0} {item.uom} HELD)
-                              </span>
-                              <span className="text-[10px] font-bold text-amber-950 bg-amber-400/30 border border-amber-400 px-1.5 py-0.5 rounded whitespace-nowrap">
-                                {item.supplierReturnTicketNo || 'Supplier Return'}
-                              </span>
-                              {item.returnReason && (
-                                <span className="text-[10px] text-slate-500 italic max-w-[150px] truncate" title={item.returnReason}>
-                                  ({item.returnReason})
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="font-mono font-bold text-[#01390f] text-xs bg-slate-50 border border-[#01390f] px-2 py-0.5 rounded-lg whitespace-nowrap">
-                              +{item.quantityReceived ?? item.actualQuantity ?? item.expectedQuantity ?? 0} {item.uom}
-                            </span>
-                          )}
+                                {/* MATERIAL NAME */}
+                                <td className="py-3 px-3.5 font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                  {item.itemName || item.itemDescription || item.description || 'Raw Material'}
+                                </td>
 
-                          {(item.expiryDate || item.expirationDate) && (
-                            <span className="text-[10px] font-mono font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                              Exp: {item.expiryDate || item.expirationDate}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                                {/* QUANTITY RECEIVED */}
+                                <td className="py-3 px-3 text-center font-mono font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                  {isHeld ? (
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-amber-900 font-bold">0 {uom}</span>
+                                      <span className="text-[10px] text-amber-700 font-normal">
+                                        (+{item.quantityReceived ?? item.actualQuantity ?? 0} {uom} HELD)
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[#01390f] font-bold">
+                                      +{qty} {uom}
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* EXPIRATION DATE */}
+                                <td className="py-3 px-3 text-center whitespace-nowrap font-mono text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                  {expDate ? (
+                                    <span className="text-rose-600 font-bold">{expDate}</span>
+                                  ) : (
+                                    <span className="text-slate-400 italic text-[11px] font-sans">N/A</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>

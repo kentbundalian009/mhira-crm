@@ -362,6 +362,14 @@ export default function AdminFormulaAccess() {
                 <div className="flex items-center gap-2">
                   <input
                     type="password"
+                    name="simulator_test_pin"
+                    id="simulator_test_pin"
+                    autoComplete="one-time-code"
+                    autoCorrect="off"
+                    spellCheck="false"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
                     maxLength={6}
                     inputMode="numeric"
                     value={testPinInput}

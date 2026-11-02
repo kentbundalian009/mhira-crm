@@ -12,7 +12,6 @@ import {
   Clock,
   Layers,
   Trash2,
-  Archive,
   FileSpreadsheet,
   ArrowUpDown,
   AlertTriangle,
@@ -41,7 +40,7 @@ function InventoryExpiryMonitoring() {
   const [showCriticalOnly, setShowCriticalOnly] = useState(false);
   const [showExpiredOnly, setShowExpiredOnly] = useState(false);
   const [sortBy, setSortBy] = useState('default'); // 'default' | 'expiry_desc' | 'name_asc' | 'qty_desc'
-  const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
+  const [viewMode, setViewMode] = useState('raw-materials'); // 'raw-materials' | 'finished-goods' | 'archived'
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,33 +88,64 @@ function InventoryExpiryMonitoring() {
     fetchExpiryItems();
   }, [fetchExpiryItems]);
 
-  // Unique categories and batches for dropdowns
+  // Helpers to distinguish Raw Materials vs Finished Goods
+  const isRawMaterial = useCallback((item) => {
+    if (item.source === 'Inbound Receiving') return true;
+    if (item.source === 'WIP Production') return false;
+    const code = (item.code || '').toUpperCase();
+    if (code.startsWith('RM')) return true;
+    if (code.startsWith('FG')) return false;
+    const cat = (item.category || '').toLowerCase();
+    if (cat.includes('raw')) return true;
+    if (cat.includes('finish')) return false;
+    return true;
+  }, []);
+
+  const isFinishedGood = useCallback((item) => {
+    return !isRawMaterial(item);
+  }, [isRawMaterial]);
+
+  // Counts for tabs
+  const rawMaterialsCount = useMemo(() => {
+    return items.filter((i) => !i.isArchived && i.status !== 'Disposed' && isRawMaterial(i)).length;
+  }, [items, isRawMaterial]);
+
+  const finishedGoodsCount = useMemo(() => {
+    return items.filter((i) => !i.isArchived && i.status !== 'Disposed' && isFinishedGood(i)).length;
+  }, [items, isFinishedGood]);
+
+  const statusModules = useMemo(() => [
+    { id: 'raw-materials', label: 'Expiry RM', icon: Layers },
+    { id: 'finished-goods', label: 'Expiry FG', icon: Package },
+  ], []);
+
+  // Active items belonging to current active tab
+  const currentTabItems = useMemo(() => {
+    return items.filter((item) => {
+      const isArchivedOrDisposed = Boolean(item.isArchived) || item.status === 'Disposed';
+      if (viewMode === 'finished-goods') return !isArchivedOrDisposed && isFinishedGood(item);
+      return !isArchivedOrDisposed && isRawMaterial(item);
+    });
+  }, [items, viewMode, isRawMaterial, isFinishedGood]);
+
+  // Unique categories and batches for dropdowns based on current tab
   const existingCategories = useMemo(() => {
     const set = new Set();
-    items.forEach((i) => {
+    currentTabItems.forEach((i) => {
       if (i.category && i.category.trim()) set.add(i.category.trim());
     });
     return Array.from(set);
-  }, [items]);
+  }, [currentTabItems]);
 
   const existingBatches = useMemo(() => {
     const set = new Set();
-    items.forEach((i) => {
+    currentTabItems.forEach((i) => {
       if (i.batchNo && i.batchNo.trim()) set.add(i.batchNo.trim());
     });
     return Array.from(set);
-  }, [items]);
+  }, [currentTabItems]);
 
-  // Counts for active vs archived/disposed
-  const activeCount = useMemo(() => {
-    return items.filter((i) => !i.isArchived && i.status !== 'Disposed').length;
-  }, [items]);
-
-  const archivedCount = useMemo(() => {
-    return items.filter((i) => Boolean(i.isArchived) || i.status === 'Disposed').length;
-  }, [items]);
-
-  // Comprehensive shelf life KPI stats
+  // Comprehensive shelf life KPI stats for current tab
   const expiryStats = useMemo(() => {
     let totalActive = 0;
     let safeCount = 0;
@@ -124,21 +154,18 @@ function InventoryExpiryMonitoring() {
     let expiredCount = 0;
     let totalStockUnits = 0;
 
-    items.forEach((item) => {
-      const isArchivedOrDisposed = Boolean(item.isArchived) || item.status === 'Disposed';
-      if (!isArchivedOrDisposed) {
-        totalActive++;
-        totalStockUnits += Number(item.quantity || 0);
-        const days = item.daysUntilExpiry;
-        if (days <= 0 || item.status === 'Expired') {
-          expiredCount++;
-        } else if (days <= 30) {
-          criticalCount++;
-        } else if (days <= 60) {
-          nearExpiryCount++;
-        } else {
-          safeCount++;
-        }
+    currentTabItems.forEach((item) => {
+      totalActive++;
+      totalStockUnits += Number(item.quantity || 0);
+      const days = item.daysUntilExpiry;
+      if (days <= 0 || item.status === 'Expired') {
+        expiredCount++;
+      } else if (days <= 30) {
+        criticalCount++;
+      } else if (days <= 60) {
+        nearExpiryCount++;
+      } else {
+        safeCount++;
       }
     });
 
@@ -150,27 +177,17 @@ function InventoryExpiryMonitoring() {
       expiredCount,
       totalStockUnits
     };
-  }, [items]);
-
-  const statusModules = useMemo(() => [
-    { id: 'active', label: 'Expiry Monitoring' },
-    { id: 'archived', label: 'Archive Vault' },
-  ], []);
+  }, [currentTabItems]);
 
   // Filtered dataset
   const filteredItems = useMemo(() => {
-    let list = items.filter((item) => {
-      // 1. Vault check
-      const isArchivedOrDisposed = Boolean(item.isArchived) || item.status === 'Disposed';
-      if (viewMode === 'active' && isArchivedOrDisposed) return false;
-      if (viewMode === 'archived' && !isArchivedOrDisposed) return false;
-
+    let list = currentTabItems.filter((item) => {
       // Quick Toggles
       const days = item.daysUntilExpiry;
       if (showCriticalOnly && !(days > 0 && days <= 30)) return false;
       if (showExpiredOnly && !(days <= 0 || item.status === 'Expired')) return false;
 
-      // 2. Search query (Code, Name, Batch)
+      // Search query (Code, Name, Batch)
       if (searchQuery && searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
         const code = (item.code || '').toLowerCase();
@@ -181,13 +198,13 @@ function InventoryExpiryMonitoring() {
         }
       }
 
-      // 3. Category
+      // Category
       if (categoryFilter !== 'All') {
         const cat = (item.category || '').toLowerCase();
         if (!cat.includes(categoryFilter.toLowerCase())) return false;
       }
 
-      // 4. Status
+      // Status
       if (statusFilter !== 'All') {
         if (statusFilter === 'Expired' && !(days <= 0 || item.status === 'Expired')) return false;
         if (statusFilter === 'Critical' && !(days > 0 && days <= 30)) return false;
@@ -196,7 +213,7 @@ function InventoryExpiryMonitoring() {
         if (statusFilter === 'Disposed' && item.status !== 'Disposed') return false;
       }
 
-      // 5. Batch
+      // Batch
       if (batchFilter !== 'All') {
         if ((item.batchNo || '') !== batchFilter) return false;
       }
@@ -216,12 +233,20 @@ function InventoryExpiryMonitoring() {
     }
 
     return list;
-  }, [items, viewMode, searchQuery, categoryFilter, statusFilter, batchFilter, showCriticalOnly, showExpiredOnly, sortBy]);
+  }, [currentTabItems, searchQuery, categoryFilter, statusFilter, batchFilter, showCriticalOnly, showExpiredOnly, sortBy]);
 
   // Reset pagination on filter/search change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, categoryFilter, statusFilter, batchFilter, showCriticalOnly, showExpiredOnly, sortBy, viewMode]);
+
+  // Tab switch handler
+  const handleTabChange = (newTabId) => {
+    setViewMode(newTabId);
+    setCategoryFilter('All');
+    setBatchFilter('All');
+    setCurrentPage(1);
+  };
 
   // Paginated Slices
   const paginatedItems = useMemo(() => {
@@ -238,9 +263,8 @@ function InventoryExpiryMonitoring() {
     if (showCriticalOnly) count++;
     if (showExpiredOnly) count++;
     if (sortBy !== 'default') count++;
-    if (viewMode !== 'active') count++;
     return count;
-  }, [searchQuery, categoryFilter, statusFilter, batchFilter, showCriticalOnly, showExpiredOnly, sortBy, viewMode]);
+  }, [searchQuery, categoryFilter, statusFilter, batchFilter, showCriticalOnly, showExpiredOnly, sortBy]);
 
   const handleClearAllFilters = () => {
     setSearchQuery('');
@@ -250,7 +274,6 @@ function InventoryExpiryMonitoring() {
     setShowCriticalOnly(false);
     setShowExpiredOnly(false);
     setSortBy('default');
-    setViewMode('active');
     setCurrentPage(1);
   };
 
@@ -478,7 +501,7 @@ function InventoryExpiryMonitoring() {
 
   const renderCategoryBadge = (category) => {
     return (
-      <span className="inline-flex items-center text-xs text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md font-semibold border border-emerald-200">
+      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
         {category || 'General'}
       </span>
     );
@@ -500,24 +523,18 @@ function InventoryExpiryMonitoring() {
             <div className="flex items-center gap-1 -mb-px">
               {statusModules.map((mod) => {
                 const isActive = viewMode === mod.id;
+                const IconComponent = mod.icon;
                 return (
                   <button
                     key={mod.id}
                     type="button"
-                    onClick={() => {
-                      setViewMode(mod.id);
-                      setCurrentPage(1);
-                    }}
+                    onClick={() => handleTabChange(mod.id)}
                     className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 ${isActive
                         ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
                         : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
                       }`}
                   >
-                    {mod.id === 'active' ? (
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
-                    ) : (
-                      <Archive className="w-3.5 h-3.5 text-slate-500" />
-                    )}
+                    <IconComponent className={`w-3.5 h-3.5 ${isActive ? 'text-[#01390f]' : 'text-slate-500'}`} />
                     <span>{mod.label}</span>
                   </button>
                 );
@@ -591,13 +608,9 @@ function InventoryExpiryMonitoring() {
                       title="Filter by Category"
                     >
                       <option value="All">All Categories ({existingCategories.length})</option>
-                      <option value="Raw Materials">Raw Materials</option>
-                      <option value="Finished Goods">Finished Goods</option>
-                      {existingCategories
-                        .filter((cat) => cat !== 'Raw Materials' && cat !== 'Finished Goods')
-                        .map((cat, idx) => (
-                          <option key={idx} value={cat}>{cat}</option>
-                        ))}
+                      {existingCategories.map((cat, idx) => (
+                        <option key={idx} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -730,7 +743,6 @@ function InventoryExpiryMonitoring() {
                   <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">MFG DATE</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">EXPIRY DATE</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">DAYS REMAINING</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STATUS</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-20 min-w-[80px] font-semibold text-white">
                     ACTION
                   </th>
@@ -739,7 +751,7 @@ function InventoryExpiryMonitoring() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="10" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Fetching shelf life and expiry records...</span>
@@ -762,8 +774,8 @@ function InventoryExpiryMonitoring() {
                     </td>
 
                     {/* CATEGORY */}
-                    <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {renderCategoryBadge(item.category)}
+                    <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      {item.category || 'General'}
                     </td>
 
                     {/* ITEM NAME */}
@@ -811,11 +823,6 @@ function InventoryExpiryMonitoring() {
                       )}
                     </td>
 
-                    {/* STATUS BADGE */}
-                    <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {renderStatusBadge(item)}
-                    </td>
-
                     {/* ACTION COLUMN (EYE ICON BUTTON TO OPEN DETAIL MODAL) */}
                     <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
                       <div className="flex items-center justify-center gap-1.5">
@@ -834,10 +841,10 @@ function InventoryExpiryMonitoring() {
 
                 {!loading && filteredItems.length === 0 && (
                   <tr>
-                    <td colSpan="10" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
-                      {viewMode === 'archived'
-                        ? 'No archived or disposed expiry records in the vault.'
-                        : 'No active expiry records matched your search or filter criteria.'}
+                    <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                      {viewMode === 'finished-goods'
+                        ? 'No finished goods expiry records matched your search or filter criteria.'
+                        : 'No raw materials expiry records matched your search or filter criteria.'}
                     </td>
                   </tr>
                 )}

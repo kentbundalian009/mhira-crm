@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Trash2, Plus, Minus, Heart, ArrowRight, Truck, ShoppingBag } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Trash2, Plus, Minus, Heart, ArrowRight, Truck, ShoppingBag, MapPin } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios, { API } from "../../axios";
 
@@ -8,6 +8,7 @@ import Footer from "../common/Footer";
 import { showSuccessToast, showErrorToast } from "../../utils/toast";
 import { getUserId, isUserLoggedIn } from "../../utils/userId";
 import { useAppData } from "../../context/AppDataContext";
+import { subscribeLiveSync } from "../../utils/liveSync";
 
 function Cart() {
   const {
@@ -40,7 +41,7 @@ function Cart() {
       if (Array.isArray(cartItems) && cartItems.length > 0) {
         return cartItems.map((i) => String(i.productId || i.product?._id || i.product?.id || i.product?.code || i.product || i._id));
       }
-    } catch {}
+    } catch { }
     return [];
   });
 
@@ -223,6 +224,122 @@ function Cart() {
     return acc + price * qty;
   }, 0);
 
+  // LOCATION-BASED SHIPPING STATE (SYNCED WITH LOGISTICS SHIPPING RATES & FEES)
+  const [customerAddressText, setCustomerAddressText] = useState("");
+  const [shippingFee, setShippingFee] = useState(60);
+  const [shippingDetails, setShippingDetails] = useState({
+    matchedRegion: "Metro Manila (NCR)",
+    estimatedDays: "1 - 2 Days",
+    isFreeShipping: false,
+    freeShippingThreshold: 1500,
+    freeShippingEnabled: true,
+    originalShippingFee: 60,
+  });
+
+  const formatAddressString = (addr) => {
+    if (!addr) return "";
+    if (typeof addr === "string") return addr.trim();
+    if (typeof addr === "object") {
+      const parts = [
+        addr.streetAddress || addr.street,
+        addr.apartment,
+        addr.barangay ? `Brgy. ${String(addr.barangay).replace(/^Brgy\.?\s*/i, "")}` : "",
+        addr.city,
+        addr.province || addr.region,
+        addr.postalCode,
+        addr.country,
+      ].filter(Boolean);
+      return parts.join(", ");
+    }
+    return String(addr || "");
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadCustomerDefaultAddress = async () => {
+      const uid = getUserId();
+      if (!uid || !isUserLoggedIn()) {
+        if (isMounted) {
+          setCustomerAddressText(formatAddressString(userProfile?.shippingAddress || userProfile?.address));
+        }
+        return;
+      }
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/users/${uid}/addresses`);
+        if (!isMounted) return;
+        const list = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.addresses)
+          ? res.data.addresses
+          : [];
+        const def = list.find((a) => a.isDefault) || list[0];
+        if (def) {
+          const formatted = formatAddressString(def);
+          if (formatted) {
+            setCustomerAddressText(formatted);
+            return;
+          }
+        }
+      } catch {
+        // fallback to profile address
+      }
+      if (isMounted) {
+        setCustomerAddressText(formatAddressString(userProfile?.shippingAddress || userProfile?.address));
+      }
+    };
+    loadCustomerDefaultAddress();
+    return () => {
+      isMounted = false;
+    };
+  }, [API_BASE_URL, userProfile]);
+
+  const fetchLocationShippingRate = useCallback(async () => {
+    try {
+      const addrToSend =
+        formatAddressString(customerAddressText) ||
+        formatAddressString(userProfile?.shippingAddress) ||
+        formatAddressString(userProfile?.address) ||
+        "";
+
+      const res = await axios.post(`${API_BASE_URL}/api/shipping-rates/calculate`, {
+        address: addrToSend,
+        subtotal,
+      });
+      if (res.data) {
+        setShippingFee(Number(res.data.shippingFee ?? 60));
+        setShippingDetails({
+          matchedRegion: res.data.matchedRegion || "Standard Delivery",
+          estimatedDays: res.data.estimatedDays || "2 - 5 Days",
+          isFreeShipping: Boolean(res.data.isFreeShipping),
+          freeShippingThreshold: Number(res.data.freeShippingThreshold ?? 1500),
+          freeShippingEnabled: Boolean(res.data.freeShippingEnabled ?? true),
+          originalShippingFee: Number(res.data.originalShippingFee ?? res.data.shippingFee ?? 60),
+        });
+      }
+    } catch {
+      // keep current state on network glitch
+    }
+  }, [API_BASE_URL, customerAddressText, subtotal, userProfile]);
+
+  useEffect(() => {
+    fetchLocationShippingRate();
+  }, [fetchLocationShippingRate]);
+
+  useEffect(() => {
+    const unsub = subscribeLiveSync(() => {
+      fetchLocationShippingRate();
+    });
+    const onFocus = () => fetchLocationShippingRate();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      unsub();
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [fetchLocationShippingRate]);
+
+  const effectiveShippingFee = selectedCartItems.length > 0 ? shippingFee : 0;
+  const estimatedTotal = subtotal + effectiveShippingFee;
+
   // 8. CHECKOUT
   const handleCheckout = () => {
     if (!isUserLoggedIn()) {
@@ -234,6 +351,9 @@ function Cart() {
       showErrorToast("Please select at least one item to checkout.");
       return;
     }
+    try {
+      localStorage.setItem("checkout_selected_items", JSON.stringify(selectedCartItems));
+    } catch (e) {}
     navigate("/checkout");
   };
 
@@ -390,9 +510,8 @@ function Cart() {
                             />
                           ) : null}
                           <div
-                            className={`no-img-label w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-50 select-none ${
-                              getImageUrl(itemImg) ? "hidden" : "flex"
-                            }`}
+                            className={`no-img-label w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-50 select-none ${getImageUrl(itemImg) ? "hidden" : "flex"
+                              }`}
                           >
                             <span className="text-[10px] sm:text-xs font-semibold text-slate-700 uppercase tracking-wider line-clamp-2 leading-tight">
                               {title}
@@ -484,26 +603,79 @@ function Cart() {
                       setSpecialInstructions(e.target.value);
                       try {
                         localStorage.setItem("cart_special_instructions", e.target.value);
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     placeholder="Order notes, delivery instructions..."
                     className="w-full bg-transparent border-0 outline-none focus:outline-none focus:ring-0 p-0 text-xs sm:text-sm text-slate-700 placeholder:text-slate-400 resize-none leading-relaxed"
                   />
                 </div>
 
-                {/* 2. ESTIMATED TOTAL */}
+                {/* 2. SUBTOTAL & LOCATION-BASED SHIPPING BREAKDOWN */}
+                <div className="space-y-2.5 pb-4 border-b border-[#E1E9EF]">
+                  <div className="flex justify-between items-center text-xs sm:text-sm text-slate-600">
+                    <span>Subtotal ({totalSelectedQty} {totalSelectedQty === 1 ? "item" : "items"})</span>
+                    <span className="font-semibold text-[#243746]">
+                      {selectedCartItems.length > 0
+                        ? `₱${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : "₱0.00"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-start text-xs sm:text-sm text-slate-600">
+                    <div className="pr-2">
+                      <span className="flex items-center gap-1 font-medium text-[#243746]">
+                        <Truck className="w-3.5 h-3.5 text-[#01390f]" />
+                        Shipping ({shippingDetails.matchedRegion})
+                      </span>
+                      {Boolean(formatAddressString(customerAddressText)) && (
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 line-clamp-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span>{formatAddressString(customerAddressText)}</span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      {selectedCartItems.length === 0 ? (
+                        <span className="font-semibold text-slate-400">—</span>
+                      ) : shippingDetails.isFreeShipping || effectiveShippingFee === 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          {shippingDetails.originalShippingFee > 0 && (
+                            <span className="text-xs text-slate-400 line-through">
+                              ₱{shippingDetails.originalShippingFee.toFixed(2)}
+                            </span>
+                          )}
+                          <span className="font-bold text-emerald-700">FREE (₱0.00)</span>
+                        </div>
+                      ) : (
+                        <span className="font-semibold text-[#243746]">
+                          ₱{effectiveShippingFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedCartItems.length > 0 && shippingDetails.freeShippingEnabled && (
+                    <p className="text-[11px] text-emerald-700 font-medium">
+                      {shippingDetails.isFreeShipping
+                        ? `You unlocked FREE Shipping (Order ₱${Number(shippingDetails.freeShippingThreshold || 0).toLocaleString()}+)!`
+                        : `Add ₱${Math.max(0, Number(shippingDetails.freeShippingThreshold || 0) - subtotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} more to unlock FREE Shipping!`}
+                    </p>
+                  )}
+                </div>
+
+                {/* 3. ESTIMATED TOTAL */}
                 <div className="flex justify-between items-center py-1">
                   <span className="text-base font-semibold text-[#243746]">Estimated Total:</span>
                   <span className="text-xl sm:text-2xl font-bold text-[#01390f]">
                     {selectedCartItems.length > 0
-                      ? `₱${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      ? `₱${estimatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : "—"}
                   </span>
                 </div>
 
-                {/* 3. TAXES AND SHIPPING NOTICE */}
+                {/* 4. LOCATION SHIPPING NOTICE */}
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Taxes and shipping and calculated at checkout.
+                  Shipping fee is based on your delivery location ({shippingDetails.matchedRegion} • {shippingDetails.estimatedDays}).
                 </p>
 
                 {/* 4. CHECKOUT BUTTON */}
@@ -569,9 +741,8 @@ function Cart() {
                         />
                       ) : null}
                       <div
-                        className={`no-img-label w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-50 select-none ${
-                          getImageUrl(mainImg) ? "hidden" : "flex"
-                        }`}
+                        className={`no-img-label w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-50 select-none ${getImageUrl(mainImg) ? "hidden" : "flex"
+                          }`}
                       >
                         <span className="text-[10px] sm:text-xs font-semibold text-slate-700 uppercase tracking-wider line-clamp-2 leading-tight">
                           {item.itemDescription || item.name || "Item"}

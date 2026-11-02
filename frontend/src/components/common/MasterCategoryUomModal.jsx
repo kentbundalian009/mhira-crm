@@ -534,7 +534,8 @@ export default function MasterCategoryUomModal({
                         ? 'Type category name (e.g. Active Ingredients, Preservatives)...'
                         : 'Type category name (e.g. Serums & Essences, Sun Care)...'
                     }
-                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs"
+                    style={{ outline: 'none', boxShadow: 'none' }}
+                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:outline-none focus:ring-0 focus:border-[#01390f] transition-colors shadow-none"
                   />
                   <button
                     type="submit"
@@ -600,7 +601,8 @@ export default function MasterCategoryUomModal({
                         ? 'Type unit name (e.g. drum, pail, sack, kg, L)...'
                         : 'Type unit name (e.g. bottle, jar, box, pack, tube)...'
                     }
-                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs"
+                    style={{ outline: 'none', boxShadow: 'none' }}
+                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:outline-none focus:ring-0 focus:border-[#01390f] transition-colors shadow-none"
                   />
                   <button
                     type="submit"

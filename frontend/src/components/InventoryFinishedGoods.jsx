@@ -28,7 +28,8 @@ import {
   Camera,
   Lock,
   FileSpreadsheet,
-  ArrowUpDown
+  ArrowUpDown,
+  Download,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -42,9 +43,64 @@ import MasterCategoryUomModal, {
   getStoredUOMs,
   getStoredThresholds,
 } from './common/MasterCategoryUomModal';
+import { getUserFullName } from '../utils/userId';
 import TablePagination from './common/TablePagination';
 import ItemImageModal, { resolveItemImageUrl } from './common/ItemImageModal';
 import PinAuthModal from './common/PinAuthModal';
+
+// Helper to convert image URL to base64 for crisp PDF header thumbnail
+const loadBase64Image = (url) => {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 300;
+          canvas.height = img.naturalHeight || img.height || 300;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    } catch (e) {
+      resolve(null);
+    }
+  });
+};
+
+// Helper to create a transparent watermark image with subtle opacity for background
+const loadWatermarkImage = (url, opacity = 0.095) => {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 600;
+          canvas.height = img.naturalHeight || img.height || 600;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.globalAlpha = opacity;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    } catch (e) {
+      resolve(null);
+    }
+  });
+};
 
 const DEFAULT_GLOBAL_THRESHOLDS = {
   criticalLevel: 0,
@@ -257,6 +313,7 @@ function InventoryFinishedGoods() {
   const [showZeroOnly, setShowZeroOnly] = useState(false);
   const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
   const [sortBy, setSortBy] = useState('default'); // 'default' | 'name_asc' | 'name_desc' | 'qty_desc' | 'qty_asc' | 'code_asc'
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -304,6 +361,7 @@ function InventoryFinishedGoods() {
   const [defaultThresholds, setDefaultThresholds] = useState(() => getStoredThresholds('finished_goods'));
   const [archiveTargetProduct, setArchiveTargetProduct] = useState(null);
   const [isArchiving, setIsArchiving] = useState(false);
+
 
   // Sync when custom categories, UOMs, or thresholds are modified
   useEffect(() => {
@@ -1088,96 +1146,301 @@ function InventoryFinishedGoods() {
     setCurrentPage(1);
   };
 
-  // EXCEL RIBBON ACTION: Export Inventory to PDF Report
-  const handleExportPDF = () => {
+  // EXCEL RIBBON ACTION: Export Finished Goods to PDF Report (Official Portrait Format)
+  const handleExportPDF = async () => {
     if (filteredProducts.length === 0) {
       showErrorToast('No products available to export.');
       return;
     }
+    if (isExportingPDF) return;
+    setIsExportingPDF(true);
+    showSuccessToast('Preparing official finished goods PDF audit report...');
 
     try {
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
 
-      // Brand Header Banner (#01390f deep green)
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 297, 24, 'F');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
 
-      doc.setTextColor(255, 255, 255);
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
+
+      const docNo = `MN-INV-FG-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+
+      // 1. Header Logo & Titles
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) { }
+      }
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('MHIRA NATURAL - FINISHED GOODS INVENTORY MASTERLIST', 14, 11);
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
 
-      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
       doc.setFont('helvetica', 'normal');
-      doc.text(
-        `Generated: ${new Date().toLocaleString()} | View: ${viewMode === 'archived' ? 'Archive Vault' : 'Active Finished Goods'} | Total Records: ${filteredProducts.length}`,
-        14,
-        18
-      );
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Official Valuation Ledger, Material Movement & Expiry Audit Trail', 36, 26);
 
-      const tableHead = [
-        ['#', 'Item Code', 'Category', 'Item Name', 'Qty', 'UOM', 'Stock Condition', 'Critical', 'Warning', 'Overstock']
-      ];
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL | Controlled Executive Copy', 36, 30);
 
-      const tableBody = filteredProducts.map((p, idx) => {
-        const qty = Number(p.quantity ?? 0);
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('FINISHED GOODS INVENTORY AUDIT', pageWidth - 14, 16.5, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`DOC NO: ${docNo}`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`VIEW: ${viewMode === 'archived' ? 'Archive Vault' : 'Active Finished Goods'}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`GENERATED: ${new Date().toLocaleString()}`, pageWidth - 14, 30, { align: 'right' });
+
+      // Dividing Line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
+
+      // 2. Summary KPI Audit Table
+      const totalItems = filteredProducts.length;
+      const totalStock = filteredProducts.reduce((acc, p) => acc + (Number(p.quantity ?? 0) || 0), 0);
+      let healthy = 0;
+      let restock = 0;
+      let critical = 0;
+
+      filteredProducts.forEach((p) => {
         const resolved = getResolvedThreshold(p);
-        const condition = getStockCondition(qty, resolved);
-
-        return [
-          idx + 1,
-          p.code || 'N/A',
-          p.category || 'N/A',
-          p.itemName || 'N/A',
-          qty.toLocaleString(),
-          p.uom || 'pcs',
-          condition?.label || 'Normal',
-          resolved.criticalLevel,
-          resolved.restockWarningPoint,
-          resolved.overstockLimitPoint
-        ];
+        const cond = getStockCondition(Number(p.quantity ?? 0), resolved);
+        if (cond.key === 'Healthy' || cond.key === 'Overstock') healthy++;
+        else if (cond.key === 'Restock Warning') restock++;
+        else critical++;
       });
 
       autoTable(doc, {
-        startY: 30,
-        head: tableHead,
-        body: tableBody,
+        startY: 36.5,
+        margin: { left: 14, right: 14 },
+        head: [['REGISTERED FINISHED GOODS', 'TOTAL FINISHED GOODS QUANTITY', 'BUFFER HEALTH CONDITION', 'CRITICAL & REORDER ALERTS']],
+        body: [[
+          `${totalItems.toLocaleString()} Active SKUs`,
+          `${totalStock.toLocaleString()} Stored Units`,
+          `${healthy} Safe Buffer (>10)`,
+          `${critical} Critical Shortage | ${restock} Low`
+        ]],
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontStyle: 'normal',
+          fontSize: 6.0,
+          cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+          halign: 'center',
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
         headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
+          fillColor: [239, 246, 255],
+          textColor: [21, 62, 151],
           fontStyle: 'bold',
-          fontSize: 8,
-          halign: 'center'
+          fontSize: 5.6,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         bodyStyles: {
-          fontSize: 7.5,
-          textColor: [30, 41, 59]
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 10 },
-          1: { fontStyle: 'bold', halign: 'center', cellWidth: 22 },
-          2: { cellWidth: 28 },
-          3: { fontStyle: 'bold', cellWidth: 35 },
-          4: { cellWidth: 55 },
-          5: { halign: 'center', fontStyle: 'bold', cellWidth: 16 },
-          6: { halign: 'center', cellWidth: 14 },
-          7: { halign: 'center', cellWidth: 30 },
-          8: { halign: 'center', cellWidth: 18 },
-          9: { halign: 'center', cellWidth: 18 },
-          10: { halign: 'center', cellWidth: 18 }
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
         },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252]
-        },
-        margin: { left: 14, right: 14 }
       });
 
+      // 3. Main Data Table
+      const tableHead = [['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'SPECIFICATION & UOM']];
+      const tableBody = filteredProducts.map((p) => {
+        const qty = Number(p.quantity ?? 0);
+        const resolved = getResolvedThreshold(p);
+        const condition = getStockCondition(qty, resolved);
+        const specUom = `${p.specification ? p.specification : '-'} | ${p.uom || 'PCS'}`;
+        return [
+          p.code || 'N/A',
+          p.category || 'Finished Goods',
+          p.itemName || p.itemDescription || 'Finished Good',
+          `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
+          specUom,
+        ];
+      });
+
+      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+      autoTable(doc, {
+        startY: mainTableStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
+        head: tableHead,
+        body: tableBody,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          halign: 'center',
+          valign: 'middle',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
+          1: { halign: 'left', cellWidth: 42 },
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 41 },
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
+          4: { halign: 'center', cellWidth: 30 },
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const thumbH = 7;
+            const thumbW = thumbH * logoRatio;
+            if (logoBase64) {
+              try {
+                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+              } catch (e) { }
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(21, 62, 151);
+            doc.text('MHIRA NATURAL BEAUTY PRODUCTS  |  FINISHED GOODS AUDIT', 14 + thumbW + 4, 11.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(14, 16, pageWidth - 14, 16);
+          }
+
+          const footerY = pageHeight - 7;
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('INTERNAL CONFIDENTIAL | CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+        },
+      });
+
+      // 4. Executive Sign-Off Section
+      let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
+
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
+
+      // 5. Final Pass: Center Watermark Logo & Page Numbers
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) { }
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
+
       const dateStr = new Date().toISOString().split('T')[0];
-      doc.save(`finished_goods_inventory_${viewMode}_${dateStr}.pdf`);
-      showSuccessToast(`Exported ${filteredProducts.length} finished goods to PDF!`);
+      const fileName = `MHIRA_Finished_Goods_Report_${viewMode}_${dateStr}.pdf`;
+      doc.save(fileName);
+      showSuccessToast(`Exported ${filteredProducts.length} finished goods to official PDF!`);
     } catch (err) {
       console.error('PDF export error:', err);
       showErrorToast('Failed to generate PDF report.');
+    } finally {
+      setIsExportingPDF(false);
     }
   };
 
@@ -1258,7 +1521,7 @@ function InventoryFinishedGoods() {
                     <span className="whitespace-nowrap">Dropdown</span>
                   </button>
 
-                  {/* Layer 2: Reset Filters */}
+                  {/* Layer 3: Reset Filters */}
                   <button
                     type="button"
                     onClick={handleClearAllFilters}
@@ -1288,7 +1551,16 @@ function InventoryFinishedGoods() {
                 <div className="relative flex items-center w-full">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
                   <input
-                    type="text"
+                    type="search"
+                    name="finishedGoodsSearchQuery"
+                    id="finishedGoodsSearchQuery"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck="false"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                     placeholder="Search Code, Description, Name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1452,7 +1724,7 @@ function InventoryFinishedGoods() {
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">ITEM NAME</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QUANTITY & CONDITION</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">SPECIFICATION & UOM</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">REQUIRED INGREDIENTS (5KG STANDARD BATCH)</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">REQUIRED INGREDIENTS</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
                 </tr>
               </thead>
@@ -1466,162 +1738,161 @@ function InventoryFinishedGoods() {
                       </div>
                     </td>
                   </tr>
-                ) : paginatedProducts.map((item) => {
-                  const displayQty = Number(item.quantity ?? 0);
-                  const resolved = getResolvedThreshold(item);
-                  const condition = getStockCondition(displayQty, resolved);
+                ) : (
+                  paginatedProducts.map((item) => {
+                    const displayQty = Number(item.quantity ?? 0);
+                    const resolved = getResolvedThreshold(item);
+                    const condition = getStockCondition(displayQty, resolved);
 
-                  return (
-                    <tr
-                      key={item._id || item.id}
-                      className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
-                    >
-                      {/* CODE */}
-                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {item.code || 'N/A'}
-                      </td>
+                    return (
+                      <tr
+                        key={item._id || item.id}
+                        className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                      >
+                        {/* CODE */}
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.code || 'N/A'}
+                        </td>
 
-                      {/* IMAGE */}
-                      <td className="py-2.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <div className="flex justify-center items-center">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedImageItem({ ...item, type: 'Finished Good', condition })}
-                            className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
-                            title="Click to view full product image"
-                            aria-label={`View photo of ${item.itemName || item.itemDescription}`}
-                          >
-                            <img
-                              src={resolveItemImageUrl(item.image || item.imageUrl || (Array.isArray(item.images) ? item.images[0] : null))}
-                              alt={item.itemDescription || item.itemName || 'Product'}
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = '/mhira_removebg.png';
-                              }}
-                              className="w-10 h-10 object-cover rounded-lg bg-slate-50 transition-transform duration-200 group-hover/img:scale-110"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white rounded-lg">
-                              <Eye className="w-3.5 h-3.5 drop-shadow" />
-                            </div>
-                          </button>
-                        </div>
-                      </td>
+                        {/* IMAGE */}
+                        <td className="py-2.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex justify-center items-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedImageItem({ ...item, type: 'Finished Good', condition })}
+                              className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
+                              title="Click to view full product image"
+                              aria-label={`View photo of ${item.itemName || item.itemDescription}`}
+                            >
+                              <img
+                                src={resolveItemImageUrl(item.image || item.imageUrl || (Array.isArray(item.images) ? item.images[0] : null))}
+                                alt={item.itemDescription || item.itemName || 'Product'}
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = '/mhira_removebg.png';
+                                }}
+                                className="w-10 h-10 object-cover rounded-lg bg-slate-50 transition-transform duration-200 group-hover/img:scale-110"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white rounded-lg">
+                                <Eye className="w-3.5 h-3.5 drop-shadow" />
+                              </div>
+                            </button>
+                          </div>
+                        </td>
 
-                      {/* CATEGORY */}
-                      <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {item.category || 'Finished Goods'}
-                      </td>
+                        {/* CATEGORY */}
+                        <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.category || 'Finished Goods'}
+                        </td>
 
-                      {/* ITEM NAME */}
-                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {item.itemName || 'N/A'}
-                          {item.isArchived && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-bold border border-rose-200">
-                              Archived
+                        {/* ITEM NAME */}
+                        <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {item.itemName || 'N/A'}
+                            {item.isArchived && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-bold border border-rose-200">
+                                Archived
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* QUANTITY & CONDITION */}
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-mono font-bold text-slate-900 text-sm">
+                              {displayQty}{' '}
+                              <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                / {resolved.overstockLimitPoint} max
+                              </span>
                             </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* QUANTITY & CONDITION */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="font-mono font-bold text-slate-900 text-sm">
-                            {displayQty}{' '}
-                            <span className="text-[10px] text-slate-400 font-normal font-sans">
-                              / {resolved.overstockLimitPoint} max
+                            <span
+                              className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
+                              {condition.label}
                             </span>
-                          </span>
-                          <span
-                            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
-                            {condition.label}
-                          </span>
-                        </div>
-                      </td>
+                          </div>
+                        </td>
 
-                      {/* SPECIFICATION & UOM */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {item.specification ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/70 text-xs font-mono font-semibold">
-                              {item.specification}
+                        {/* SPECIFICATION & UOM */}
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-mono font-bold text-slate-900 text-sm">
+                              {item.specification ? item.specification : '-'}
                             </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs italic">-</span>
-                          )}
-                          <span className="uppercase font-mono text-xs text-slate-600 whitespace-nowrap font-bold">
-                            {item.uom || 'pcs'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {Array.isArray(item.ingredients) && item.ingredients.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setPinProtectedItem(item)}
-                            className="inline-flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md font-semibold border border-emerald-200/70 transition-all cursor-pointer active:scale-95 shadow-2xs group/btn"
-                            title="Protected: Enter 6-digit PIN to View Required Ingredients Formulation"
-                          >
-                            <Lock className="w-3 h-3 text-emerald-600/70 group-hover/btn:text-emerald-700 transition-colors" />
-                            <span>View Ingredients ({item.ingredients.length})</span>
-                          </button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 px-2.5 py-0.5 rounded-md font-medium border border-slate-200/70 italic">
-                            None specified
-                          </span>
-                        )}
-                      </td>
+                            <span className="inline-flex items-center justify-center text-xs font-bold px-2.5 py-0.5 rounded-md border border-slate-200 bg-slate-100 text-slate-700 uppercase">
+                              {item.uom || 'PCS'}
+                            </span>
+                          </div>
+                        </td>
 
-                      {/* ACTION (STICKY RIGHT) */}
-                      <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {!item.isArchived ? (
-                            <>
+                        {/* REQUIRED INGREDIENTS */}
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex items-center justify-center">
+                            {Array.isArray(item.ingredients) && item.ingredients.length > 0 ? (
                               <button
                                 type="button"
-                                onClick={() => handleRequestEditProduct(item)}
-                                title="Edit Product (Protected: Requires PIN Authorization)"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                onClick={() => setPinProtectedItem(item)}
+                                title={`View Required Ingredients Formulation (${item.ingredients.length} items) - Protected: Requires PIN`}
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
+                                <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleArchive(item)}
-                                title="Archive Product"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              >
-                                <Archive className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleArchive(item)}
-                                title="Restore to Active"
-                                className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteProduct(item)}
-                                title="Delete Permanently"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            ) : (
+                              <span className="text-slate-400 text-xs italic font-medium">-</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* ACTION (STICKY RIGHT) */}
+                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {!item.isArchived ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRequestEditProduct(item)}
+                                  title="Edit Product (Protected: Requires PIN Authorization)"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleArchive(item)}
+                                  title="Archive Product"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                >
+                                  <Archive className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleArchive(item)}
+                                  title="Restore to Active"
+                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteProduct(item)}
+                                  title="Delete Permanently"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
 
                 {!loading && filteredProducts.length === 0 && (
                   <tr>
@@ -1659,28 +1930,43 @@ function InventoryFinishedGoods() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[88vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
 
-              {/* MODAL HEADER (MATCHING ADD FINISHED PRODUCT) */}
+              {/* MODAL HEADER (MATCHING EDIT FINISHED PRODUCT) */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
-                    Product Ingredients (Bill of Materials)
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    {viewIngredientsProduct.itemName || viewIngredientsProduct.itemDescription || 'Product Formulation'} • Code: {viewIngredientsProduct.code || 'N/A'}
-                  </p>
-                </div>
-
+                <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
+                  Product Ingredients (Bill of Materials)
+                </h3>
                 <button
                   type="button"
                   onClick={() => setViewIngredientsProduct(null)}
                   className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+                  title="Close"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* MODAL BODY (MATCHING ADD FINISHED PRODUCT INGREDIENTS LAYOUT) */}
+              {/* MODAL BODY (MATCHING EDIT FINISHED PRODUCT LAYOUT) */}
               <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 custom-scrollbar text-xs sm:text-sm">
+                {/* PRODUCT SUMMARY CARD (MATCHING EDIT FINISHED PRODUCT CARD LAYOUT) */}
+                <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Finished Product Formulation
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {viewIngredientsProduct.itemName || viewIngredientsProduct.itemDescription || 'Product Formulation'} • Standard batch recipe. <span className="font-semibold text-slate-700">(Note: 5kg minimum)</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="inline-flex items-center px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-bold font-mono">
+                      {viewIngredientsProduct.code || 'N/A'}
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-bold">
+                      {viewIngredients.length} {viewIngredients.length === 1 ? 'Ingredient' : 'Ingredients'}
+                    </span>
+                  </div>
+                </div>
+
                 {viewIngredients.length === 0 ? (
                   <div className="p-8 text-center bg-slate-50/70 border border-dashed border-slate-200 rounded-2xl text-xs text-slate-400 italic">
                     No recipe ingredients configured for this finished product.
@@ -1770,18 +2056,18 @@ function InventoryFinishedGoods() {
               </div>
 
               {/* ACTION BUTTONS FOOTER */}
-              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-3 shrink-0 whitespace-nowrap">
+              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
                   onClick={() => setViewIngredientsProduct(null)}
-                  className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 transition-all cursor-pointer whitespace-nowrap"
+                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
                 >
                   Close
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewIngredientsProduct(null)}
-                  className="inline-flex items-center justify-center bg-[#01390f] hover:bg-[#012409] text-white font-bold py-2.5 px-6 rounded-xl text-xs sm:text-sm transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+                  className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   Done
                 </button>
@@ -1889,149 +2175,81 @@ function InventoryFinishedGoods() {
                   </div>
                 </div>
 
-                {/* CLASSIFICATION & PRODUCT IMAGE (SQUARE & TEMPLATED/DROPDOWNS) */}
-                <div className="flex flex-col sm:flex-row gap-4 p-4 bg-slate-50/70 border border-slate-200 rounded-2xl items-start sm:items-stretch">
-                  {/* SQUARE PRODUCT IMAGE UPLOAD & PREVIEW */}
-                  <div className="w-full sm:w-32 md:w-36 shrink-0 flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="block font-semibold text-slate-700 text-xs whitespace-nowrap">
-                        Product Image
-                      </label>
-                      {formData.image && (
-                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                          Selected
-                        </span>
-                      )}
-                    </div>
-
-                    {formData.image ? (
-                      <div className="relative group w-full aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs">
-                        <img
-                          src={formData.image}
-                          alt="Product Preview"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
-                          <label className="p-1.5 bg-white/90 hover:bg-white text-[#01390f] rounded-lg cursor-pointer shadow-xs transition-transform hover:scale-110" title="Change Image">
-                            <Camera className="w-3.5 h-3.5" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImageChange}
-                              className="hidden"
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setFormData((prev) => ({ ...prev, image: '' }))}
-                            className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg cursor-pointer shadow-xs transition-transform hover:scale-110"
-                            title="Remove Image"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <label className="w-full aspect-square border-2 border-dashed border-slate-300 hover:border-[#01390f] bg-white hover:bg-emerald-50/30 rounded-xl p-2 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-center group">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 text-slate-400 group-hover:text-[#01390f] flex items-center justify-center transition-colors">
-                          <Upload className="w-4 h-4" />
-                        </div>
-                        <span className="text-[11px] font-bold text-slate-600 group-hover:text-[#01390f] leading-tight">
-                          Upload Photo
-                        </span>
-                        <span className="text-[9px] text-slate-400 leading-tight">
-                          Square (PNG/JPG)
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-
-                  {/* TEMPLATED / DROPDOWN FIELDS GRID */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 flex-1 w-full self-center">
-                    {/* CODE (AUTO GENERATED) */}
-                    <div>
-                      <label className="block font-semibold text-slate-600 text-xs mb-1 whitespace-nowrap">
-                        Code <span className="text-[10px] text-slate-500 font-bold">(Auto-generated)</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="code"
-                        readOnly
-                        value={formData.code}
-                        placeholder="FG0001"
-                        className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none cursor-not-allowed h-[38px]"
-                      />
-                    </div>
-
-                    {/* CATEGORY (PURE DROPDOWN) */}
-                    <div>
-                      <label className="block font-semibold text-slate-600 text-xs mb-1 whitespace-nowrap">Category</label>
-                      <div className="relative">
-                        <select
-                          name="category"
-                          required
-                          value={formData.category}
-                          onChange={handleInputChange}
-                          className="w-full appearance-none bg-white border border-slate-200 text-slate-700 rounded-xl pl-3 pr-8 py-2 text-xs font-medium focus:outline-none focus:border-[#01390f] transition-all cursor-pointer shadow-2xs h-[38px]"
-                        >
-                          <option value="" disabled>Select Category...</option>
-                          {modalCategories.map((cat, idx) => (
-                            <option key={idx} value={cat}>
-                              {cat}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-3 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    {/* UNIT OF MEASUREMENT (UOM) (PURE DROPDOWN) */}
-                    <div className="sm:col-span-2 md:col-span-1">
-                      <label className="block font-semibold text-slate-600 text-xs mb-1 whitespace-nowrap">UOM</label>
-                      <div className="relative">
-                        <select
-                          name="uom"
-                          required
-                          value={formData.uom}
-                          onChange={handleInputChange}
-                          className="w-full appearance-none bg-white border border-slate-200 text-slate-700 rounded-xl pl-3 pr-8 py-2 text-xs font-medium uppercase focus:outline-none focus:border-[#01390f] transition-all cursor-pointer shadow-2xs h-[38px]"
-                        >
-                          <option value="" disabled>Select UOM...</option>
-                          {existingUOMs.map((unit, idx) => (
-                            <option key={idx} value={unit}>
-                              {unit.toUpperCase()}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-3 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* TYPABLE PRODUCT DETAILS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* ITEM NAME (TYPE + DROPDOWN) */}
+                {/* 2-COLUMN GRID FOR CORE PRODUCT INFORMATION (CONSISTENT WITH RAW MATERIALS) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* PRODUCT CODE */}
                   <div>
-                    <label className="block font-semibold text-slate-600 text-xs mb-1 whitespace-nowrap">Item Name</label>
+                    <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">
+                      Product Code <span className="text-[10px] text-slate-500 font-bold">(Auto-generated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="code"
+                      readOnly
+                      value={formData.code}
+                      placeholder="FG0001"
+                      className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none cursor-not-allowed"
+                    />
+                  </div>
+
+                  {/* CATEGORY */}
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">Category</label>
+                    <div className="relative">
+                      <select
+                        name="category"
+                        required
+                        value={formData.category}
+                        onChange={handleInputChange}
+                        className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#01390f] transition-all cursor-pointer shadow-2xs uppercase"
+                      >
+                        <option value="" disabled>Select Category</option>
+                        {modalCategories.map((cat, idx) => (
+                          <option key={idx} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* ITEM NAME */}
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">Item Name</label>
                     <TypeableDropdown
                       name="itemName"
                       value={formData.itemName}
                       onChange={handleInputChange}
                       options={existingItemNames}
-                      placeholder="Type or select Item Name..."
+                      placeholder="Enter Item Name"
+                      required
                     />
+                  </div>
+
+                  {/* UNIT OF MEASUREMENT (UOM) */}
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">Unit of Measurement (UOM)</label>
+                    <div className="relative">
+                      <select
+                        name="uom"
+                        required
+                        value={formData.uom}
+                        onChange={handleInputChange}
+                        className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#01390f] transition-all cursor-pointer shadow-2xs uppercase"
+                      >
+                        <option value="" disabled>Select UOM</option>
+                        {existingUOMs.map((unit, idx) => (
+                          <option key={idx} value={unit}>
+                            {unit.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   {/* SPECIFICATION (NUMBERS ONLY) */}
                   <div>
-                    <label className="block font-semibold text-slate-600 text-xs mb-1 whitespace-nowrap">
+                    <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">
                       Specification <span className="text-[10px] text-slate-500 font-bold">(Numbers only)</span>
                     </label>
                     <input
@@ -2056,9 +2274,77 @@ function InventoryFinishedGoods() {
                           setFormData((prev) => ({ ...prev, specification: sanitized }));
                         }
                       }}
-                      placeholder="Enter numeric specification (e.g. 100, 250, 78.5)..."
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#01390f] transition-all h-[38px]"
+                      placeholder="Enter Specification"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#01390f] transition-all"
                     />
+                  </div>
+
+                  {/* PRODUCT IMAGE */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-semibold text-slate-600 whitespace-nowrap">
+                        Product Image
+                      </label>
+                      {formData.image ? (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          Selected
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          Square (PNG/JPG)
+                        </span>
+                      )}
+                    </div>
+
+                    {formData.image ? (
+                      <div className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1 flex items-center justify-between gap-2 shadow-2xs h-[42px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedImageItem({ ...formData, itemName: formData.itemName || 'Product', type: 'Finished Good' })}
+                          className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer group/img"
+                          title="Click to view full image"
+                        >
+                          <img
+                            src={formData.image}
+                            alt="Product Preview"
+                            className="w-7 h-7 rounded-lg object-cover border border-slate-200 shrink-0 group-hover/img:scale-110 transition-transform"
+                          />
+                          <span className="text-xs sm:text-sm font-medium text-slate-700 truncate group-hover/img:text-[#01390f]">
+                            Photo selected
+                          </span>
+                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <label className="px-2.5 py-1 bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[11px] font-bold uppercase tracking-wider rounded-full cursor-pointer transition-colors border border-[#d5ead7]">
+                            Change
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, image: '' }))}
+                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Remove Image"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="w-full flex items-center justify-center gap-2 bg-white hover:bg-emerald-50/40 border border-dashed border-slate-300 hover:border-[#01390f] rounded-xl px-3.5 h-[42px] cursor-pointer transition-all text-slate-600 hover:text-[#01390f] shadow-2xs group">
+                        <Upload className="w-4 h-4 text-slate-400 group-hover:text-[#01390f] transition-colors" />
+                        <span className="text-xs sm:text-sm font-medium text-slate-700 group-hover:text-[#01390f]">Upload Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
 
@@ -2070,7 +2356,7 @@ function InventoryFinishedGoods() {
                         Product Ingredients (Bill of Materials)
                       </h4>
                       <p className="text-[11px] text-slate-500">
-                        Select existing raw materials required to produce 1 unit of this item.
+                        Select existing raw materials required to produce 1 unit of this item. <span className="font-semibold text-slate-700">(Note: 5kg minimum)</span>
                       </p>
                     </div>
                     <button
@@ -2318,7 +2604,6 @@ function InventoryFinishedGoods() {
             {/* MODAL BODY */}
             <div className="p-6 flex flex-col gap-4">
               <div className="p-3.5 bg-[#EDF7EE] rounded-2xl border border-[#D5EAD7] text-[#01390f] flex items-start gap-3">
-                <Archive className="w-5 h-5 text-[#01390f] shrink-0 mt-0.5" />
                 <div>
                   <span className="block text-xs font-bold text-[#01390f] uppercase">
                     {archiveTargetProduct.isArchived ? 'Active Directory Restoration' : 'Product Archive Vault'}

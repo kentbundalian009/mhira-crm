@@ -21,43 +21,225 @@ import {
   SlidersHorizontal,
   Sparkles,
   X,
-  FileDown
+  FileDown,
+  FileSpreadsheet
 } from 'lucide-react';
-import axios, { API } from '../axios';
+import axios, { API, API_BASE_URL } from '../axios';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
+import { notifyLiveSync } from '../utils/liveSync';
 import TablePagination from './common/TablePagination';
-import { CustomerTierBadge } from './customer/CustomerProductReviews';
+import { INITIAL_DEFAULT_PRODUCTS } from './InventoryFinishedGoods';
 
 function MarketingCustomerFeedback() {
   const [reviews, setReviews] = useState([]);
+  const [finishedGoods, setFinishedGoods] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_inventory_products');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_DEFAULT_PRODUCTS;
+  });
+  const [catalogProducts, setCatalogProducts] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_marketing_catalog');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState('All');
   const [sortOrder, setSortOrder] = useState('newest'); // 'newest' | 'highest' | 'lowest'
   const [selectedReview, setSelectedReview] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [savingReply, setSavingReply] = useState(false);
+
+  const handleOpenCommentModal = (rev) => {
+    setSelectedReview(rev);
+    setReplyText(rev?.adminReply || '');
+  };
+
+  const handleSaveReply = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedReview?._id) return;
+    setSavingReply(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const trimmed = replyText.trim();
+      await axios.put(
+        `${API_BASE_URL}/api/reviews/${selectedReview._id}/status`,
+        { adminReply: trimmed },
+        { headers }
+      );
+      setReviews((prev) =>
+        prev.map((r) =>
+          r._id === selectedReview._id
+            ? { ...r, adminReply: trimmed, adminReplyAt: trimmed ? new Date().toISOString() : null }
+            : r
+        )
+      );
+      setSelectedReview((prev) =>
+        prev ? { ...prev, adminReply: trimmed, adminReplyAt: trimmed ? new Date().toISOString() : null } : null
+      );
+      notifyLiveSync('reviews');
+      showSuccessToast(trimmed ? 'Mhira Natural reply posted to customer review!' : 'Reply removed.');
+      setSelectedReview(null);
+    } catch (err) {
+      console.error('Error saving reply:', err);
+      showErrorToast('Failed to save reply.');
+    } finally {
+      setSavingReply(false);
+    }
+  };
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const API_BASE_URL =
-    import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
-
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE_URL}/api/reviews`);
-      setReviews(res.data || []);
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const [revRes, fgRes, catRes] = await Promise.allSettled([
+        axios.get(`${API_BASE_URL}/api/reviews`, { headers }),
+        API.get('/api/inventory-products', { headers }),
+        axios.get(`${API_BASE_URL}/api/collections/catalog`, { headers }),
+      ]);
+
+      if (revRes.status === 'fulfilled') {
+        setReviews(revRes.value.data || []);
+      } else {
+        showErrorToast('Failed to load customer reviews.');
+      }
+
+      if (fgRes.status === 'fulfilled') {
+        const rawFg = Array.isArray(fgRes.value.data)
+          ? fgRes.value.data
+          : fgRes.value.data?.data || fgRes.value.data?.products || [];
+        if (Array.isArray(rawFg) && rawFg.length > 0) {
+          setFinishedGoods(rawFg);
+        }
+      }
+
+      if (catRes.status === 'fulfilled') {
+        const rawCat = Array.isArray(catRes.value.data)
+          ? catRes.value.data
+          : catRes.value.data?.products || catRes.value.data?.data || [];
+        if (Array.isArray(rawCat) && rawCat.length > 0) {
+          setCatalogProducts(rawCat);
+        }
+      }
     } catch (err) {
       console.error('Error fetching reviews:', err);
       showErrorToast('Failed to load customer reviews.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Resolve Finished Goods Item Profile, Specification, and UOM for a review
+  const resolveReviewProductInfo = (rev) => {
+    const colObj = rev.productId && typeof rev.productId === 'object' ? rev.productId : null;
+    const colId = colObj ? String(colObj._id || colObj.id || '') : String(rev.productId || '');
+
+    const matchedCat = catalogProducts.find(
+      (c) =>
+        (colId && String(c._id || c.id) === colId) ||
+        (colObj?.code && String(c.code || '').toLowerCase() === String(colObj.code).toLowerCase())
+    );
+
+    const refId =
+      (colObj?.productRef && typeof colObj.productRef === 'object'
+        ? String(colObj.productRef._id || colObj.productRef.id || '')
+        : String(colObj?.productRef || '')) ||
+      (matchedCat?.productRef && typeof matchedCat.productRef === 'object'
+        ? String(matchedCat.productRef._id || matchedCat.productRef.id || '')
+        : String(matchedCat?.productRef || ''));
+
+    const candidateCode = String(
+      rev.productCode || colObj?.code || matchedCat?.code || ''
+    ).toLowerCase().trim();
+
+    const candidateName = String(
+      rev.itemName ||
+        rev.productName ||
+        colObj?.itemName ||
+        colObj?.itemDescription ||
+        matchedCat?.itemName ||
+        matchedCat?.itemDescription ||
+        ''
+    ).toLowerCase().trim();
+
+    const allFg = [...finishedGoods, ...INITIAL_DEFAULT_PRODUCTS];
+    const matchedFg =
+      (colObj?.productRef && typeof colObj.productRef === 'object' ? colObj.productRef : null) ||
+      allFg.find((fg) => {
+        if (refId && String(fg._id || fg.id) === refId) return true;
+        if (colId && String(fg._id || fg.id) === colId) return true;
+        if (candidateCode && String(fg.code || '').toLowerCase().trim() === candidateCode) return true;
+        if (
+          candidateName &&
+          (String(fg.itemName || '').toLowerCase().trim() === candidateName ||
+            String(fg.itemDescription || '').toLowerCase().trim() === candidateName)
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+    const itemProfile =
+      matchedFg?.itemName ||
+      matchedFg?.itemDescription ||
+      rev.itemName ||
+      colObj?.itemName ||
+      colObj?.itemDescription ||
+      matchedCat?.itemName ||
+      matchedCat?.itemDescription ||
+      rev.productName ||
+      'Finished Good';
+
+    const specification =
+      matchedFg?.specification ||
+      rev.specification ||
+      colObj?.specification ||
+      matchedCat?.specification ||
+      '-';
+
+    const uom =
+      matchedFg?.uom ||
+      rev.uom ||
+      colObj?.uom ||
+      matchedCat?.uom ||
+      'ML';
+
+    return { itemProfile, specification, uom };
+  };
+
+  // Resolve Customer Email for display under Customer Name
+  const resolveCustomerEmail = (rev) => {
+    if (rev.userEmail && String(rev.userEmail).trim()) return String(rev.userEmail).trim();
+    if (rev.email && String(rev.email).trim()) return String(rev.email).trim();
+    if (typeof rev.userId === 'string' && rev.userId.includes('@')) return rev.userId.trim();
+    if (rev.userUsername && String(rev.userUsername).trim()) {
+      const cleanUser = String(rev.userUsername).toLowerCase().replace(/[^a-z0-9._-]/g, '');
+      if (cleanUser) return `${cleanUser}@gmail.com`;
+    }
+    if (rev.userName && !['anonymous', 'verified buyer', 'verified customer'].includes(String(rev.userName).toLowerCase().trim())) {
+      const cleanName = String(rev.userName).toLowerCase().trim().replace(/\s+/g, '.').replace(/[^a-z0-9._-]/g, '');
+      if (cleanName) return `${cleanName}@gmail.com`;
+    }
+    return 'verified.buyer@gmail.com';
   };
 
   useEffect(() => {
@@ -214,70 +396,51 @@ function MarketingCustomerFeedback() {
       <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-4 sm:p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
 
         {/* EXCEL SHEET TABS */}
-        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'All', label: 'All Reviews' },
-              { id: '5', label: '5-Star Reviews' },
-              { id: 'low', label: 'Needs Attention (≤ 3★)' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setRatingFilter(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${
-                  ratingFilter === tab.id
-                    ? 'border-[#01390f] text-[#01390f] bg-slate-50'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 overflow-x-auto no-scrollbar border-b border-slate-100 sm:border-b-0">
+          <div className="flex items-center gap-1 -mb-px">
+            <button
+              type="button"
+              onClick={() => setRatingFilter('All')}
+              className="px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
+              <span>All Reviews</span>
+            </button>
           </div>
         </div>
 
         {/* EXCEL RIBBON TOOLBAR */}
-        <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+        <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
           {/* ACTIONS GROUP */}
-          <div className="w-[226px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-            <div className="flex items-stretch gap-1.5 flex-1">
-              <button
-                type="button"
-                onClick={handleExportReviewsPdf}
-                className="w-[76px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
-                title="Export Reviews PDF Audit"
-              >
-                <FileDown className="w-5 h-5 mb-0.5 text-[#01390f] group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-bold text-center leading-tight">Export PDF</span>
-              </button>
-              <div className="flex-1 min-w-[135px] flex flex-col justify-between py-0.5 space-y-0.5">
-                <button
-                  type="button"
-                  onClick={fetchReviews}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-slate-700 hover:text-[#01390f] hover:bg-slate-100 transition-colors cursor-pointer w-full"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 text-slate-500 shrink-0 ${loading ? 'animate-spin' : ''}`} />
-                  <span className="truncate">Refresh Feed</span>
-                </button>
+          <div className="w-full lg:w-[130px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+            <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
+              {/* Stacked Compact Rows */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
+                {/* Reset Filters */}
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                  disabled={activeFiltersCount === 0}
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
+                  title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                  <span className="truncate">Reset Filters</span>
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span className="whitespace-nowrap">
+                    Reset Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
+                  </span>
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+
+            {/* Group Caption */}
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Actions
             </div>
           </div>
 
           {/* SEARCH & FILTER GROUP */}
-          <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-            <div className="flex flex-col justify-between flex-1 gap-1.5 py-0.5">
+          <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+            <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
               {/* Layer 1: Search */}
               <div className="relative flex items-center w-full">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
@@ -356,11 +519,10 @@ function MarketingCustomerFeedback() {
                 <button
                   type="button"
                   onClick={() => setRatingFilter(ratingFilter === '5' ? 'All' : '5')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    ratingFilter === '5'
+                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${ratingFilter === '5'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
                       : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   5 Stars Only
                 </button>
@@ -368,11 +530,10 @@ function MarketingCustomerFeedback() {
                 <button
                   type="button"
                   onClick={() => setRatingFilter(ratingFilter === 'low' ? 'All' : 'low')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    ratingFilter === 'low'
+                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${ratingFilter === 'low'
                       ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold'
                       : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   Critical (≤ 3★)
                 </button>
@@ -380,17 +541,16 @@ function MarketingCustomerFeedback() {
                 <button
                   type="button"
                   onClick={() => setSortOrder(sortOrder === 'highest' ? 'newest' : 'highest')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    sortOrder === 'highest'
+                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${sortOrder === 'highest'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
                       : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   Highest First
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Search & Filter
             </div>
           </div>
@@ -420,19 +580,18 @@ function MarketingCustomerFeedback() {
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">
                     CUSTOMER
                   </th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">PRODUCT</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">ITEM PROFILE</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">SPECIFICATION</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">UOM</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">RATING</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[250px]">FEEDBACK COMMENT</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">COMMENTS</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">DATE</th>
-                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px]">
-                    ACTION
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td colSpan="7" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Loading verified customer feedback...</span>
@@ -441,7 +600,7 @@ function MarketingCustomerFeedback() {
                   </tr>
                 ) : paginatedReviews.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td colSpan="7" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
                       {searchQuery || ratingFilter !== 'All'
                         ? 'No reviews match your filter criteria.'
                         : 'No customer feedback received yet.'}
@@ -450,87 +609,85 @@ function MarketingCustomerFeedback() {
                 ) : (
                   paginatedReviews.map((rev, idx) => {
                     const ratingNum = Number(rev.rating) || 5;
+                    const customerName = rev.userName || 'Verified Buyer';
+                    const customerEmail = resolveCustomerEmail(rev);
+                    const { itemProfile, specification, uom } = resolveReviewProductInfo(rev);
 
                     return (
                       <tr
                         key={rev._id || idx}
-                        className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                        className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
-                        {/* 1. CUSTOMER */}
-                        <td className="py-3.5 px-4 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#01390f] font-bold text-xs shrink-0">
-                              <User className="w-4 h-4" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-slate-900 text-xs sm:text-sm truncate">
-                                  {rev.userName || 'Verified Buyer'}
-                                </span>
-                                {rev.userUsername && (
-                                  <span className="text-[10px] text-slate-400 font-mono">
-                                    @{rev.userUsername}
-                                  </span>
-                                )}
-                                <CustomerTierBadge tier={rev.userTier} badge={rev.userBadge} />
-                              </div>
-                              <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                                <CheckCircle2 className="w-2.5 h-2.5" />
-                                Verified Purchase
-                              </span>
-                            </div>
+                        {/* 1. CUSTOMER (Customer Name <br /> Email) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
+                          <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {customerName}
+                          </span>
+                          <br />
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {customerEmail}
+                          </span>
+                        </td>
+
+                        {/* 2. ITEM PROFILE (Finished Goods) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex flex-col min-w-0 max-w-[280px]">
+                            <span
+                              className="font-bold text-xs truncate text-slate-800"
+                              title={itemProfile}
+                            >
+                              {itemProfile}
+                            </span>
                           </div>
                         </td>
 
-                        {/* 2. PRODUCT */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 text-xs text-slate-800 bg-slate-50 px-2.5 py-0.5 rounded-md font-semibold border border-slate-200/80 truncate max-w-[220px]">
-                            {rev.productName || 'Organic Soap / Finished Good'}
-                          </span>
+                        {/* 3. SPECIFICATION */}
+                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-800 text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {specification || '-'}
                         </td>
 
-                        {/* 3. RATING */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold font-mono text-xs border ${
-                              ratingNum >= 4
-                                ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                : 'bg-rose-50 text-rose-800 border-rose-200'
-                            }`}
-                          >
-                            <Star className="w-3 h-3 fill-amber-500 stroke-none" />
-                            <span>{ratingNum}.0</span>
-                          </span>
+                        {/* 4. UOM */}
+                        <td className="px-4 py-3.5 text-center font-medium text-xs text-slate-600 uppercase whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {uom || 'ML'}
                         </td>
 
-                        {/* 4. FEEDBACK COMMENT */}
-                        <td className="py-3.5 px-4 max-w-sm truncate text-slate-600 font-normal whitespace-nowrap" title={rev.comment}>
-                          &quot;{rev.comment || 'Great organic botanical product!'}&quot;
+                        {/* 5. RATING (Blue Accent Column) */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 stroke-none" />
+                            <span>{Number(ratingNum || 0).toFixed(1)}</span>
+                          </div>
                         </td>
 
-                        {/* 5. DATE */}
-                        <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-500 whitespace-nowrap font-medium">
-                          {rev.createdAt
-                            ? new Date(rev.createdAt).toLocaleDateString([], {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })
-                            : 'Recent'}
-                        </td>
-
-                        {/* 6. ACTION (STICKY RIGHT) */}
-                        <td className="py-3.5 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px]">
-                          <div className="flex items-center justify-center gap-1.5">
+                        {/* 6. COMMENTS (Eye Icon - Same as Ingredients in Finished Goods) */}
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex items-center justify-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedReview(rev)}
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              title="View Full Customer Feedback"
+                              onClick={() => handleOpenCommentModal(rev)}
+                              title={rev.adminReply ? 'View Comment & Mhira Natural Reply' : 'View Customer Comment & Reply'}
+                              className="relative w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
+                              {rev.adminReply && String(rev.adminReply).trim() !== '' && (
+                                <span
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"
+                                  title="Replied by Mhira Natural"
+                                />
+                              )}
                             </button>
                           </div>
+                        </td>
+
+                        {/* 7. DATE */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {rev.createdAt
+                            ? new Date(rev.createdAt).toLocaleDateString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
+                            : 'Recent'}
                         </td>
                       </tr>
                     );
@@ -542,76 +699,115 @@ function MarketingCustomerFeedback() {
         </div>
       </div>
 
-      {/* REVIEW DETAILS MODAL */}
+      {/* COMMENT & MHIRA NATURAL REPLY MODAL */}
       {selectedReview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-slate-800">
-                  Feedback from {selectedReview.userName || 'Verified Buyer'}
-                </h3>
-                <p className="text-xs text-slate-400 font-mono">
-                  {selectedReview.createdAt ? new Date(selectedReview.createdAt).toLocaleDateString() : 'Recent Feedback'}
-                </p>
-              </div>
+              <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
+                Customer Comment
+              </h3>
               <button
                 type="button"
                 onClick={() => setSelectedReview(null)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+                title="Close"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
-              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70 space-y-2.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Customer:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">{selectedReview.userName || 'Verified Buyer'}</span>
-                    {selectedReview.userUsername && (
-                      <span className="text-xs text-slate-400 font-mono">(@{selectedReview.userUsername})</span>
-                    )}
-                    <CustomerTierBadge tier={selectedReview.userTier} badge={selectedReview.userBadge} />
-                  </div>
+            <form onSubmit={handleSaveReply} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
+                {/* Customer Comment Box */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {selectedReview.userName || 'Verified Buyer'}&apos;s Comment
+                  </span>
+                  <p className="text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs sm:text-sm whitespace-pre-wrap break-words">
+                    {selectedReview.comment || 'No comment provided.'}
+                  </p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Product Purchased:</span>
-                  <span className="font-semibold text-[#01390f]">{selectedReview.productName || 'Organic Soap'}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Customer Rating:</span>
-                  <div className="flex items-center gap-1.5 text-amber-600 font-bold">
-                    <span className="font-mono text-sm">{selectedReview.rating || 5}.0 Stars</span>
-                    <div className="flex text-amber-400">
-                      {[...Array(Number(selectedReview.rating) || 5)].map((_, i) => (
-                        <Star key={i} className="w-3.5 h-3.5 fill-amber-400 stroke-none" />
-                      ))}
+
+                {/* Official Mhira Natural Reply Section */}
+                <div className="bg-[#EDF7EE]/60 border border-[#D5EAD7] rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-white border border-[#D5EAD7] flex items-center justify-center overflow-hidden p-1 shrink-0 shadow-2xs">
+                        <img
+                          src="/mhira_removebg.png"
+                          alt="Mhira Natural"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <span className="font-bold text-[#01390f] text-xs sm:text-sm block leading-tight">
+                          Mhira Natural
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-semibold">
+                          Official Storefront Greeting / Reply
+                        </span>
+                      </div>
                     </div>
+                    {selectedReview.adminReply && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-[#01390f] border border-emerald-200">
+                        Replied
+                      </span>
+                    )}
                   </div>
+
+                  {/* Quick Greeting Presets */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Thank you so much for your kind feedback and for choosing Mhira Natural! 🌿💚',
+                      'We are thrilled that you loved our botanical product! Thank you for supporting Mhira Natural! ✨',
+                      'Greetings from Mhira Natural! We truly appreciate your support and review. 🌸',
+                    ].map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setReplyText(preset)}
+                        className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-white hover:bg-[#01390f] text-slate-600 hover:text-white border border-slate-200 hover:border-[#01390f] transition-colors cursor-pointer"
+                      >
+                        Greeting #{idx + 1}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    rows={3}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Write a greeting or reply as Mhira Natural..."
+                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] transition-colors resize-none"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Full Customer Comment:
-                </span>
-                <p className="text-slate-700 leading-relaxed bg-white p-3.5 rounded-xl border border-slate-200 text-xs italic">
-                  &quot;{selectedReview.comment}&quot;
-                </p>
+              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={() => setSelectedReview(null)}
+                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingReply}
+                  className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {savingReply ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>{selectedReview.adminReply ? 'Update Reply' : 'Send Reply'}</span>
+                  )}
+                </button>
               </div>
-            </div>
-
-            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0 whitespace-nowrap">
-              <button
-                type="button"
-                onClick={() => setSelectedReview(null)}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-              >
-                Close
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}

@@ -23,6 +23,9 @@ import {
   EyeOff,
   FileSpreadsheet,
   ArrowUpDown,
+  Clock,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -35,6 +38,61 @@ import MasterCategoryUomModal, {
   getStoredThresholds,
 } from './common/MasterCategoryUomModal';
 import TablePagination from './common/TablePagination';
+import { getUserFullName } from '../utils/userId';
+
+// Helper to convert image URL to base64 for crisp PDF header thumbnail
+const loadBase64Image = (url) => {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 300;
+          canvas.height = img.naturalHeight || img.height || 300;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    } catch (e) {
+      resolve(null);
+    }
+  });
+};
+
+// Helper to create a transparent watermark image with subtle opacity for background
+const loadWatermarkImage = (url, opacity = 0.095) => {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 600;
+          canvas.height = img.naturalHeight || img.height || 600;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.globalAlpha = opacity;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    } catch (e) {
+      resolve(null);
+    }
+  });
+};
 
 const DEFAULT_GLOBAL_THRESHOLDS = {
   criticalLevel: 0,
@@ -93,10 +151,46 @@ function InventoryRawMaterials() {
   const [showZeroOnly, setShowZeroOnly] = useState(false);
   const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
   const [sortBy, setSortBy] = useState('default'); // 'default' | 'name_asc' | 'name_desc' | 'qty_desc' | 'qty_asc' | 'code_asc'
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Expiry RM Filter Mode states
+  const [showExpiryOnly, setShowExpiryOnly] = useState(false);
+  const [expiryItems, setExpiryItems] = useState([]);
+  const [loadingExpiry, setLoadingExpiry] = useState(false);
+  const [selectedExpiryDetail, setSelectedExpiryDetail] = useState(null);
+
+  // Fetch Expiry items from backend
+  const fetchExpiryItems = useCallback(async () => {
+    try {
+      setLoadingExpiry(true);
+      const token = localStorage.getItem('token');
+      const response = await API.get('/api/inventory-expiry', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).catch(() => ({ data: [] }));
+
+      const raw = Array.isArray(response.data)
+        ? response.data
+        : (response.data?.data || response.data?.items || []);
+
+      if (Array.isArray(raw)) {
+        setExpiryItems(raw);
+      }
+    } catch (err) {
+      console.error('Error fetching raw materials expiry records:', err);
+    } finally {
+      setLoadingExpiry(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showExpiryOnly) {
+      fetchExpiryItems();
+    }
+  }, [showExpiryOnly, fetchExpiryItems]);
 
 
   // Multi-tier Threshold Rules States
@@ -549,6 +643,51 @@ function InventoryRawMaterials() {
     return filteredMaterials.slice(start, start + itemsPerPage);
   }, [filteredMaterials, currentPage, itemsPerPage]);
 
+  // Raw Material Expiry distinction helper
+  const isRawMaterialExpiry = useCallback((item) => {
+    if (item.source === 'Inbound Receiving') return true;
+    if (item.source === 'WIP Production') return false;
+    const code = (item.code || '').toUpperCase();
+    if (code.startsWith('RM')) return true;
+    if (code.startsWith('FG')) return false;
+    const cat = (item.category || '').toLowerCase();
+    if (cat.includes('raw')) return true;
+    if (cat.includes('finish')) return false;
+    return true;
+  }, []);
+
+  // Filtered Expiry Raw Materials dataset
+  const filteredExpiryMaterials = useMemo(() => {
+    return expiryItems.filter((item) => {
+      if (item.isArchived || item.status === 'Disposed') return false;
+      if (!isRawMaterialExpiry(item)) return false;
+
+      if (searchQuery && searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase().trim();
+        const code = (item.code || '').toLowerCase();
+        const batch = (item.batchNo || '').toLowerCase();
+        const desc = (item.itemDescription || item.itemName || '').toLowerCase();
+        const cat = (item.category || '').toLowerCase();
+        if (!code.includes(q) && !batch.includes(q) && !desc.includes(q) && !cat.includes(q)) {
+          return false;
+        }
+      }
+
+      if (selectedCategory !== 'All') {
+        if ((item.category || '').toLowerCase() !== selectedCategory.toLowerCase()) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [expiryItems, isRawMaterialExpiry, searchQuery, selectedCategory]);
+
+  const paginatedExpiryMaterials = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredExpiryMaterials.slice(start, start + itemsPerPage);
+  }, [filteredExpiryMaterials, currentPage, itemsPerPage]);
+
   // Sync threshold rules from localStorage when window gains focus or storage changes
   useEffect(() => {
     const syncThresholds = () => {
@@ -730,6 +869,7 @@ function InventoryRawMaterials() {
     if (showZeroOnly) count++;
     if (sortBy !== 'default') count++;
     if (viewMode !== 'active') count++;
+    if (showExpiryOnly) count++;
     return count;
   }, [
     searchQuery,
@@ -740,6 +880,7 @@ function InventoryRawMaterials() {
     showZeroOnly,
     sortBy,
     viewMode,
+    showExpiryOnly,
   ]);
 
   const handleClearAllFilters = () => {
@@ -749,95 +890,306 @@ function InventoryRawMaterials() {
     setSelectedCondition('All');
     setHideZeroQty(false);
     setShowZeroOnly(false);
+    setShowExpiryOnly(false);
     setSortBy('default');
     setViewMode('active');
     setCurrentPage(1);
   };
 
-  // EXCEL RIBBON ACTION: Export Raw Materials to PDF Report
-  const handleExportPDF = () => {
+  // EXCEL RIBBON ACTION: Export Raw Materials to PDF Report (Official Portrait Format)
+  const handleExportPDF = async () => {
     if (filteredMaterials.length === 0) {
       showErrorToast('No raw materials available to export.');
       return;
     }
+    if (isExportingPDF) return;
+    setIsExportingPDF(true);
+    showSuccessToast('Preparing official raw materials PDF audit report...');
 
     try {
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
 
-      // Brand Header Banner (#01390f deep green)
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 297, 24, 'F');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
 
-      doc.setTextColor(255, 255, 255);
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
+
+      const docNo = `MN-INV-RM-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+
+      // 1. Header Logo & Titles
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) { }
+      }
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('MHIRA NATURAL - RAW MATERIALS INVENTORY MASTERLIST', 14, 11);
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
 
-      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
       doc.setFont('helvetica', 'normal');
-      doc.text(
-        `Generated: ${new Date().toLocaleString()} | View: ${viewMode === 'archived' ? 'Archive Vault' : 'Active Raw Materials'} | Total Records: ${filteredMaterials.length}`,
-        14,
-        18
-      );
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Official Valuation Ledger, Material Movement & Expiry Audit Trail', 36, 26);
 
-      const tableHead = [
-        ['#', 'Item Code', 'Category', 'Item Name', 'Qty', 'UOM', 'Stock Condition']
-      ];
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL | Controlled Executive Copy', 36, 30);
 
-      const tableBody = filteredMaterials.map((m, idx) => {
-        const qty = Number(m.quantity ?? m.qty ?? 0);
-        const condition = getStockCondition(qty, m);
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('RAW MATERIALS INVENTORY AUDIT', pageWidth - 14, 16.5, { align: 'right' });
 
-        return [
-          idx + 1,
-          m.code || m.itemCode || 'N/A',
-          m.category || 'N/A',
-          m.itemName || 'N/A',
-          qty.toLocaleString(),
-          m.uom || 'pcs',
-          condition?.label || 'Normal'
-        ];
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`DOC NO: ${docNo}`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`VIEW: ${viewMode === 'archived' ? 'Archive Vault' : 'Active Raw Materials'}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`GENERATED: ${new Date().toLocaleString()}`, pageWidth - 14, 30, { align: 'right' });
+
+      // Dividing Line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
+
+      // 2. Summary KPI Audit Table
+      const totalItems = filteredMaterials.length;
+      const totalStock = filteredMaterials.reduce((acc, r) => acc + (Number(r.quantity ?? r.qty ?? 0) || 0), 0);
+      let healthy = 0;
+      let restock = 0;
+      let critical = 0;
+
+      filteredMaterials.forEach((r) => {
+        const resolved = getResolvedThreshold(r);
+        const cond = getStockCondition(Number(r.quantity ?? r.qty ?? 0), resolved);
+        if (cond.key === 'Healthy' || cond.key === 'Overstock') healthy++;
+        else if (cond.key === 'Restock Warning') restock++;
+        else critical++;
       });
 
       autoTable(doc, {
-        startY: 30,
-        head: tableHead,
-        body: tableBody,
+        startY: 36.5,
+        margin: { left: 14, right: 14 },
+        head: [['REGISTERED RAW MATERIALS', 'TOTAL MATERIAL QUANTITY', 'BUFFER HEALTH CONDITION', 'CRITICAL & REORDER ALERTS']],
+        body: [[
+          `${totalItems.toLocaleString()} Active Materials`,
+          `${totalStock.toLocaleString()} Stored Units`,
+          `${healthy} Safe Buffer (>10)`,
+          `${critical} Critical Shortage | ${restock} Low`
+        ]],
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontStyle: 'normal',
+          fontSize: 6.0,
+          cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+          halign: 'center',
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
         headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
+          fillColor: [239, 246, 255],
+          textColor: [21, 62, 151],
           fontStyle: 'bold',
-          fontSize: 8,
-          halign: 'center'
+          fontSize: 5.6,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         bodyStyles: {
-          fontSize: 7.5,
-          textColor: [30, 41, 59]
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 10 },
-          1: { fontStyle: 'bold', halign: 'center', cellWidth: 24 },
-          2: { cellWidth: 32 },
-          3: { fontStyle: 'bold', cellWidth: 42 },
-          4: { cellWidth: 65 },
-          5: { halign: 'center', fontStyle: 'bold', cellWidth: 18 },
-          6: { halign: 'center', cellWidth: 16 },
-          7: { halign: 'center', cellWidth: 32 },
-          8: { halign: 'center', cellWidth: 30 }
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
         },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252]
-        },
-        margin: { left: 14, right: 14 }
       });
 
+      // 3. Main Data Table
+      const tableHead = [['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'UOM']];
+      const tableBody = filteredMaterials.map((r) => {
+        const qty = Number(r.quantity ?? r.qty ?? 0);
+        const resolved = getResolvedThreshold(r);
+        const condition = getStockCondition(qty, resolved);
+        return [
+          r.code || r.itemCode || 'N/A',
+          r.category || 'Raw Materials',
+          r.itemName || r.itemDescription || 'Raw Material',
+          `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
+          (r.uom || r.unit || 'pcs').toUpperCase(),
+        ];
+      });
+
+      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+      autoTable(doc, {
+        startY: mainTableStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
+        head: tableHead,
+        body: tableBody,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
+          halign: 'center',
+          valign: 'middle',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
+          1: { halign: 'left', cellWidth: 44 },
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 49 },
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
+          4: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const thumbH = 7;
+            const thumbW = thumbH * logoRatio;
+            if (logoBase64) {
+              try {
+                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+              } catch (e) { }
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(21, 62, 151);
+            doc.text('MHIRA NATURAL BEAUTY PRODUCTS  |  RAW MATERIALS AUDIT', 14 + thumbW + 4, 11.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(14, 16, pageWidth - 14, 16);
+          }
+
+          const footerY = pageHeight - 7;
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('INTERNAL CONFIDENTIAL | CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+        },
+      });
+
+      // 4. Executive Sign-Off Section
+      let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
+
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
+
+      // 5. Final Pass: Center Watermark Logo & Page Numbers
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) { }
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
+
       const dateStr = new Date().toISOString().split('T')[0];
-      doc.save(`raw_materials_inventory_${viewMode}_${dateStr}.pdf`);
-      showSuccessToast(`Exported ${filteredMaterials.length} raw materials to PDF!`);
+      const fileName = `MHIRA_Raw_Materials_Report_${viewMode}_${dateStr}.pdf`;
+      doc.save(fileName);
+      showSuccessToast(`Exported ${filteredMaterials.length} raw materials to official PDF!`);
     } catch (err) {
       console.error('PDF export error:', err);
       showErrorToast('Failed to generate PDF report.');
+    } finally {
+      setIsExportingPDF(false);
     }
   };
 
@@ -915,7 +1267,7 @@ function InventoryRawMaterials() {
                     <span className="whitespace-nowrap">Dropdown</span>
                   </button>
 
-                  {/* Layer 2: Reset Filters */}
+                  {/* Layer 3: Reset Filters */}
                   <button
                     type="button"
                     onClick={handleClearAllFilters}
@@ -945,7 +1297,16 @@ function InventoryRawMaterials() {
                 <div className="relative flex items-center w-full">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
                   <input
-                    type="text"
+                    type="search"
+                    name="rawMaterialsSearchQuery"
+                    id="rawMaterialsSearchQuery"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck="false"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                     placeholder="Search Code, Description, Name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1091,7 +1452,7 @@ function InventoryRawMaterials() {
           {/* TABLE PAGINATION */}
           <TablePagination
             currentPage={currentPage}
-            totalItems={filteredMaterials.length}
+            totalItems={showExpiryOnly ? filteredExpiryMaterials.length : filteredMaterials.length}
             itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
             onRowsPerPageChange={(rows) => {
@@ -1103,137 +1464,276 @@ function InventoryRawMaterials() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">ITEM NAME</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QUANTITY & CONDITION</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">UOM</th>
-                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
+                  {showExpiryOnly ? (
+                    <>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">ITEM CODE</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">BATCH / LOT NO</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">ITEM NAME</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STOCK VOLUME</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">MFG DATE</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">EXPIRY DATE</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">DAYS REMAINING</th>
+                      <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-20 min-w-[80px] font-semibold text-white">ACTION</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">ITEM NAME</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QUANTITY & CONDITION</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">UOM</th>
+                      <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>Loading raw materials...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : paginatedMaterials.map((item) => {
-                  const displayCode = item.code || item.itemCode || 'N/A';
-                  const displayCat = item.category || 'Materials';
-                  const displayName = item.itemName || 'N/A';
-                  const displayDesc = item.itemDescription || item.description || 'N/A';
-                  const displayQty = Number(item.quantity ?? item.qty ?? 0);
-                  const displayUom = item.uom || item.unit || 'pcs';
-                  const condition = getStockCondition(displayQty, item);
-                  const resolvedRules = getResolvedThreshold(item);
-
-                  return (
-                    <tr
-                      key={item._id || item.id}
-                      className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
-                    >
-                      {/* CODE */}
-                      <td className="py-3.5 px-4 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-mono font-semibold text-slate-600 whitespace-nowrap">
-                        <span>{displayCode}</span>
-                      </td>
-
-                      {/* CATEGORY */}
-                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                        {displayCat}
-
-                      </td>
-
-                      {/* ITEM NAME */}
-                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                        {displayName}
-                      </td>
-
-                      {/* QUANTITY */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="font-mono font-bold text-slate-900 text-sm">
-                            {displayQty}{' '}
-                            <span className="text-[10px] text-slate-400 font-normal font-sans">
-                              / {resolvedRules.overstockLimitPoint} max
-                            </span>
-                          </span>
-                          <span
-                            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
-                            {condition.label}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-center font-mono text-xs uppercase text-slate-600 whitespace-nowrap font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {displayUom}
-                      </td>
-
-                      {/* ACTION (STICKY RIGHT) */}
-                      <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {viewMode !== 'archived' ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditModal(item)}
-                                title="Edit Item"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleArchive(item)}
-                                title="Archive Item"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              >
-                                <Archive className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleArchive(item)}
-                                title="Restore to Active"
-                                className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(item._id || item.id)}
-                                title="Delete Permanently"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
+                {showExpiryOnly ? (
+                  loadingExpiry ? (
+                    <tr>
+                      <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Fetching raw materials expiry records...</span>
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
+                  ) : filteredExpiryMaterials.length === 0 ? (
+                    <tr>
+                      <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Info className="w-6 h-6 text-slate-300" />
+                          <span>No raw materials expiry records matched your search or filter criteria.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedExpiryMaterials.map((item, idx) => {
+                      const days = item.daysUntilExpiry !== undefined ? Number(item.daysUntilExpiry) : Number(item.daysRemaining);
+                      const isExpired = !isNaN(days) && days <= 0;
+                      const isCritical = !isNaN(days) && days > 0 && days <= 7;
+                      const isNear = !isNaN(days) && days > 7 && days <= 30;
 
-                {!loading && filteredMaterials.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <Info className="w-6 h-6 text-slate-300" />
-                        <span>
-                          {viewMode === 'archived'
-                            ? 'No archived raw materials found in the vault.'
-                            : 'No raw materials matched your search or filter criteria.'}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
+                      return (
+                        <tr
+                          key={item._id || item.id || idx}
+                          className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
+                        >
+                          {/* 1. ITEM CODE */}
+                          <td className="px-4 py-3.5 font-mono font-bold text-xs text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {item.code || 'N/A'}
+                          </td>
+
+                          {/* 2. BATCH / LOT NO */}
+                          <td className="px-4 py-3.5 font-mono font-semibold text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {item.batchNo || 'N/A'}
+                          </td>
+
+                          {/* 3. CATEGORY */}
+                          <td className="px-4 py-3.5 font-medium text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {item.category || 'Raw Materials'}
+                          </td>
+
+                          {/* 4. ITEM NAME */}
+                          <td className="px-4 py-3.5 font-bold text-xs text-slate-800 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors" title={item.itemDescription || item.itemName}>
+                            {item.itemDescription || item.itemName || 'N/A'}
+                          </td>
+
+                          {/* 5. STOCK VOLUME (Blue Accent Column) */}
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                            {Number(item.quantity ?? 0).toLocaleString()} {item.uom || 'pcs'}
+                          </td>
+
+                          {/* 6. MFG DATE */}
+                          <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {item.mfgDate ? new Date(item.mfgDate).toLocaleDateString() : 'N/A'}
+                          </td>
+
+                          {/* 7. EXPIRY DATE */}
+                          <td className="px-4 py-3.5 text-center font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {item.expiryDate && item.expiryDate !== 'N/A' && !isNaN(new Date(item.expiryDate).getTime())
+                              ? new Date(item.expiryDate).toLocaleDateString()
+                              : 'N/A'}
+                          </td>
+
+                          {/* 8. DAYS REMAINING / STATUS (Conditional Background Tint) */}
+                          <td
+                            className={`px-4 py-3.5 text-center font-mono text-xs font-bold whitespace-nowrap transition-colors select-none text-slate-800 ${item.status === 'Disposed'
+                              ? 'bg-slate-500/10 group-hover:bg-slate-500/20 text-slate-500'
+                              : isExpired || isCritical
+                                ? 'bg-rose-500/20 group-hover:bg-rose-500/30'
+                                : isNear
+                                  ? 'bg-amber-500/20 group-hover:bg-amber-500/30'
+                                  : 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
+                              }`}
+                          >
+                            <span className="inline-flex items-center gap-1.5">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${item.status === 'Disposed'
+                                  ? 'bg-slate-400'
+                                  : isExpired || isCritical
+                                    ? 'bg-rose-500'
+                                    : isNear
+                                      ? 'bg-amber-500'
+                                      : 'bg-emerald-500 animate-pulse'
+                                  }`}
+                              />
+                              <span>
+                                {item.status === 'Disposed'
+                                  ? 'Written Off'
+                                  : isExpired
+                                    ? 'Expired (0d)'
+                                    : `${days}d left`}
+                              </span>
+                            </span>
+                          </td>
+
+                          {/* 9. ACTION (STICKY RIGHT) */}
+                          <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px]">
+                            <div className="flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedExpiryDetail(item)}
+                                title="View Expiry Details"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )
+                ) : (
+                  <>
+                    {loading ? (
+                      <tr>
+                        <td colSpan="6" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <span>Loading raw materials...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedMaterials.map((item) => {
+                        const displayCode = item.code || item.itemCode || 'N/A';
+                        const displayCat = item.category || 'Materials';
+                        const displayName = item.itemName || 'N/A';
+                        const displayDesc = item.itemDescription || item.description || 'N/A';
+                        const displayQty = Number(item.quantity ?? item.qty ?? 0);
+                        const displayUom = item.uom || item.unit || 'pcs';
+                        const condition = getStockCondition(displayQty, item);
+                        const resolvedRules = getResolvedThreshold(item);
+
+                        return (
+                          <tr
+                            key={item._id || item.id}
+                            className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                          >
+                            {/* CODE */}
+                            <td className="py-3.5 px-4 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-mono font-semibold text-slate-600 whitespace-nowrap">
+                              <span>{displayCode}</span>
+                            </td>
+
+                            {/* CATEGORY */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                              {displayCat}
+
+                            </td>
+
+                            {/* ITEM NAME */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                              {displayName}
+                            </td>
+
+                            {/* QUANTITY */}
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                  {displayQty}{' '}
+                                  <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                    / {resolvedRules.overstockLimitPoint} max
+                                  </span>
+                                </span>
+                                <span
+                                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
+                                  {condition.label}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono text-xs uppercase text-slate-600 whitespace-nowrap font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {displayUom}
+                            </td>
+
+                            {/* ACTION (STICKY RIGHT) */}
+                            <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {viewMode !== 'archived' ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditModal(item)}
+                                      title="Edit Item"
+                                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleArchive(item)}
+                                      title="Archive Item"
+                                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                    >
+                                      <Archive className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleArchive(item)}
+                                      title="Restore to Active"
+                                      className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(item._id || item.id)}
+                                      title="Delete Permanently"
+                                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+
+                    {!loading && filteredMaterials.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Info className="w-6 h-6 text-slate-300" />
+                            <span>
+                              {viewMode === 'archived'
+                                ? 'No archived raw materials found in the vault.'
+                                : 'No raw materials matched your search or filter criteria.'}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 )}
               </tbody>
             </table>
@@ -1381,7 +1881,7 @@ function InventoryRawMaterials() {
                       required
                       value={formData.itemName}
                       onChange={handleInputChange}
-                      placeholder="Type or select Item Name..."
+                      placeholder="Enter Item Name..."
                       className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs"
                     />
                   </div>
@@ -1435,7 +1935,7 @@ function InventoryRawMaterials() {
                           setFormData((prev) => ({ ...prev, specification: sanitized }));
                         }
                       }}
-                      placeholder="Enter numeric specification (e.g. 100, 250, 78.5)..."
+                      placeholder="Enter Specification"
                       className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#01390f] transition-all"
                     />
                   </div>
@@ -1475,6 +1975,122 @@ function InventoryRawMaterials() {
         initialTab={categoryUomInitialTab}
         existingCategories={filterCategories}
       />
+
+      {/* EXPIRY DETAIL INSPECTION MODAL */}
+      {selectedExpiryDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[88vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
+                  Batch Expiry & Shelf Life Details
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  {selectedExpiryDetail.itemDescription || selectedExpiryDetail.itemName || 'Raw Material'} • Batch: {selectedExpiryDetail.batchNo || 'N/A'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedExpiryDetail(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* SCROLLABLE BODY */}
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 custom-scrollbar text-xs sm:text-sm">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
+                <div className="flex justify-between items-center border-b border-slate-200/70 pb-2.5">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wide">
+                      Batch / Lot Number
+                    </span>
+                    <span className="font-bold text-slate-900 text-sm block font-mono">
+                      {selectedExpiryDetail.batchNo || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    {(() => {
+                      const days = selectedExpiryDetail.daysUntilExpiry !== undefined ? Number(selectedExpiryDetail.daysUntilExpiry) : Number(selectedExpiryDetail.daysRemaining);
+                      const isExpired = !isNaN(days) && days <= 0;
+                      const isCritical = !isNaN(days) && days > 0 && days <= 7;
+                      const isNear = !isNaN(days) && days > 7 && days <= 30;
+
+                      return (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${isExpired
+                          ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                          : isCritical
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : isNear
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                              : 'bg-[#EDF7EE] text-[#01390f] border border-[#d5ead7]'
+                          }`}>
+                          {isExpired ? 'Expired' : isCritical ? 'Critical (≤7d)' : isNear ? 'Near Expiry (≤30d)' : 'Good Condition'}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Item Code</span>
+                    <span className="font-bold text-slate-800 font-mono">{selectedExpiryDetail.code || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Stock Volume</span>
+                    <span className="font-bold text-[#01390f] font-mono">
+                      {Number(selectedExpiryDetail.quantity ?? selectedExpiryDetail.stockVolume ?? 0).toLocaleString()} {selectedExpiryDetail.uom || 'pcs'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Mfg / Received Date</span>
+                    <span className="font-bold text-slate-800 font-mono">
+                      {selectedExpiryDetail.mfgDate ? new Date(selectedExpiryDetail.mfgDate).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Expiration Date</span>
+                    <span className="font-bold text-slate-800 font-mono">
+                      {selectedExpiryDetail.expiryDate && selectedExpiryDetail.expiryDate !== 'N/A' && !isNaN(new Date(selectedExpiryDetail.expiryDate).getTime())
+                        ? new Date(selectedExpiryDetail.expiryDate).toLocaleDateString()
+                        : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <span className="text-slate-400 block font-semibold text-[11px]">Material Description</span>
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                      {selectedExpiryDetail.itemDescription || selectedExpiryDetail.itemName || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-semibold text-[11px]">Category</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {selectedExpiryDetail.category || 'Raw Materials'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setSelectedExpiryDetail(null)}
+                className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

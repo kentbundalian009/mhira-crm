@@ -20,12 +20,12 @@ const supplierSchema = new mongoose.Schema(
     },
     contactPerson: {
       type: String,
-      required: [true, 'Contact person is required'],
+      default: '',
       trim: true,
     },
     contactNumber: {
       type: String,
-      required: [true, 'Contact number is required'],
+      default: '',
       trim: true,
     },
     isArchived: {

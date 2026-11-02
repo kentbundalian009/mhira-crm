@@ -296,7 +296,10 @@ function CustomerContactAgent() {
         totalAmount: attachedOrder.totalAmount || 0,
         quantity: firstItem.quantity || 1,
         paymentMethod: attachedOrder.paymentMethod || "COD",
-        shippingAddress: attachedOrder.shippingAddress || "Registered Delivery Address",
+        shippingAddress:
+          typeof attachedOrder.shippingAddress === "object"
+            ? Object.values(attachedOrder.shippingAddress).filter(Boolean).join(", ")
+            : (attachedOrder.shippingAddress || "Registered Delivery Address"),
         customerName: attachedOrder.customerName || activeCustomerName,
       };
     }
@@ -728,7 +731,11 @@ function CustomerContactAgent() {
 
                               <div className="pt-1.5 border-t border-slate-100 text-[10px] text-slate-500 flex items-center justify-between">
                                 <span>{msg.orderData.paymentMethod || "COD"}</span>
-                                <span className="truncate max-w-[150px]">{msg.orderData.shippingAddress}</span>
+                                <span className="truncate max-w-[150px]">
+                                  {typeof msg.orderData.shippingAddress === "object"
+                                    ? Object.values(msg.orderData.shippingAddress).filter(Boolean).join(", ")
+                                    : (msg.orderData.shippingAddress || "Delivery Address")}
+                                </span>
                               </div>
                             </div>
                           )}

@@ -43,8 +43,64 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import TablePagination from './common/TablePagination';
+import { getUserFullName } from '../utils/userId';
 import { resolveItemImageUrl } from './common/ItemImageModal';
 import PinAuthModal from './common/PinAuthModal';
+import { useLiveSync } from '../utils/liveSync';
+
+// Helper to filter out archived products from WIP batch creation
+const isProductActive = (p) => {
+  if (!p) return false;
+  if (p.isArchived) return false;
+  if (p.archived) return false;
+  if (p.status && String(p.status).toLowerCase() === 'archived') return false;
+  return true;
+};
+
+// Helper to load image as base64 for jsPDF
+const loadBase64Image = (url) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
+// Helper to create watermark image with controlled opacity
+const loadWatermarkImage = (url, opacity = 0.08) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
 
 function HighlightMatch({ text, query }) {
   if (!text) return null;
@@ -252,7 +308,8 @@ function InventoryWIP() {
   const uniqueWipProducts = React.useMemo(() => {
     const s = new Set();
     wipLogs.forEach((w) => {
-      if (w.productName && w.productName.trim()) s.add(w.productName.trim());
+      const isPending = w.status !== 'Completed' || (Number(w.pendingQuantity) || 0) > 0;
+      if (!isPending && w.productName && w.productName.trim()) s.add(w.productName.trim());
     });
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [wipLogs]);
@@ -260,12 +317,10 @@ function InventoryWIP() {
   const activeWipFiltersCount = React.useMemo(() => {
     let count = 0;
     if (searchQuery.trim()) count++;
-    if (wipStatusFilter !== 'all') count++;
     if (wipProductFilter !== 'All') count++;
     if (wipSortBy !== 'newest') count++;
-    if (wipQuickFilter !== 'all') count++;
     return count;
-  }, [searchQuery, wipStatusFilter, wipProductFilter, wipSortBy, wipQuickFilter]);
+  }, [searchQuery, wipProductFilter, wipSortBy]);
 
   const handleClearWipFilters = () => {
     setSearchQuery('');
@@ -435,25 +490,30 @@ function InventoryWIP() {
     }
   }, []);
 
-  // Unique Product Categories list
+  // Only non-archived (active) finished products should be available for WIP batch creation
+  const activeProducts = React.useMemo(() => {
+    return (allProducts || []).filter(isProductActive);
+  }, [allProducts]);
+
+  // Unique Product Categories list (Active Products only)
   const uniqueCategories = React.useMemo(() => {
     const set = new Set();
-    allProducts.forEach((p) => {
+    activeProducts.forEach((p) => {
       const c = p.category || p.itemGroup || p.brand || p.Segment || p.segment;
       if (c && String(c).trim() !== '' && String(c).trim().toLowerCase() !== 'all') {
         set.add(String(c).trim());
       }
     });
     return Array.from(set).sort();
-  }, [allProducts]);
+  }, [activeProducts]);
 
   const availableProductCategories = React.useMemo(() => {
     return ['All', ...uniqueCategories];
   }, [uniqueCategories]);
 
-  // High-performance tokenized normalized multi-attribute search with scoring
+  // High-performance tokenized normalized multi-attribute search with scoring (Active Products only)
   const filteredProductsList = React.useMemo(() => {
-    let list = allProducts;
+    let list = activeProducts;
 
     if (selectedProductCategory !== 'All' && selectedProductCategory !== 'All Categories') {
       list = list.filter((p) => (p.category || p.itemGroup || p.brand || p.Segment || p.segment || 'Finished Goods') === selectedProductCategory);
@@ -514,7 +574,7 @@ function InventoryWIP() {
 
     scored.sort((a, b) => b.score - a.score);
     return scored.map((s) => s.product);
-  }, [allProducts, productSearchTerm, selectedProductCategory]);
+  }, [activeProducts, productSearchTerm, selectedProductCategory]);
 
   // Keep highlightedIndex in valid bounds
   useEffect(() => {
@@ -631,8 +691,30 @@ function InventoryWIP() {
     fetchWIPLogs();
   }, [fetchProducts, fetchRawMaterials, fetchWIPLogs]);
 
-  // Get selected product object
-  const selectedProduct = allProducts.find((p) => (p._id || p.id) === selectedProductId);
+  // Real-time synchronization when finished goods are archived/updated in InventoryFinishedGoods
+  useLiveSync(['products', 'inventory', 'wip'], () => {
+    fetchProducts();
+    fetchRawMaterials();
+    fetchWIPLogs();
+  });
+
+  useEffect(() => {
+    const onFocus = () => {
+      fetchProducts();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchProducts]);
+
+  // Get selected product object (Must be active / non-archived)
+  const selectedProduct = activeProducts.find((p) => (p._id || p.id) === selectedProductId);
+
+  // Auto-deselect if the product gets archived
+  useEffect(() => {
+    if (selectedProductId && !activeProducts.some((p) => (p._id || p.id) === selectedProductId)) {
+      setSelectedProductId('');
+    }
+  }, [activeProducts, selectedProductId]);
 
   // Dynamic Batch & Multiplier Calculations
   const masterBatchSize = Number(activeBatchSize) || 5;
@@ -766,6 +848,21 @@ function InventoryWIP() {
 
   const hasBlockedSpec = blockedSpecMaterials.length > 0;
 
+  // Check if all required batch fields are completely filled
+  const isFormComplete = Boolean(
+    wipBatchCode &&
+    wipBatchCode.trim() &&
+    mfgDate &&
+    expDate &&
+    expDate >= mfgDate &&
+    Number(estimatedDuration) > 0 &&
+    selectedProductId &&
+    selectedProduct &&
+    Number(numberOfBatches) > 0 &&
+    Number(totalBatchWeight) > 0 &&
+    Number(targetQuantity) > 0
+  );
+
   // Maximum produced possible with current stock
   const maxPossibleProduced = React.useMemo(() => {
     if (ingredientsCalculation.length === 0) return Number(targetQuantity) || 0;
@@ -798,7 +895,7 @@ function InventoryWIP() {
   const handleProductSelect = (e) => {
     const pId = e.target.value;
     setSelectedProductId(pId);
-    const prod = allProducts.find((p) => (p._id || p.id) === pId);
+    const prod = activeProducts.find((p) => (p._id || p.id) === pId);
     if (prod) {
       const bSize = Number(prod.standardBatchSize) || 5;
       const bUom = prod.batchSizeUom || 'kg';
@@ -848,88 +945,112 @@ function InventoryWIP() {
   };
 
   // Generate & Download WIP Batch PDF
-  const handleDownloadWipPdf = (log) => {
+  const handleDownloadWipPdf = async (log) => {
     if (!log) return;
     try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const [logoBase64, watermarkBase64] = await Promise.all([
+        loadBase64Image('/mhira_removebg.png'),
+        loadWatermarkImage('/mhira_removebg.png', 0.095),
+      ]);
 
-      // Brand Header Banner
-      doc.setFillColor(1, 57, 15); // #01390f deep green
-      doc.rect(0, 0, 210, 22, 'F');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const logoRatio = 835 / 673;
 
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('CRM INVENTORY SYSTEM', 14, 11);
+      const wmWidth = 90;
+      const wmHeight = wmWidth / logoRatio;
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
 
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('WORK-IN-PROGRESS (WIP) PRODUCTION BATCH SHEET', 14, 17);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text(`BATCH: ${log.wipBatchCode || 'N/A'}`, 196, 14, { align: 'right' });
-
-      // Document Info / Metadata Block
-      doc.setDrawColor(226, 232, 240);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 28, 182, 34, 3, 3, 'FD');
-
-      doc.setTextColor(51, 65, 85);
-      doc.setFontSize(8);
-
-      // Col 1
-      doc.setFont('helvetica', 'bold');
-      doc.text('FINISHED GOOD:', 18, 35);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${log.productName || 'N/A'}${log.productCode ? ` [${log.productCode}]` : ''}`, 50, 35);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('BATCH NUMBER:', 18, 42);
-      doc.setTextColor(1, 57, 15);
-      doc.text(`${log.wipBatchCode || 'N/A'}`, 50, 42);
-      doc.setTextColor(51, 65, 85);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('PRODUCTION YIELD:', 18, 49);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Target: ${log.targetQuantity || 0} pcs  |  Actual Output: ${log.producedQuantity || 0} pcs`, 50, 49);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('BATCH STATUS:', 18, 56);
-      const isPending = Boolean((log.pendingQuantity || 0) > 0 || log.status === 'Pending / Shortage');
-      if (isPending) {
-        doc.setTextColor(180, 83, 9);
-        doc.text(`PENDING (${log.pendingQuantity || 0} pcs short)`, 50, 56);
-      } else {
-        doc.setTextColor(1, 57, 15);
-        doc.text('COMPLETED / FULFILLED', 50, 56);
+      const headerLogoH = 15;
+      const headerLogoW = headerLogoH * logoRatio;
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
+        } catch (e) { }
       }
-      doc.setTextColor(51, 65, 85);
-
-      // Col 2
-      doc.setFont('helvetica', 'bold');
-      doc.text('MFG DATE:', 122, 35);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${log.mfgDate ? new Date(log.mfgDate).toLocaleDateString() : 'N/A'}`, 155, 35);
 
       doc.setFont('helvetica', 'bold');
-      doc.text('EXPIRATION DATE:', 122, 42);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${log.expDate ? new Date(log.expDate).toLocaleDateString() : 'N/A'}`, 155, 42);
+      doc.setFontSize(12);
+      doc.setTextColor(21, 62, 151);
+      doc.text('MHIRA NATURAL BEAUTY PRODUCTS', 36, 16.5);
 
       doc.setFont('helvetica', 'bold');
-      doc.text('BULK BATCH SIZE:', 122, 49);
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('WAREHOUSE OPERATIONS & ENTERPRISE RESOURCE PLANNING', 36, 21.5);
+
       doc.setFont('helvetica', 'normal');
-      doc.text(`${log.numberOfBatches || 1} Batch (${log.totalBatchWeight || 30} ${String(log.batchWeightUom || 'kg').toUpperCase()})`, 155, 49);
+      doc.setFontSize(6.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Official Work-in-Progress (WIP) Production Batch Sheet & Formulation Ledger', 36, 26);
 
       doc.setFont('helvetica', 'bold');
-      doc.text('RECORD CREATED:', 122, 56);
+      doc.setFontSize(5.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
+
+      // Top-Right Metadata
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(21, 62, 151);
+      doc.text('WIP PRODUCTION BATCH SHEET', pageWidth - 14, 16.5, { align: 'right' });
+
       doc.setFont('helvetica', 'normal');
-      doc.text(`${new Date(log.createdAt || Date.now()).toLocaleDateString()}`, 155, 56);
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`BATCH NO: ${log.wipBatchCode || 'N/A'}`, pageWidth - 14, 21.5, { align: 'right' });
+      doc.text(`TARGET: ${log.productName || 'N/A'}`, pageWidth - 14, 26, { align: 'right' });
+      doc.text(`DATE GENERATED: ${new Date().toLocaleDateString()}`, pageWidth - 14, 30, { align: 'right' });
+
+      // Clean dividing line
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.4);
+      doc.line(14, 33.5, pageWidth - 14, 33.5);
+
+      // Metadata Table (4-column Summary)
+      const isPending = Boolean((log.pendingQuantity || 0) > 0 || log.status === 'Pending / Shortage');
+      autoTable(doc, {
+        startY: 36,
+        margin: { left: 14, right: 14 },
+        head: [['TARGET FINISHED GOOD', 'PRODUCTION YIELD', 'BATCH DETAILS', 'MFG & EXPIRY DATES']],
+        body: [[
+          `${log.productName || 'N/A'}\n[${log.productCode || 'N/A'}]`,
+          `Target: ${log.targetQuantity || 0} pcs\nOutput: ${log.producedQuantity || 0} pcs`,
+          `${log.numberOfBatches || 1} Batch (${log.totalBatchWeight || 30} ${String(log.batchWeightUom || 'kg').toUpperCase()})\nStatus: ${isPending ? 'Pending Shortage' : 'Completed'}`,
+          `Mfg: ${log.mfgDate ? new Date(log.mfgDate).toLocaleDateString() : 'N/A'}\nExp: ${log.expDate ? new Date(log.expDate).toLocaleDateString() : 'N/A'}`,
+        ]],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [71, 85, 105],
+          fontStyle: 'bold',
+          fontSize: 5.6,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        bodyStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 6.0,
+          halign: 'center',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.15,
+        },
+        columnStyles: {
+          0: { cellWidth: 45.5 },
+          1: { cellWidth: 45.5 },
+          2: { cellWidth: 45.5 },
+          3: { cellWidth: 45.5 },
+        },
+      });
 
       // Table of Ingredients / Raw Materials BOM
       const tableHead = [
-        ['#', 'Raw Material Ingredient', 'Spec / %', 'Recipe (1 Batch)', 'Total Deducted Qty', 'UOM', 'Deduction Status']
+        ['#', 'RAW MATERIAL INGREDIENT', 'SPEC / %', 'RECIPE (1 BATCH)', 'DEDUCTED QTY', 'UOM', 'DEDUCTION STATUS']
       ];
 
       const tableBody = (log.ingredientsUsed || []).map((ing, idx) => [
@@ -942,76 +1063,169 @@ function InventoryWIP() {
         isPending && (ing.shortageQty || 0) > 0 ? `Shortage: -${ing.shortageQty}` : 'Deducted from Stock'
       ]);
 
+      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
       autoTable(doc, {
-        startY: 68,
+        startY: mainTableStartY,
+        margin: { left: 14, right: 14, top: 19, bottom: 12 },
         head: tableHead,
         body: tableBody.length > 0 ? tableBody : [['-', 'No ingredients recorded for this batch', '-', '-', '-', '-', '-']],
-        headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 8,
-          halign: 'center',
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 6.8,
+          textColor: [51, 65, 85],
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle',
+          overflow: 'linebreak',
         },
-        bodyStyles: {
-          fontSize: 7.5,
-          textColor: 50,
+        headStyles: {
+          fillColor: [21, 62, 151],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7,
           halign: 'center',
+          lineColor: [21, 62, 151],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 255],
         },
         columnStyles: {
           0: { halign: 'center', cellWidth: 10 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 58 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 50 },
           2: { halign: 'center', cellWidth: 20 },
           3: { halign: 'center', cellWidth: 24 },
-          4: { fontStyle: 'bold', halign: 'center', textColor: [180, 20, 20], cellWidth: 26 },
+          4: { fontStyle: 'bold', halign: 'center', textColor: [190, 18, 60], cellWidth: 26 },
           5: { halign: 'center', cellWidth: 16 },
-          6: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
+          6: { halign: 'center', fontStyle: 'bold', cellWidth: 36 },
         },
-        theme: 'grid',
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const txt = String(data.cell.raw || '');
+            if (txt.includes('Shortage')) {
+              data.cell.styles.textColor = [190, 18, 60];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (txt.includes('Deducted')) {
+              data.cell.styles.textColor = [21, 62, 151];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const thumbH = 7;
+            const thumbW = thumbH * logoRatio;
+            if (logoBase64) {
+              try {
+                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+              } catch (e) { }
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(21, 62, 151);
+            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  •  WIP PRODUCTION BATCH SHEET`, 14 + thumbW + 4, 11.5);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.2);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Batch: ${log.wipBatchCode || 'N/A'}`, pageWidth - 14, 11.5, { align: 'right' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(14, 16, pageWidth - 14, 16);
+          }
+
+          const footerY = pageHeight - 7;
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+        },
       });
 
-      let finalY = doc.lastAutoTable.finalY + 10;
+      let finalY = (doc.lastAutoTable?.finalY || 100) + 6;
 
       // Rejection / Scrap Loss Audit in PDF
-      if (log.rejectedQuantity > 0 && finalY + 20 < 270) {
+      if (log.rejectedQuantity > 0 && finalY + 18 < pageHeight - 40) {
         doc.setFillColor(254, 242, 242);
         doc.setDrawColor(254, 202, 202);
         doc.roundedRect(14, finalY, 182, 14, 2, 2, 'FD');
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setTextColor(185, 28, 28);
         doc.text(`QC SCRAP LOSS: ${log.rejectedQuantity} PCS REJECTED (Target: ${log.targetQuantity || 0} pcs | Stocked: ${log.producedQuantity || 0} pcs)`, 18, finalY + 5.5);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(6.5);
         doc.setTextColor(71, 85, 105);
         doc.text(`Reason: ${log.rejectionReason || 'Spillage / Defect'}  |  Inspector: ${log.rejectionApprover || 'QC Inspector'}  |  Audit Log: ${log.scrapLogId || 'LOGGED'}`, 18, finalY + 10.5);
         finalY += 18;
       } else {
-        finalY += 4;
+        finalY += 2;
       }
 
-      // Quality and Authorization Signatures
-      if (finalY + 35 < 285) {
-        doc.setDrawColor(180, 180, 180);
-        doc.setTextColor(71, 85, 105);
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'bold');
-
-        doc.line(14, finalY + 18, 65, finalY + 18);
-        doc.text('PREPARED BY (Production Lead)', 14, finalY + 22);
-
-        doc.line(78, finalY + 18, 130, finalY + 18);
-        doc.text('VERIFIED BY (Quality Assurance)', 78, finalY + 22);
-
-        doc.line(143, finalY + 18, 196, finalY + 18);
-        doc.text('APPROVED BY (Plant Manager)', 143, finalY + 22);
+      // Executive Audit Sign-off Section
+      const sigSectionH = 24;
+      if (finalY + sigSectionH > pageHeight - 14) {
+        doc.addPage();
+        finalY = 22;
       }
 
-      // Footer
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Generated automatically by CRM Inventory System | Date: ${new Date().toLocaleString()}`, 14, 290);
+      doc.setTextColor(21, 62, 151);
+      doc.text('AUDIT VERIFICATION & EXECUTIVE SIGN-OFF', 14, finalY);
+
+      doc.setDrawColor(21, 62, 151);
+      doc.setLineWidth(0.3);
+      doc.line(14, finalY + 1.8, pageWidth - 14, finalY + 1.8);
+
+      const sigY = finalY + 6.5;
+      const colWidth = 72;
+      const startX = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.2);
+      doc.setTextColor(21, 62, 151);
+      doc.text('PREPARED & COMPILED BY:', startX, sigY);
+
+      // 1. Signatory Name (On top of underline)
+      const signerFullName = getUserFullName('Signature over Printed Name');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(signerFullName.length > 25 ? 5.4 : 6.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signerFullName, startX + (colWidth / 2), sigY + 9.5, { align: 'center' });
+
+      // 2. Underline (Directly below Name)
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.25);
+      doc.line(startX, sigY + 11, startX + colWidth, sigY + 11);
+
+      // 3. Subtext: Inventory Staff
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
+
+      // Final pass: watermark & dynamic page numbers on every page
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (watermarkBase64) {
+          try {
+            doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
+          } catch (e) { }
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+      }
 
       doc.save(`WIP_Batch_${log.wipBatchCode || 'Report'}.pdf`);
       showSuccessToast(`Downloaded PDF for Batch ${log.wipBatchCode}`);
@@ -1240,32 +1454,26 @@ function InventoryWIP() {
     }
   };
 
-  // Filter logs by search query, status, product, quick filter and sorting
+  // Filter logs by search query, product, and sorting (Only Completed batches; pending are in Quick-Assistant)
   const filteredWipLogs = React.useMemo(() => {
     let result = wipLogs.filter((w) => {
-      const isPending = w.status === 'Pending / Shortage' || (Number(w.pendingQuantity) || 0) > 0;
+      const isPending = w.status !== 'Completed' || (Number(w.pendingQuantity) || 0) > 0;
 
-      // 1. Quick filter
-      if (wipQuickFilter === 'pending' && !isPending) return false;
-      if (wipQuickFilter === 'completed' && isPending) return false;
+      // Only completed production batches are shown in this masterlist table
+      if (isPending) return false;
 
-      // 2. Status dropdown
-      if (wipStatusFilter === 'completed' && isPending) return false;
-      if (wipStatusFilter === 'pending' && !isPending) return false;
-
-      // 3. Product dropdown
+      // 1. Product dropdown
       if (wipProductFilter !== 'All') {
         if ((w.productName || '').toLowerCase() !== wipProductFilter.toLowerCase()) return false;
       }
 
-      // 4. Search query
+      // 2. Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const code = (w.wipBatchCode || '').toLowerCase();
         const prod = (w.productName || '').toLowerCase();
         const pCode = (w.productCode || '').toLowerCase();
-        const status = (w.status || '').toLowerCase();
-        if (!code.includes(q) && !prod.includes(q) && !pCode.includes(q) && !status.includes(q)) return false;
+        if (!code.includes(q) && !prod.includes(q) && !pCode.includes(q)) return false;
       }
 
       return true;
@@ -1283,12 +1491,12 @@ function InventoryWIP() {
     }
 
     return result;
-  }, [wipLogs, searchQuery, wipStatusFilter, wipProductFilter, wipSortBy, wipQuickFilter]);
+  }, [wipLogs, searchQuery, wipProductFilter, wipSortBy]);
 
   // Reset pagination on search or filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, wipStatusFilter, wipProductFilter, wipSortBy, wipQuickFilter, viewMode]);
+  }, [searchQuery, wipProductFilter, wipSortBy, viewMode]);
 
   const paginatedWipLogs = React.useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -1570,7 +1778,7 @@ function InventoryWIP() {
                         }}
                         onFocus={() => setIsProductDropdownOpen(true)}
                         onKeyDown={handleDropdownKeyDown}
-                        placeholder="Search description, dimension (e.g. 2700, 50x50), or code..."
+                        placeholder="Search Finished Goods"
                         className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
                       />
                       {productSearchTerm && (
@@ -1750,8 +1958,9 @@ function InventoryWIP() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> Selected
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#01390f] text-white text-[11px] font-bold uppercase tracking-wider shadow-xs whitespace-nowrap">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                          <span>Selected</span>
                         </span>
                         <button
                           type="button"
@@ -1760,10 +1969,11 @@ function InventoryWIP() {
                             setProductSearchTerm("");
                             setIsProductDropdownOpen(true);
                           }}
-                          className="text-xs font-semibold text-slate-500 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
                           title="Change Finished Product"
                         >
-                          Change
+                          <RotateCcw className="w-3.5 h-3.5 text-[#01390f] shrink-0" />
+                          <span>Change</span>
                         </button>
                       </div>
                     </div>
@@ -1771,14 +1981,6 @@ function InventoryWIP() {
                 </div>
               </div>
 
-              {/* PLACEHOLDER WHEN NO PRODUCT IS SELECTED */}
-              {!selectedProduct && (
-                <div className="p-8 bg-slate-50/70 border border-dashed border-slate-200 rounded-2xl text-center flex flex-col items-center justify-center gap-2">
-                  <span className="text-xs sm:text-sm font-semibold text-slate-500">
-                    Please select a Finished Product in Step 2 to display Recipe Bill of Materials (BOM), Bulk Batch Cooking, and Raw Material Deductions.
-                  </span>
-                </div>
-              )}
 
               {/* ONCE PRODUCT IS SELECTED: BULK BATCH COOKING & YIELD CONVERSION + RECIPE */}
               {selectedProduct && (
@@ -1943,10 +2145,7 @@ function InventoryWIP() {
                                 return (
                                   <tr key={idx} className="hover:bg-slate-50/90 transition-colors whitespace-nowrap text-slate-700 group">
                                     <td className="py-3 px-4 font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                                      <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>
-                                        <span className="truncate text-slate-900 font-bold">{ing.name}</span>
-                                      </div>
+                                      <span className="truncate text-slate-900 font-bold">{ing.name}</span>
                                     </td>
                                     <td className="py-3 px-4 text-center font-mono font-bold text-indigo-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                       {ing.specification ? `${ing.specification}%` : '-'}
@@ -2050,18 +2249,20 @@ function InventoryWIP() {
               {/* ACTION BUTTONS FOOTER */}
               <div className="flex items-center justify-end gap-2.5 pt-2">
                 <button
-                  type="button"
-                  onClick={() => setViewMode('logs')}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-                >
-                  Cancel
-                </button>
-                <button
                   type="submit"
-                  disabled={submitting || hasBlockedSpec}
-                  className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${hasBlockedSpec
+                  disabled={!isFormComplete || submitting || hasBlockedSpec}
+                  title={
+                    !isFormComplete
+                      ? "Please complete all required fields and select a finished product"
+                      : hasBlockedSpec
+                        ? "Blocked: Contains Failed Spec"
+                        : "Confirm Batch"
+                  }
+                  className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 whitespace-nowrap ${hasBlockedSpec
                     ? 'bg-rose-100 text-rose-700 border border-rose-300 cursor-not-allowed opacity-80'
-                    : 'bg-[#01390f] hover:bg-[#0a5219] text-white disabled:opacity-50'
+                    : !isFormComplete
+                      ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-70 shadow-none'
+                      : 'bg-[#01390f] hover:bg-[#0a5219] text-white active:scale-[0.99] cursor-pointer'
                     }`}
                 >
                   {submitting ? (
@@ -2095,35 +2296,24 @@ function InventoryWIP() {
                 <div className="flex items-stretch gap-1.5 flex-1">
 
                   {/* Stacked Compact Rows */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 space-y-0.5">
+                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 py-0.5">
                     {/* Layer 1: Production Calculator */}
                     <button
                       type="button"
                       onClick={() => setIsTimeCalcModalOpen(true)}
-                      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-[#01390f] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
+                      className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 hover:text-[#01390f] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                       title="Production Time Calculator"
                     >
                       <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                       <span className="truncate">Time Calculator</span>
                     </button>
 
-                    {/* Layer 2: Refresh Logs */}
-                    <button
-                      type="button"
-                      onClick={fetchWIPLogs}
-                      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-[#01390f] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
-                      title="Refresh WIP Production Logs"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <span className="truncate">Refresh Logs</span>
-                    </button>
-
-                    {/* Layer 3: Reset Filters */}
+                    {/* Layer 2: Reset Filters */}
                     <button
                       type="button"
                       onClick={handleClearWipFilters}
                       disabled={activeWipFiltersCount === 0}
-                      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
                       title={activeWipFiltersCount > 0 ? `Reset active filters (${activeWipFiltersCount})` : 'No active filters'}
                     >
                       <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -2148,12 +2338,21 @@ function InventoryWIP() {
                   <div className="relative flex items-center w-full">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
                     <input
-                      type="text"
-                      placeholder="Search Batch Code, Product Name, Product Code, Status..."
+                      type="search"
+                      name="wipBatchSearchQuery"
+                      id="wipBatchSearchQuery"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck="false"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-bwignore="true"
+                      data-form-type="other"
+                      placeholder="Search Batch Code, Product Name, Product Code..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] h-[38px] font-normal shadow-2xs transition-colors"
-                      title="Search Batch Code, Product Name, Status..."
+                      title="Search Batch Code, Product Name..."
                     />
                     {searchQuery && (
                       <button
@@ -2167,23 +2366,8 @@ function InventoryWIP() {
                     )}
                   </div>
 
-                  {/* Layer 2: Filter Dropdowns (Equal 3 Columns) */}
-                  <div className="grid grid-cols-3 gap-2 w-full">
-                    {/* Status Filter */}
-                    <div className="relative inline-flex items-center w-full min-w-0">
-                      <Clock className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
-                      <select
-                        value={wipStatusFilter}
-                        onChange={(e) => setWipStatusFilter(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
-                        title="Filter by Batch Status"
-                      >
-                        <option value="all">All Statuses</option>
-                        <option value="pending">Pending / Shortage</option>
-                        <option value="completed">Completed Only</option>
-                      </select>
-                    </div>
-
+                  {/* Layer 2: Filter Dropdowns (Equal 2 Columns: Product & Sort) */}
+                  <div className="grid grid-cols-2 gap-2 w-full">
                     {/* Product Filter */}
                     <div className="relative inline-flex items-center w-full min-w-0">
                       <Package className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
@@ -2216,40 +2400,6 @@ function InventoryWIP() {
                       </select>
                     </div>
                   </div>
-
-                  {/* Layer 3: Quick Filter Toggles (Equal 3 Columns) */}
-                  <div className="grid grid-cols-3 gap-2 w-full">
-                    <button
-                      type="button"
-                      onClick={() => setWipQuickFilter('all')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center transition-colors cursor-pointer truncate ${wipQuickFilter === 'all'
-                        ? 'bg-[#01390f] text-white border-[#01390f]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
-                      All Batches ({wipLogs.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWipQuickFilter('pending')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center transition-colors cursor-pointer truncate ${wipQuickFilter === 'pending'
-                        ? 'bg-[#01390f] text-white border-[#01390f]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
-                      Pending ({wipLogs.filter((l) => l.status === 'Pending / Shortage' || (l.pendingQuantity || 0) > 0).length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWipQuickFilter('completed')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center transition-colors cursor-pointer truncate ${wipQuickFilter === 'completed'
-                        ? 'bg-[#01390f] text-white border-[#01390f]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
-                      Completed ({wipLogs.filter((l) => l.status === 'Completed' && (!l.pendingQuantity || l.pendingQuantity <= 0)).length})
-                    </button>
-                  </div>
                 </div>
 
                 {/* Group Caption */}
@@ -2275,56 +2425,49 @@ function InventoryWIP() {
                   setCurrentPage(1);
                 }}
               />
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto relative custom-scrollbar">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                      <th className="py-3 px-3 text-center w-12 font-semibold text-white">#</th>
-                      <th className="py-3 px-4 whitespace-nowrap font-semibold text-white">
-                        Batch Code
-                      </th>
-                      <th className="py-3 px-4 whitespace-nowrap font-semibold text-white">Product Name</th>
-                      <th className="py-3 px-4 text-center whitespace-nowrap font-semibold text-white">Batch Size</th>
-                      <th className="py-3 px-4 text-center whitespace-nowrap font-semibold text-white">Target Yield</th>
-                      <th className="py-3 px-4 text-center whitespace-nowrap font-semibold text-white">Produced Output</th>
-                      <th className="py-3 px-4 text-center whitespace-nowrap font-semibold text-white">Mfg Date</th>
-                      <th className="py-3 px-4 text-center whitespace-nowrap font-semibold text-white">Exp Date</th>
-                      <th className="py-3 px-4 text-center whitespace-nowrap font-semibold text-white">Status</th>
-                      <th className="py-3 px-4 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] font-semibold text-white z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-36 min-w-[130px]">Action</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px] font-semibold text-white">BATCH CODE</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px] font-semibold text-white">PRODUCT NAME</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">BATCH SIZE</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">TARGET YIELD</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">PRODUCED OUTPUT</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">MFG DATE</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">EXP DATE</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] font-semibold text-white z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-36 min-w-[130px]">ACTION</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {loading ? (
                       <tr>
-                        <td colSpan="10" className="py-12 text-center text-slate-400">
+                        <td colSpan="8" className="py-12 text-center text-slate-400">
                           <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#01390f] mb-2" />
                           <span>Loading production batches...</span>
                         </td>
                       </tr>
                     ) : filteredWipLogs.length === 0 ? (
                       <tr>
-                        <td colSpan="10" className="py-12 text-center text-slate-400 italic">
+                        <td colSpan="8" className="py-12 text-center text-slate-400 italic">
                           No production batches found matching your search.
                         </td>
                       </tr>
                     ) : (
                       paginatedWipLogs.map((log, idx) => {
-                        const isPending = log.status === 'Pending / Shortage' || (log.pendingQuantity || 0) > 0;
                         return (
-                          <tr key={log._id || log.id || idx} className="hover:bg-slate-50/90 transition-colors whitespace-nowrap text-slate-700 group">
-                            <td className="py-3 px-3 text-center font-mono text-slate-400 text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {(currentPage - 1) * itemsPerPage + idx + 1}
+                          <tr key={log._id || log.id || idx} className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group">
+                            {/* BATCH CODE */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[160px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="font-mono font-semibold text-slate-600 text-xs sm:text-sm">
+                                {log.wipBatchCode}
+                              </span>
                             </td>
-                            <td className="py-3 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              <div className="flex items-center gap-1.5">
-                                <span className="underline decoration-dotted cursor-pointer hover:text-[#01390f]" onClick={() => setSelectedLog(log)}>
-                                  {log.wipBatchCode}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+
+                            {/* PRODUCT NAME */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               <div className="flex flex-col">
-                                <span>{log.productName}</span>
+                                <span className="font-bold text-slate-900">{log.productName}</span>
                                 {log.productCode && (
                                   <span className="font-mono text-[10px] text-slate-400 font-bold">
                                     {log.productCode}
@@ -2332,39 +2475,40 @@ function InventoryWIP() {
                                 )}
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-center font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+
+                            {/* BATCH SIZE */}
+                            <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {log.numberOfBatches || 1} Batch ({log.totalBatchWeight || 5} {log.batchWeightUom || 'kg'})
                             </td>
-                            <td className="py-3 px-4 text-center font-mono font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+
+                            {/* TARGET YIELD */}
+                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {log.targetQuantity} pcs
                             </td>
-                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {log.producedQuantity || 0} pcs
+
+                            {/* PRODUCED OUTPUT */}
+                            <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span>{log.producedQuantity || 0} pcs</span>
                               {log.rejectedQuantity > 0 && (
-                                <span className="block text-[10px] text-rose-600 font-normal">
-                                  ({log.rejectedQuantity} scrapped)
+                                <span className="block text-[10px] text-rose-600 font-medium">
+                                  ({log.rejectedQuantity} Reject)
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {log.mfgDate ? new Date(log.mfgDate).toLocaleDateString() : 'N/A'}
+
+                            {/* MFG DATE */}
+                            <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {log.mfgDate ? new Date(log.mfgDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                             </td>
-                            <td className="py-3 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {log.expDate ? new Date(log.expDate).toLocaleDateString() : 'N/A'}
+
+                            {/* EXP DATE */}
+                            <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {log.expDate ? new Date(log.expDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                             </td>
-                            <td className="py-3 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {isPending ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-bold border border-amber-200">
-                                  <Clock className="w-3 h-3" /> Pending ({log.pendingQuantity || log.targetQuantity} short)
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200">
-                                  <CheckCircle2 className="w-3 h-3" /> Completed
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-36 min-w-[130px]">
-                              <div className="inline-flex items-center justify-center gap-1.5">
+
+                            {/* ACTIONS (STICKY RIGHT) */}
+                            <td className="py-3.5 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-36 min-w-[130px]">
+                              <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   type="button"
                                   onClick={() => setSelectedLog(log)}
@@ -2377,7 +2521,7 @@ function InventoryWIP() {
                                 <button
                                   type="button"
                                   onClick={() => handleDownloadWipPdf(log)}
-                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-700 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-[#01390f] hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   title="Download WIP Batch Sheet PDF"
                                 >
                                   <FileDown className="w-3.5 h-3.5" />
@@ -2630,63 +2774,43 @@ function InventoryWIP() {
                 )}
 
                 {/* INGREDIENTS / BOM BREAKDOWN (PROTECTED WITH PASSWORD / PIN) */}
-                {!isFormulaUnlocked ? (
-                  <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 sm:p-6 flex flex-col items-center justify-center text-center gap-3 shadow-2xs">
-                    <div className="w-12 h-12 rounded-2xl bg-[#01390f]/10 border border-[#01390f]/20 flex items-center justify-center text-[#01390f] shadow-inner">
-                      <Lock className="w-6 h-6 stroke-[2.2]" />
-                    </div>
-                    <div className="max-w-md">
-                      <h4 className="font-bold text-slate-800 text-sm">
-                        Proprietary Formula Protected
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Ingredients & BOM Deduction Breakdown is confidential. Enter the authorization password / 6-digit PIN code to view master recipe formulation.
-                      </p>
-                    </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#01390f] uppercase tracking-wider flex items-center gap-1.5">
+                      Ingredients & BOM Deduction Breakdown
+                    </span>
                     <button
                       type="button"
-                      onClick={() => setIsFormulaPinModalOpen(true)}
-                      className="mt-1 px-4 py-2 bg-[#01390f] hover:bg-[#0a5219] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-2"
+                      onClick={() => {
+                        if (!isFormulaUnlocked) {
+                          setIsFormulaPinModalOpen(true);
+                        } else {
+                          setIsFormulaUnlocked(false);
+                        }
+                      }}
+                      title={!isFormulaUnlocked ? "Enter Password / PIN to View Formula" : "Lock / Hide Formula"}
+                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                     >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Enter Password / PIN to View</span>
+                      {!isFormulaUnlocked ? (
+                        <Lock className="w-3.5 h-3.5 group-hover/btn:text-white transition-colors" />
+                      ) : (
+                        <Unlock className="w-3.5 h-3.5 text-emerald-600 group-hover/btn:text-white transition-colors" />
+                      )}
                     </button>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-2 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#01390f] uppercase tracking-wider flex items-center gap-1.5">
-                        <Unlock className="w-3.5 h-3.5 text-emerald-600" />
-                        Ingredients & BOM Deduction Breakdown
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[11px] text-slate-400 font-medium">
-                          {ingredientStockStatus.length} Raw Material{ingredientStockStatus.length > 1 ? 's' : ''} in Recipe
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsFormulaUnlocked(false)}
-                          className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 underline cursor-pointer"
-                        >
-                          Hide Formula
-                        </button>
-                      </div>
-                    </div>
 
-                    <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden">
+                  {isFormulaUnlocked && (
+                    <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden animate-in fade-in duration-200">
                       <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                              <th className="py-2.5 px-3.5 whitespace-nowrap">Raw Material</th>
-                              <th className="py-2.5 px-3 text-center whitespace-nowrap">Spec / %</th>
-                              <th className="py-2.5 px-3 text-center whitespace-nowrap">Recipe Wt</th>
-                              <th className="py-2.5 px-3 text-center whitespace-nowrap">Qty Deducted</th>
+                              <th className="py-2.5 px-3.5 whitespace-nowrap font-semibold">RAW MATERIAL</th>
+                              <th className="py-2.5 px-3 text-center whitespace-nowrap font-semibold">SPEC / %</th>
+                              <th className="py-2.5 px-3 text-center whitespace-nowrap font-semibold">RECIPE WT</th>
+                              <th className="py-2.5 px-3 text-center whitespace-nowrap font-semibold">QTY DEDUCTED</th>
                               {isLogPending && (
-                                <>
-                                  <th className="py-2.5 px-3 text-center whitespace-nowrap">Needed for Pending</th>
-                                  <th className="py-2.5 px-3 text-center whitespace-nowrap">Warehouse Status</th>
-                                </>
+                                <th className="py-2.5 px-3 text-center whitespace-nowrap font-semibold">NEEDED FOR PENDING</th>
                               )}
                             </tr>
                           </thead>
@@ -2700,10 +2824,7 @@ function InventoryWIP() {
                               return (
                                 <tr key={idx} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap text-slate-700 group">
                                   <td className="py-3 px-3.5 font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>
-                                      <span className="text-xs sm:text-sm text-slate-900 font-bold">{matName}</span>
-                                    </div>
+                                    <span className="text-xs sm:text-sm text-slate-900 font-bold">{matName}</span>
                                   </td>
                                   <td className="py-3 px-3 text-center font-mono font-bold text-indigo-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                     {specVal}
@@ -2711,28 +2832,13 @@ function InventoryWIP() {
                                   <td className="py-3 px-3 text-center font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                     {wtVal} <span className="uppercase text-[10px] text-slate-500 font-bold">{uomVal}</span>
                                   </td>
-                                  <td className="py-3 px-3 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                                    <span className="font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-lg text-xs inline-block">
-                                      -{Number(ing.qtyDeducted || 0).toLocaleString()} {ing.uom || 'pcs'}
-                                    </span>
+                                  <td className="py-3 px-3 text-center font-mono font-bold text-rose-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                    -{Number(ing.qtyDeducted || 0).toLocaleString()} {ing.uom || 'pcs'}
                                   </td>
                                   {isLogPending && (
-                                    <>
-                                      <td className="py-3 px-3 text-center font-mono font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                                        {Number(ing.neededForPending || 0).toLocaleString()} {ing.uom || 'pcs'}
-                                      </td>
-                                      <td className="py-3 px-3 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                                        {ing.isInsufficient ? (
-                                          <span className="inline-flex items-center gap-1 text-[11px] font-bold font-mono text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">
-                                            ⚠️ Short: {Number(ing.missingQty || 0).toLocaleString()} (Stock: {Number(ing.currentStock || 0).toLocaleString()})
-                                          </span>
-                                        ) : (
-                                          <span className="inline-flex items-center gap-1 text-[11px] font-bold font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
-                                            ✓ Ready ({Number(ing.currentStock || 0).toLocaleString()} in stock)
-                                          </span>
-                                        )}
-                                      </td>
-                                    </>
+                                    <td className="py-3 px-3 text-center font-mono font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                      {Number(ing.neededForPending || 0).toLocaleString()} {ing.uom || 'pcs'}
+                                    </td>
                                   )}
                                 </tr>
                               );
@@ -2741,8 +2847,8 @@ function InventoryWIP() {
                         </table>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* ACTION BUTTONS FOOTER */}
@@ -2886,10 +2992,7 @@ function InventoryWIP() {
                             return (
                               <tr key={index} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap text-slate-700">
                                 <td className="py-2.5 px-3.5 font-bold text-slate-800 whitespace-nowrap">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>
-                                    <span className="text-xs text-slate-900 font-bold">{matName}</span>
-                                  </div>
+                                  <span className="text-xs text-slate-900 font-bold">{matName}</span>
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-mono font-bold text-indigo-700 whitespace-nowrap">
                                   {specVal}
@@ -2898,7 +3001,7 @@ function InventoryWIP() {
                                   {wtVal} <span className="uppercase text-[10px] text-slate-500 font-bold">{uomVal}</span>
                                 </td>
                                 <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                  <span className="font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-lg text-xs inline-block">
+                                  <span className="font-mono font-bold text-rose-700">
                                     -{Number(ing.qtyDeducted || 0).toLocaleString()} {ing.uom || 'pcs'}
                                   </span>
                                   {ing.shortageQty > 0 && (

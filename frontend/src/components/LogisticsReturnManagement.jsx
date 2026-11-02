@@ -54,7 +54,7 @@ function LogisticsReturnManagement() {
     try {
       const cached = localStorage.getItem('cached_logistics_returns');
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [loading, setLoading] = useState(false);
@@ -131,7 +131,7 @@ function LogisticsReturnManagement() {
         calculateMetrics(fetched);
         try {
           localStorage.setItem('cached_logistics_returns', JSON.stringify(fetched));
-        } catch (e) {}
+        } catch (e) { }
         window.dispatchEvent(new Event('returnsUpdated'));
       }
     } catch (error) {
@@ -717,11 +717,10 @@ function LogisticsReturnManagement() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${
-                  activeTab === tab.id
+                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.id
                     ? 'border-[#01390f] text-[#01390f] bg-slate-50'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -729,25 +728,27 @@ function LogisticsReturnManagement() {
           </div>
         </div>
 
-        {/* EXCEL RIBBON TOOLBAR */}
-        <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+        {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+        <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
           {/* ACTIONS GROUP */}
-          <div className="w-[226px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-            <div className="flex items-stretch gap-1.5 flex-1">
+          <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+            <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
               <button
                 type="button"
                 onClick={() => handleDownloadReturnsSummaryPdf(filteredRequests)}
-                className="w-[76px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
                 title="Export Returns Summary Report PDF"
               >
-                <FileDown className="w-5 h-5 mb-0.5 text-[#01390f] group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-bold text-center leading-tight">Export PDF</span>
+                <FileDown className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
+                  Export<br />PDF
+                </span>
               </button>
-              <div className="flex-1 min-w-[135px] flex flex-col justify-between py-0.5 space-y-0.5">
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
                 <button
                   type="button"
                   onClick={handleOpenScrapModal}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-700 hover:text-rose-800 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                   title="Loss Prevention & Scrap Audit Log"
                 >
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
@@ -756,7 +757,7 @@ function LogisticsReturnManagement() {
                 <button
                   type="button"
                   onClick={fetchReturnRequests}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-slate-700 hover:text-[#01390f] hover:bg-slate-100 transition-colors cursor-pointer w-full"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 hover:text-[#01390f] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-slate-500 shrink-0 ${loading ? 'animate-spin' : ''}`} />
                   <span className="truncate">Refresh Returns</span>
@@ -764,21 +765,21 @@ function LogisticsReturnManagement() {
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                   <span className="truncate">Reset Filters</span>
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Actions
             </div>
           </div>
 
           {/* SEARCH & FILTER GROUP */}
-          <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-            <div className="flex flex-col justify-between flex-1 gap-1.5 py-0.5">
+          <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+            <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
               {/* Layer 1: Search */}
               <div className="relative flex items-center w-full">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
@@ -801,13 +802,13 @@ function LogisticsReturnManagement() {
               </div>
 
               {/* Layer 2: 3-column Dropdowns / Pickers */}
-              <div className="grid grid-cols-3 gap-2 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                 {/* Date Picker */}
                 <div
                   onClick={() => {
                     try {
                       dateInputRef.current?.showPicker();
-                    } catch (err) {}
+                    } catch (err) { }
                   }}
                   className="relative w-full cursor-pointer"
                 >
@@ -820,12 +821,12 @@ function LogisticsReturnManagement() {
                     onClick={(e) => {
                       try {
                         e.currentTarget.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     onFocus={(e) => {
                       try {
                         e.currentTarget.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -834,12 +835,11 @@ function LogisticsReturnManagement() {
                         e.preventDefault();
                         try {
                           e.currentTarget.showPicker();
-                        } catch (err) {}
+                        } catch (err) { }
                       }
                     }}
-                    className={`w-full h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer ${
-                      selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
-                    }`}
+                    className={`w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer shadow-2xs ${selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
+                      }`}
                   />
                   {selectedDate && (
                     <button
@@ -861,7 +861,7 @@ function LogisticsReturnManagement() {
                   <select
                     value={selectedReason}
                     onChange={(e) => setSelectedReason(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="All">All Return Reasons</option>
                     {existingReasons.map((reason, idx) => (
@@ -874,12 +874,12 @@ function LogisticsReturnManagement() {
                 </div>
 
                 {/* Sort Order */}
-                <div className="relative w-full">
+                <div className="relative w-full sm:col-span-2 md:col-span-1">
                   <SlidersHorizontal className="w-3.5 h-3.5 absolute left-2 top-1 text-slate-400 pointer-events-none" />
                   <select
                     value={selectedSort}
                     onChange={(e) => setSelectedSort(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="newest">Sort: Newest Returns</option>
                     <option value="oldest">Sort: Oldest Returns</option>
@@ -891,15 +891,14 @@ function LogisticsReturnManagement() {
               </div>
 
               {/* Layer 3: 3-column Quick Toggles */}
-              <div className="grid grid-cols-3 gap-2 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                 <button
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    activeTab === 'pending'
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'pending'
                       ? 'bg-amber-50 border-amber-600 text-amber-700 font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Pending Review
                 </button>
@@ -907,11 +906,10 @@ function LogisticsReturnManagement() {
                 <button
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'approved' ? 'all' : 'approved')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    activeTab === 'approved'
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'approved'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Approved Only
                 </button>
@@ -922,17 +920,16 @@ function LogisticsReturnManagement() {
                     const todayStr = new Date().toISOString().split('T')[0];
                     setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                   }}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedDate === new Date().toISOString().split('T')[0]
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${selectedDate === new Date().toISOString().split('T')[0]
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Today's Returns
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Search & Filter
             </div>
           </div>
@@ -1017,64 +1014,66 @@ function LogisticsReturnManagement() {
                       <tr
                         key={req._id}
                         onClick={() => openRmaDrawer(req)}
-                        className="hover:bg-slate-50/90 transition-colors group cursor-pointer"
+                        className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm cursor-pointer"
                       >
-                        {/* Return ID */}
-                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap min-w-[150px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200">
-                            #RMA-{req._id?.slice(-8).toUpperCase()}
-                          </span>
+                        {/* 1. RETURN ID */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          #RMA-{req._id?.slice(-8).toUpperCase()}
                         </td>
 
-                        {/* Date Filed */}
-                        <td className="py-3.5 px-4 text-slate-500 font-mono whitespace-nowrap">
+                        {/* 2. DATE FILED */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {reqDate}
                         </td>
 
-                        {/* Order Ref */}
-                        <td className="py-3.5 px-4 font-mono font-bold text-[#01390f] whitespace-nowrap">
+                        {/* 3. ORDER REF */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono font-bold text-[#01390f] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           #{orderIdStr}
                         </td>
 
-                        {/* Customer */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900">{customerName}</span>
-                            <span className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">
-                              {req.userId || 'Mhira Shopper'}
-                            </span>
+                        {/* 4. CUSTOMER (Name + User ID) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
+                          <span className="font-bold text-slate-900 block truncate max-w-[200px]" title={customerName}>
+                            {customerName}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[200px]">
+                            {req.userId || 'Mhira Shopper'}
+                          </span>
+                        </td>
+
+                        {/* 5. RETURN REASON */}
+                        <td
+                          className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-700 truncate max-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={req.reason || 'N/A'}
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="truncate">{req.reason || 'Damaged / Defective'}</span>
                           </div>
                         </td>
 
-                        {/* Return Reason */}
-                        <td className="py-3.5 px-4 text-slate-700 max-w-[180px] truncate" title={req.reason || 'N/A'}>
-                          <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 px-2.5 py-0.5 rounded-md border border-slate-200/70 text-xs font-medium truncate">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span className="truncate">{req.reason || 'Damaged / Defective'}</span>
-                          </span>
+                        {/* 6. RETURNED ITEMS */}
+                        <td
+                          className="px-4 py-3.5 whitespace-nowrap font-bold text-xs text-slate-800 truncate max-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={itemsSummary}
+                        >
+                          {itemsSummary || 'No items recorded'}
                         </td>
 
-                        {/* Returned Items */}
-                        <td className="py-3.5 px-4 text-slate-700 max-w-[200px] truncate" title={itemsSummary}>
-                          <span className="inline-flex items-center gap-1 text-xs text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-md font-semibold border border-cyan-200/70 uppercase truncate max-w-full">
-                            {itemsSummary || 'No items recorded'}
-                          </span>
-                        </td>
-
-                        {/* Item Value */}
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#01390f] whitespace-nowrap text-sm">
+                        {/* 7. ITEM VALUE */}
+                        <td className="px-4 py-3.5 text-right font-mono font-bold text-[#01390f] whitespace-nowrap text-xs sm:text-sm bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           ₱{itemValue}
                         </td>
 
-                        {/* Status */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        {/* 8. STATUS */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {getStatusBadge(req.status)}
                         </td>
 
-                        {/* ACTION CELL - EYE ICON ONLY (STICKY RIGHT) */}
+                        {/* 9. ACTION (Sticky Right - Matching Finished Goods / Catalog Table) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
-                          className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]"
+                          className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px] transition-colors"
                         >
                           <div className="flex items-center justify-center">
                             <button
@@ -1082,9 +1081,9 @@ function LogisticsReturnManagement() {
                               onClick={() => openRmaDrawer(req)}
                               title="View & Process Return"
                               aria-label="View & Process Return"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                             </button>
                           </div>
                         </td>
@@ -1110,7 +1109,7 @@ function LogisticsReturnManagement() {
           {/* Slide-over Container (Right Side) */}
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-2xl bg-white shadow-2xl border-l border-slate-200 flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
-              
+
               {/* DRAWER TOP BAR HEADER */}
               <div className="p-6 bg-slate-50/90 border-b border-slate-200/80 flex items-start justify-between shrink-0">
                 <div className="flex flex-col gap-1">
@@ -1146,7 +1145,7 @@ function LogisticsReturnManagement() {
 
               {/* DRAWER SCROLLABLE CONTENT */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-xs sm:text-sm">
-                
+
                 {/* 3-CARD SUMMARY STATS */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
@@ -1200,24 +1199,22 @@ function LogisticsReturnManagement() {
                       return (
                         <div key={idx} className="relative z-10 flex flex-col items-center gap-2">
                           <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${
-                              isPassed
+                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${isPassed
                                 ? 'bg-[#01390f] text-white'
                                 : isCurrent
-                                ? 'bg-[#01390f] text-white ring-4 ring-[#01390f]/20 scale-110'
-                                : 'bg-slate-100 text-slate-400 border border-slate-200'
-                            }`}
+                                  ? 'bg-[#01390f] text-white ring-4 ring-[#01390f]/20 scale-110'
+                                  : 'bg-slate-100 text-slate-400 border border-slate-200'
+                              }`}
                           >
                             {isPassed ? <Check className="w-3.5 h-3.5" /> : idx + 1}
                           </div>
                           <span
-                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight ${
-                              isCurrent
+                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight ${isCurrent
                                 ? 'text-[#01390f]'
                                 : isPassed
-                                ? 'text-slate-700'
-                                : 'text-slate-400'
-                            }`}
+                                  ? 'text-slate-700'
+                                  : 'text-slate-400'
+                              }`}
                           >
                             {step.label}
                           </span>
@@ -1232,11 +1229,10 @@ function LogisticsReturnManagement() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab('review')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === 'review'
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'review'
                         ? 'bg-slate-900 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
                     RMA Review
                   </button>
@@ -1244,11 +1240,10 @@ function LogisticsReturnManagement() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab('action')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === 'action'
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'action'
                         ? 'bg-[#01390f] text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
                     Warehouse & Action
                   </button>
@@ -1256,11 +1251,10 @@ function LogisticsReturnManagement() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab('customer')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === 'customer'
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'customer'
                         ? 'bg-slate-900 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
                     Customer & Reason
                   </button>
@@ -1268,11 +1262,10 @@ function LogisticsReturnManagement() {
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab('slip')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeDrawerTab === 'slip'
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'slip'
                         ? 'bg-slate-900 text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
                     Return Slip PDF
                   </button>
@@ -1376,11 +1369,10 @@ function LogisticsReturnManagement() {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {/* Option 1: Return to Inventory */}
                         <label
-                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                            restockAction === 'Return to Inventory'
+                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Return to Inventory'
                               ? 'border-[#01390f] bg-emerald-50/50 shadow-xs'
                               : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"
@@ -1403,11 +1395,10 @@ function LogisticsReturnManagement() {
 
                         {/* Option 2: Dispose / Scrap */}
                         <label
-                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                            restockAction === 'Dispose/Scrap'
+                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Dispose/Scrap'
                               ? 'border-rose-500 bg-rose-50/50 shadow-xs'
                               : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"
@@ -1430,11 +1421,10 @@ function LogisticsReturnManagement() {
 
                         {/* Option 3: Send Replacement to Client */}
                         <label
-                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                            restockAction === 'Send Replacement to Client'
+                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Send Replacement to Client'
                               ? 'border-blue-600 bg-blue-50/50 shadow-xs'
                               : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"
@@ -1567,21 +1557,20 @@ function LogisticsReturnManagement() {
                           type="button"
                           disabled={updating}
                           onClick={() => handleStatusUpdate(selectedReturn._id, 'Approved')}
-                          className={`p-3.5 rounded-xl border text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs active:scale-95 disabled:opacity-50 ${
-                            restockAction === 'Return to Inventory'
+                          className={`p-3.5 rounded-xl border text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs active:scale-95 disabled:opacity-50 ${restockAction === 'Return to Inventory'
                               ? 'border-emerald-300 bg-emerald-600 hover:bg-emerald-700'
                               : restockAction === 'Send Replacement to Client'
-                              ? 'border-blue-300 bg-blue-600 hover:bg-blue-700'
-                              : 'border-amber-400 bg-amber-600 hover:bg-amber-700'
-                          }`}
+                                ? 'border-blue-300 bg-blue-600 hover:bg-blue-700'
+                                : 'border-amber-400 bg-amber-600 hover:bg-amber-700'
+                            }`}
                         >
                           {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                           <span>
                             {restockAction === 'Return to Inventory'
                               ? 'Approve & Restock (+ Stock)'
                               : restockAction === 'Send Replacement to Client'
-                              ? 'Approve & Dispatch Replacement (- Stock)'
-                              : 'Approve & Log Scrap (No Restock)'}
+                                ? 'Approve & Dispatch Replacement (- Stock)'
+                                : 'Approve & Log Scrap (No Restock)'}
                           </span>
                         </button>
 
@@ -1775,11 +1764,10 @@ function LogisticsReturnManagement() {
                     key={type}
                     type="button"
                     onClick={() => setScrapFilterType(type)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                      scrapFilterType === type
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${scrapFilterType === type
                         ? 'bg-[#01390f] text-white shadow-2xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
                     {type}
                   </button>

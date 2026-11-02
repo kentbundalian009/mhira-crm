@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Review from "../models/MarketingReview.js";
 import Collection from "../models/MarketingCollection.js";
+import Product from "../models/InventoryProduct.js";
 import Order from "../models/LogisticOrder.js";
 import { User } from "../models/AdminUser.js";
 import { calculateTier } from "./AdminAuthController.js";
@@ -43,6 +44,7 @@ export const createReview = async (req, res) => {
     let userTier = "Bronze";
     let userBadge = "Bronze Member";
     let userUsername = "";
+    let userEmail = req.body.userEmail || req.body.email || "";
 
     try {
       let user = null;
@@ -56,6 +58,9 @@ export const createReview = async (req, res) => {
         userTier = user.tier || calculateTier(user.totalSpent || 0);
         userBadge = getBadgeForTier(userTier);
         userUsername = user.username || "";
+        userEmail = user.email || userEmail;
+      } else if (typeof userId === "string" && userId.includes("@")) {
+        userEmail = userId;
       }
     } catch (e) {}
 
@@ -65,6 +70,7 @@ export const createReview = async (req, res) => {
       userId,
       userName: isAnonymous ? "Anonymous" : (userName || "Verified Customer"),
       userUsername,
+      userEmail,
       userTier,
       userBadge,
       rating: Number(rating),
@@ -98,7 +104,26 @@ export const createReview = async (req, res) => {
 export const getProductReviews = async (req, res) => {
   try {
     const { productId } = req.params;
-    const reviews = await Review.find({ productId, status: "Published" })
+
+    // Build comprehensive ID match list (Collection ID, productRef, or finished product ID)
+    const possibleIds = [productId];
+    if (mongoose.Types.ObjectId.isValid(productId)) {
+      const objId = new mongoose.Types.ObjectId(productId);
+      possibleIds.push(objId);
+
+      const col = await Collection.findById(objId).lean().catch(() => null);
+      if (col?.productRef) {
+        possibleIds.push(col.productRef);
+        possibleIds.push(String(col.productRef));
+      }
+      const linkedCol = await Collection.findOne({ productRef: objId }).lean().catch(() => null);
+      if (linkedCol?._id) {
+        possibleIds.push(linkedCol._id);
+        possibleIds.push(String(linkedCol._id));
+      }
+    }
+
+    const reviews = await Review.find({ productId: { $in: possibleIds }, status: "Published" })
       .sort({ createdAt: -1 })
       .lean()
       .maxTimeMS(5000);
@@ -154,13 +179,107 @@ export const getProductReviews = async (req, res) => {
 // 3. Get All Reviews (Admin Dashboard)
 export const getAllReviews = async (req, res) => {
   try {
-    const reviews = await Review.find()
-      .populate("productId", "itemDescription code image")
-      .sort({ createdAt: -1 })
-      .lean()
-      .maxTimeMS(5000);
+    const [reviews, allProducts, allUsers] = await Promise.all([
+      Review.find()
+        .populate({
+          path: "productId",
+          select: "itemName itemDescription code uom specification category image productRef",
+          populate: {
+            path: "productRef",
+            model: "Product",
+            select: "itemName itemDescription code specification uom category image"
+          }
+        })
+        .sort({ createdAt: -1 })
+        .lean()
+        .maxTimeMS(5000),
+      Product.find()
+        .select("itemName itemDescription code specification uom category image")
+        .lean()
+        .catch(() => []),
+      User.find()
+        .select("username fullName email tier totalSpent")
+        .lean()
+        .catch(() => []),
+    ]);
 
-    return res.status(200).json(reviews || []);
+    const userMap = new Map();
+    (allUsers || []).forEach((u) => {
+      if (u._id) userMap.set(String(u._id), u);
+      if (u.username) userMap.set(String(u.username).toLowerCase(), u);
+      if (u.email) userMap.set(String(u.email).toLowerCase(), u);
+      if (u.fullName) userMap.set(String(u.fullName).toLowerCase(), u);
+    });
+
+    const fgMap = new Map();
+    (allProducts || []).forEach((p) => {
+      if (p._id) fgMap.set(String(p._id), p);
+      if (p.code) fgMap.set(String(p.code).toLowerCase(), p);
+      if (p.itemName) fgMap.set(String(p.itemName).toLowerCase(), p);
+      if (p.itemDescription) fgMap.set(String(p.itemDescription).toLowerCase(), p);
+    });
+
+    const enriched = (reviews || []).map((r) => {
+      const col = r.productId && typeof r.productId === "object" ? r.productId : null;
+      const refProd = col?.productRef && typeof col?.productRef === "object" ? col.productRef : null;
+      const matchedFg =
+        refProd ||
+        (col?.code && fgMap.get(String(col.code).toLowerCase())) ||
+        (col?.itemDescription && fgMap.get(String(col.itemDescription).toLowerCase())) ||
+        (r.productName && fgMap.get(String(r.productName).toLowerCase())) ||
+        null;
+
+      const matchedUser =
+        (r.userId && (userMap.get(String(r.userId)) || userMap.get(String(r.userId).toLowerCase()))) ||
+        (r.userUsername && userMap.get(String(r.userUsername).toLowerCase())) ||
+        (r.userName && userMap.get(String(r.userName).toLowerCase())) ||
+        null;
+
+      const resolvedEmail =
+        r.userEmail ||
+        matchedUser?.email ||
+        (typeof r.userId === "string" && r.userId.includes("@") ? r.userId : "");
+
+      const resolvedItemName =
+        matchedFg?.itemName ||
+        matchedFg?.itemDescription ||
+        col?.itemName ||
+        col?.itemDescription ||
+        r.productName ||
+        "";
+
+      const resolvedItemDesc =
+        matchedFg?.itemDescription ||
+        col?.itemDescription ||
+        matchedFg?.itemName ||
+        r.productName ||
+        "";
+
+      const resolvedSpec =
+        matchedFg?.specification ||
+        col?.specification ||
+        r.specification ||
+        "";
+
+      const resolvedUom =
+        matchedFg?.uom ||
+        col?.uom ||
+        r.uom ||
+        "";
+
+      return {
+        ...r,
+        userEmail: resolvedEmail,
+        productName: resolvedItemName || resolvedItemDesc,
+        itemName: resolvedItemName,
+        itemDescription: resolvedItemDesc,
+        productCode: matchedFg?.code || col?.code || "",
+        specification: resolvedSpec,
+        uom: resolvedUom,
+      };
+    });
+
+    return res.status(200).json(enriched);
   } catch (error) {
     console.error("Error fetching all reviews:", error);
     return res.status(200).json([]);
@@ -175,7 +294,10 @@ export const updateReviewStatus = async (req, res) => {
 
     const updateData = {};
     if (status) updateData.status = status;
-    if (adminReply !== undefined) updateData.adminReply = adminReply;
+    if (adminReply !== undefined) {
+      updateData.adminReply = adminReply;
+      updateData.adminReplyAt = adminReply ? new Date() : null;
+    }
 
     const updatedReview = await Review.findByIdAndUpdate(id, updateData, { new: true });
 

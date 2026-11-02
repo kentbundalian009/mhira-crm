@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import axios, { API } from "../axios";
 import TablePagination from "./common/TablePagination";
+import { getUserFullName } from "../utils/userId";
 
 function LogisticReports() {
   const [reportType, setReportType] = useState("sales-summary");
@@ -443,9 +444,12 @@ function LogisticReports() {
         {/* REPORT SIGN-OFF FOOTER */}
         <div className="pt-6 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500">
           <div>
-            <div className="font-semibold text-slate-700 whitespace-nowrap">Verified By:</div>
-            <div className="mt-4 border-b border-slate-400 w-48"></div>
-            <div className="text-[10px] text-slate-400 mt-1 whitespace-nowrap">Logistics Supervisor Signature</div>
+            <div className="font-bold text-[#01390f] uppercase text-[11px] whitespace-nowrap">PREPARED & COMPILED BY:</div>
+            <div className="mt-6 text-[12px] font-bold text-slate-900 whitespace-nowrap uppercase">
+              {getUserFullName("Signature over Printed Name")}
+            </div>
+            <div className="border-b border-slate-400 w-52 my-1"></div>
+            <div className="text-[10px] text-slate-500 whitespace-nowrap">Logistics Staff</div>
           </div>
           <div className="text-right text-[10px] text-slate-400">
             Page 1 of 1 • Logistics Sales Log

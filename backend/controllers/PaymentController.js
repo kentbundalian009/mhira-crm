@@ -6,6 +6,7 @@ import { User } from "../models/AdminUser.js";
 import { calculateTier } from "./AdminAuthController.js";
 import { populateProductsList } from "./CustomerCartController.js";
 import { handleInventoryStockSync } from "./LogisticOrderController.js";
+import { computeLocationShipping } from "./LogisticsShippingController.js";
 
 // Helper to get active PayMongo Secret Key
 export const getPayMongoSecretKey = () => {
@@ -201,7 +202,11 @@ export const createPayMongoCheckoutSession = async (req, res) => {
     }
 
     const totalDiscount = Number(voucherDiscount || 0) + discountFromPoints;
-    const finalShippingFee = Number(shippingFee || 0);
+    const computedShipping = await computeLocationShipping({
+      address: shippingAddress,
+      subtotal: merchandiseSubtotal,
+    });
+    const finalShippingFee = Number(computedShipping.shippingFee ?? shippingFee ?? 0);
     const totalAmount = Math.max(20, Math.round((merchandiseSubtotal - totalDiscount + finalShippingFee) * 100) / 100);
 
     // Create the order in database initially as "To Pay" / "Pending Payment"
@@ -283,8 +288,8 @@ export const createPayMongoCheckoutSession = async (req, res) => {
     // Add shipping fee line item if applicable
     if (finalShippingFee > 0) {
       paymongoLineItems.push({
-        name: "Standard Delivery Shipping",
-        amount: Math.round(finalShippingFee * 100),
+        name: `Shipping Fee (${computedShipping.matchedRegion || "Standard Delivery"})`,
+        amount: Math.max(100, Math.round(finalShippingFee * 100)),
         quantity: 1,
         currency: "PHP",
         images: ["https://files.catbox.moe/hrz9h0.png"],
@@ -599,6 +604,23 @@ export const payExistingOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Order is already paid." });
     }
 
+    const merchandiseSubtotal = (order.items || []).reduce(
+      (acc, item) => acc + Number(item.price || 0) * Number(item.quantity || 1),
+      0
+    );
+    const computedShipping = await computeLocationShipping({
+      address: order.shippingAddress,
+      subtotal: merchandiseSubtotal,
+    });
+    const latestShippingFee = Number(computedShipping.shippingFee ?? order.shippingFee ?? 0);
+    const totalDiscount = Number(order.voucherDiscount || 0) + Number(order.pointsRedeemed || 0);
+    order.shippingFee = latestShippingFee;
+    order.totalAmount = Math.max(
+      20,
+      Math.round((merchandiseSubtotal - totalDiscount + latestShippingFee) * 100) / 100
+    );
+    await order.save().catch(() => {});
+
     const paymongoLineItems = await Promise.all(
       (order.items || []).map(async (item) => ({
         name: item.name || "Product Item",
@@ -609,10 +631,10 @@ export const payExistingOrder = async (req, res) => {
       }))
     );
 
-    if (order.shippingFee > 0) {
+    if (latestShippingFee > 0) {
       paymongoLineItems.push({
-        name: "Standard Delivery Shipping",
-        amount: Math.round(order.shippingFee * 100),
+        name: `Shipping Fee (${computedShipping.matchedRegion || "Standard Delivery"})`,
+        amount: Math.max(100, Math.round(latestShippingFee * 100)),
         quantity: 1,
         currency: "PHP",
         images: ["https://files.catbox.moe/hrz9h0.png"],

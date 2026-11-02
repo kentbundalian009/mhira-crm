@@ -7,6 +7,7 @@ import {
   Mail,
   User,
   Phone,
+  ChevronDown,
   CheckCircle,
   XCircle,
   ArrowLeft,
@@ -213,28 +214,41 @@ function Signup() {
 
             {/* PHONE NUMBER & GENDER */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Phone Number */}
               <div className="relative flex items-center">
                 <Phone
                   size={18}
                   className="absolute left-5 text-gray-400 pointer-events-none"
                 />
                 <input
+                  type="tel"
+                  inputMode="numeric"
                   id="phoneNumber"
-                  placeholder="Phone Number"
+                  name="phoneNumber"
+                  placeholder="Phone Number (e.g. 09123456789)"
                   value={form.phoneNumber}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    // Tanggalin ang anumang character na hindi numero
+                    const numericValue = e.target.value.replace(/\D/g, "");
+                    handleChange({
+                      ...e,
+                      target: { ...e.target, id: "phoneNumber", name: "phoneNumber", value: numericValue },
+                    });
+                  }}
                   maxLength={11}
                   className="w-full border border-[#E1E9EF] rounded-full pl-12 pr-6 py-4 text-[14px] font-medium outline-none focus:border-[#79A94B] focus:ring-1 focus:ring-[#79A94B]/30 transition-all placeholder:text-gray-400 text-[#243746]"
                   required
                 />
               </div>
 
+              {/* Gender */}
               <div className="relative flex items-center">
                 <select
                   id="gender"
+                  name="gender"
                   value={form.gender}
                   onChange={handleChange}
-                  className="w-full border border-[#E1E9EF] rounded-full px-6 py-4 text-[14px] font-medium outline-none focus:border-[#79A94B] focus:ring-1 focus:ring-[#79A94B]/30 transition-all text-[#243746] bg-transparent appearance-none cursor-pointer"
+                  className="w-full border border-[#E1E9EF] rounded-full pl-6 pr-12 py-4 text-[14px] font-medium outline-none focus:border-[#79A94B] focus:ring-1 focus:ring-[#79A94B]/30 transition-all text-[#243746] bg-transparent appearance-none cursor-pointer"
                   required
                 >
                   <option value="" disabled className="text-gray-400">
@@ -242,7 +256,14 @@ function Signup() {
                   </option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
                 </select>
+                {/* Arrow icon para sa custom dropdown styling */}
+                <ChevronDown
+                  size={18}
+                  className="absolute right-5 text-gray-400 pointer-events-none"
+                />
               </div>
             </div>
 
@@ -273,7 +294,7 @@ function Signup() {
 
               {form.password && (
                 <p
-                  className={`text-[11px] font-bold tracking-wider mt-2 ml-5 ${strength.color}`}
+                  className={`text-[11px] font-bold mt-2 ml-5 ${strength.color}`}
                 >
                   Security: {strength.label}
                 </p>
@@ -307,7 +328,7 @@ function Signup() {
 
               {form.confirmPassword && (
                 <p
-                  className={`text-[11px] font-bold tracking-wider mt-2 ml-5 flex items-center gap-1 ${isMatch ? "text-emerald-600" : "text-red-500"
+                  className={`text-[11px] font-bold mt-2 ml-5 flex items-center gap-1 ${isMatch ? "text-emerald-600" : "text-red-500"
                     }`}
                 >
                   {isMatch ? <CheckCircle size={14} /> : <XCircle size={14} />}

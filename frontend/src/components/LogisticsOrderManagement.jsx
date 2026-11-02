@@ -58,12 +58,31 @@ const API_BASE_URL =
     ? 'https://mhira-crmsystem.onrender.com/api'
     : 'http://localhost:5000/api';
 
+const formatShippingAddress = (addr) => {
+  if (!addr) return '';
+  if (typeof addr === 'string') return addr.trim();
+  if (typeof addr === 'object') {
+    return [
+      addr.streetAddress || addr.street,
+      addr.apartment,
+      addr.barangay ? `Brgy. ${String(addr.barangay).replace(/^Brgy\.?\s*/i, '')}` : '',
+      addr.city,
+      addr.province || addr.region,
+      addr.postalCode,
+      addr.country,
+    ]
+      .filter(Boolean)
+      .join(', ');
+  }
+  return String(addr || '');
+};
+
 function LogisticsOrderManagement() {
   const [orders, setOrders] = useState(() => {
     try {
       const cached = localStorage.getItem('cached_logistics_orders');
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [loading, setLoading] = useState(false);
@@ -152,7 +171,7 @@ function LogisticsOrderManagement() {
           return initialCounts;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       'order-placed': 0,
       'waiting-courier': 0,
@@ -185,7 +204,7 @@ function LogisticsOrderManagement() {
         calculateCounts(fetchedOrders);
         try {
           localStorage.setItem('cached_logistics_orders', JSON.stringify(fetchedOrders));
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -452,7 +471,7 @@ function LogisticsOrderManagement() {
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       const formattedStatus = (order.status || '').toLowerCase().replace(/\s+/g, '-');
-      
+
       // Check Top Tab Filter
       let matchesTab = false;
       if (activeTab === 'order-placed' || activeTab === 'to-pay') {
@@ -493,7 +512,7 @@ function LogisticsOrderManagement() {
       const customerName =
         order.customerName || order.userId?.name || order.user?.name || 'Guest Customer';
       const orderId = order._id || '';
-      const address = order.shippingAddress || '';
+      const address = formatShippingAddress(order.shippingAddress);
       const itemsText =
         order.items?.map((i) => i.name || i.product?.name).join(' ') || '';
 
@@ -627,7 +646,7 @@ function LogisticsOrderManagement() {
       doc.setFont('helvetica', 'bold');
       doc.text('SHIPPING ADDR:', 18, 52);
       doc.setFont('helvetica', 'normal');
-      doc.text(order.shippingAddress || 'Storefront Delivery Address', 52, 52);
+      doc.text(formatShippingAddress(order.shippingAddress) || 'Storefront Delivery Address', 52, 52);
 
       doc.setFont('helvetica', 'bold');
       doc.text('PAYMENT METHOD:', 18, 60);
@@ -746,7 +765,7 @@ function LogisticsOrderManagement() {
         `#${o._id?.slice(-8).toUpperCase()}`,
         new Date(o.createdAt || Date.now()).toLocaleDateString(),
         o.customerName || o.userId?.name || o.user?.name || 'Customer',
-        o.shippingAddress || 'N/A',
+        formatShippingAddress(o.shippingAddress) || 'N/A',
         (o.items || []).map((i) => `${i.name || i.product?.name || 'Item'} (x${i.quantity || 1})`).join(', ') || 'N/A',
         o.paymentMethod || 'COD',
         `PHP ${Number(o.totalAmount || 0).toFixed(2)}`,
@@ -884,11 +903,10 @@ function LogisticsOrderManagement() {
                     setActiveTab(tab.id);
                     setFilterCancelRequestsOnly(false);
                   }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap inline-flex items-center gap-1.5 ${
-                    activeTab === tab.id
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap inline-flex items-center gap-1.5 ${activeTab === tab.id
                       ? 'border-[#01390f] text-[#01390f] bg-slate-50'
                       : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                  }`}
+                    }`}
                 >
                   <span className="relative inline-flex items-center gap-1.5">
                     <span>{tab.label}</span>
@@ -908,25 +926,27 @@ function LogisticsOrderManagement() {
           </div>
         </div>
 
-        {/* EXCEL RIBBON TOOLBAR */}
-        <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+        {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+        <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
           {/* ACTIONS GROUP */}
-          <div className="w-[226px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-            <div className="flex items-stretch gap-1.5 flex-1">
+          <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+            <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
               <button
                 type="button"
                 onClick={() => handleDownloadOrdersSummaryPdf(filteredOrders)}
-                className="w-[76px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
                 title="Export Orders Summary PDF"
               >
-                <FileDown className="w-5 h-5 mb-0.5 text-[#01390f] group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-bold text-center leading-tight">Export PDF</span>
+                <FileDown className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
+                  Export<br />PDF
+                </span>
               </button>
-              <div className="flex-1 min-w-[135px] flex flex-col justify-between py-0.5 space-y-0.5">
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
                 <button
                   type="button"
                   onClick={() => fetchOrders()}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-slate-700 hover:text-[#01390f] hover:bg-slate-100 transition-colors cursor-pointer w-full"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 hover:text-[#01390f] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-slate-500 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
                   <span className="truncate">Refresh Orders</span>
@@ -934,21 +954,21 @@ function LogisticsOrderManagement() {
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                   <span className="truncate">Reset Filters</span>
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Actions
             </div>
           </div>
 
           {/* SEARCH & FILTER GROUP */}
-          <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-            <div className="flex flex-col justify-between flex-1 gap-1.5 py-0.5">
+          <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+            <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
               {/* Layer 1: Search */}
               <div className="relative flex items-center w-full">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
@@ -971,13 +991,13 @@ function LogisticsOrderManagement() {
               </div>
 
               {/* Layer 2: 3-column Dropdowns / Pickers */}
-              <div className="grid grid-cols-3 gap-2 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                 {/* Date Picker */}
                 <div
                   onClick={() => {
                     try {
                       dateInputRef.current?.showPicker();
-                    } catch (err) {}
+                    } catch (err) { }
                   }}
                   className="relative w-full cursor-pointer"
                 >
@@ -990,12 +1010,12 @@ function LogisticsOrderManagement() {
                     onClick={(e) => {
                       try {
                         e.currentTarget.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     onFocus={(e) => {
                       try {
                         e.currentTarget.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -1004,12 +1024,11 @@ function LogisticsOrderManagement() {
                         e.preventDefault();
                         try {
                           e.currentTarget.showPicker();
-                        } catch (err) {}
+                        } catch (err) { }
                       }
                     }}
-                    className={`w-full h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer ${
-                      selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
-                    }`}
+                    className={`w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer shadow-2xs ${selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
+                      }`}
                   />
                   {selectedDate && (
                     <button
@@ -1031,7 +1050,7 @@ function LogisticsOrderManagement() {
                   <select
                     value={selectedPaymentMethod}
                     onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="All">All Payment Methods</option>
                     <option value="Cash on Delivery (COD)">COD</option>
@@ -1050,12 +1069,12 @@ function LogisticsOrderManagement() {
                 </div>
 
                 {/* Sort Order */}
-                <div className="relative w-full">
+                <div className="relative w-full sm:col-span-2 md:col-span-1">
                   <SlidersHorizontal className="w-3.5 h-3.5 absolute left-2 top-1 text-slate-400 pointer-events-none" />
                   <select
                     value={selectedSort}
                     onChange={(e) => setSelectedSort(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="newest">Sort: Newest Orders</option>
                     <option value="oldest">Sort: Oldest Orders</option>
@@ -1067,7 +1086,7 @@ function LogisticsOrderManagement() {
               </div>
 
               {/* Layer 3: 3-column Quick Toggles */}
-              <div className="grid grid-cols-3 gap-2 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                 <button
                   type="button"
                   onClick={() =>
@@ -1075,11 +1094,10 @@ function LogisticsOrderManagement() {
                       selectedPaymentMethod === 'Cash on Delivery (COD)' ? 'All' : 'Cash on Delivery (COD)'
                     )
                   }
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedPaymentMethod === 'Cash on Delivery (COD)'
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedPaymentMethod === 'Cash on Delivery (COD)'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   COD Only
                 </button>
@@ -1089,11 +1107,10 @@ function LogisticsOrderManagement() {
                   onClick={() =>
                     setSelectedPaymentMethod(selectedPaymentMethod === 'GCash' ? 'All' : 'GCash')
                   }
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedPaymentMethod === 'GCash'
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedPaymentMethod === 'GCash'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   GCash Only
                 </button>
@@ -1104,17 +1121,16 @@ function LogisticsOrderManagement() {
                     const todayStr = new Date().toISOString().split('T')[0];
                     setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                   }}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedDate === new Date().toISOString().split('T')[0]
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${selectedDate === new Date().toISOString().split('T')[0]
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Today's Orders
                 </button>
               </div>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
               Search & Filter
             </div>
           </div>
@@ -1144,11 +1160,10 @@ function LogisticsOrderManagement() {
                   setActiveTab('order-placed');
                   setFilterCancelRequestsOnly((prev) => !prev);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                  filterCancelRequestsOnly
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${filterCancelRequestsOnly
                     ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
                     : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-100 shadow-2xs'
-                }`}
+                  }`}
               >
                 <Filter className="w-3.5 h-3.5" />
                 <span>{filterCancelRequestsOnly ? 'Show All Orders' : `Filter Cancel Requests (${counts['cancel-requests']})`}</span>
@@ -1236,59 +1251,61 @@ function LogisticsOrderManagement() {
                       <tr
                         key={order._id}
                         onClick={() => setSelectedOrder(order)}
-                        className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group cursor-pointer"
+                        className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm cursor-pointer"
                       >
-                        {/* Order ID */}
-                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap min-w-[140px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="bg-slate-100 text-slate-800 group-hover:text-[#01390f] group-hover:border-[#01390f]/40 group-hover:bg-emerald-50/60 px-2.5 py-1 rounded-md border border-slate-200 transition-colors shadow-2xs">
-                            #{order._id?.slice(-8).toUpperCase()}
-                          </span>
+                        {/* 1. ORDER ID */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          #{order._id?.slice(-8).toUpperCase()}
                         </td>
 
-                        {/* Order Date */}
-                        <td className="py-3.5 px-4 text-slate-500 font-mono whitespace-nowrap">
+                        {/* 2. ORDER DATE */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {orderDate}
                         </td>
 
-                        {/* Customer */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900">{customerName}</span>
-                            <span className="text-[10px] text-slate-400 font-mono truncate max-w-[150px]">
-                              {order.userId?.email || order.user?.email || 'Mhira Shopper'}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Shipping Destination */}
-                        <td className="py-3.5 px-4 text-slate-600 max-w-[200px] truncate" title={order.shippingAddress || 'N/A'}>
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span className="truncate">{order.shippingAddress || 'Storefront Delivery Address'}</span>
-                          </div>
-                        </td>
-
-                        {/* Purchased Items */}
-                        <td className="py-3.5 px-4 text-slate-700 max-w-[220px] truncate" title={itemsSummary}>
-                          <span className="inline-flex items-center gap-1 text-xs text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-md font-semibold border border-cyan-200/70 uppercase truncate max-w-full">
-                            {itemsSummary || 'No items recorded'}
+                        {/* 3. CUSTOMER (Name + Email) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
+                          <span className="font-bold text-slate-900 block truncate max-w-[200px]" title={customerName}>
+                            {customerName}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[200px]">
+                            {order.userId?.email || order.user?.email || 'Mhira Shopper'}
                           </span>
                         </td>
 
-                        {/* Payment */}
-                        <td className="py-3.5 px-4 text-slate-700 font-semibold whitespace-nowrap">
+                        {/* 4. SHIPPING DESTINATION */}
+                        <td
+                          className="px-4 py-3.5 whitespace-nowrap text-slate-600 truncate max-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={formatShippingAddress(order.shippingAddress) || 'N/A'}
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{formatShippingAddress(order.shippingAddress) || 'Storefront Delivery Address'}</span>
+                          </div>
+                        </td>
+
+                        {/* 5. PURCHASED ITEMS */}
+                        <td
+                          className="px-4 py-3.5 whitespace-nowrap font-bold text-xs text-slate-800 truncate max-w-[220px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={itemsSummary}
+                        >
+                          {itemsSummary || 'No items recorded'}
+                        </td>
+
+                        {/* 6. PAYMENT */}
+                        <td className="px-4 py-3.5 text-center font-mono font-semibold text-xs text-slate-700 uppercase whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {order.paymentMethod || 'COD'}
                         </td>
 
-                        {/* Total Amount */}
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#01390f] whitespace-nowrap text-sm">
+                        {/* 7. TOTAL AMOUNT */}
+                        <td className="px-4 py-3.5 text-right font-mono font-bold text-[#01390f] whitespace-nowrap text-xs sm:text-sm bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           ₱{total}
                         </td>
 
-                        {/* Status */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        {/* 8. STATUS */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex flex-col items-center justify-center gap-1">
-                            <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center justify-center gap-1.5">
                               {getStatusBadge(order.status)}
                               {((order.status || '').toLowerCase() === 'order placed' || (order.status || '').toLowerCase() === 'to pay') &&
                                 order.cancellationRequest?.status !== 'Pending' && (
@@ -1318,10 +1335,10 @@ function LogisticsOrderManagement() {
                           </div>
                         </td>
 
-                        {/* Action (Sticky Right) */}
+                        {/* 9. ACTION (Sticky Right - Matching Finished Goods / Catalog Table) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
-                          className="py-3.5 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[100px]"
+                          className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors"
                         >
                           <div className="flex items-center justify-center gap-1.5">
                             {order.cancellationRequest?.status === 'Pending' && (
@@ -1340,9 +1357,9 @@ function LogisticsOrderManagement() {
                               onClick={() => setSelectedOrder(order)}
                               title="View Order Details"
                               aria-label="View Order Details"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                             </button>
                           </div>
                         </td>
@@ -1368,7 +1385,7 @@ function LogisticsOrderManagement() {
           {/* Slide-over Container (Right Side) */}
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-2xl bg-white shadow-2xl border-l border-slate-200 flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
-              
+
               {/* DRAWER TOP BAR HEADER */}
               <div className="p-6 bg-slate-50/90 border-b border-slate-200/80 flex items-start justify-between shrink-0">
                 <div className="flex flex-col gap-1">
@@ -1404,7 +1421,7 @@ function LogisticsOrderManagement() {
 
               {/* DRAWER SCROLLABLE CONTENT */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-xs sm:text-sm">
-                
+
                 {/* CANCELLATION REQUEST REVIEW BANNER */}
                 {selectedOrder.cancellationRequest?.status === 'Pending' && (
                   <div className="bg-gradient-to-r from-amber-50 to-rose-50 border-2 border-rose-300 rounded-2xl p-4 shadow-xs space-y-3">
@@ -1519,9 +1536,8 @@ function LogisticsOrderManagement() {
                             if (!isUnlocked) return;
                             setActiveDrawerTab(targetTab);
                           }}
-                          className={`relative z-10 flex flex-col items-center gap-2 transition-all ${
-                            isUnlocked ? 'cursor-pointer group' : 'cursor-not-allowed opacity-40 pointer-events-none select-none'
-                          }`}
+                          className={`relative z-10 flex flex-col items-center gap-2 transition-all ${isUnlocked ? 'cursor-pointer group' : 'cursor-not-allowed opacity-40 pointer-events-none select-none'
+                            }`}
                           title={
                             isUnlocked
                               ? `Click to view Stage ${idx + 1}: ${step.label}`
@@ -1529,17 +1545,15 @@ function LogisticsOrderManagement() {
                           }
                         >
                           <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${
-                              isUnlocked ? 'group-hover:scale-110' : ''
-                            } ${
-                              isTabActive
+                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${isUnlocked ? 'group-hover:scale-110' : ''
+                              } ${isTabActive
                                 ? 'bg-[#01390f] text-white ring-4 ring-[#01390f]/20 scale-110 shadow-md'
                                 : isPassed
-                                ? 'bg-[#01390f] text-white'
-                                : isCurrent
-                                ? 'bg-[#01390f] text-white ring-2 ring-[#01390f]/30'
-                                : 'bg-slate-100 text-slate-400 border border-slate-200'
-                            }`}
+                                  ? 'bg-[#01390f] text-white'
+                                  : isCurrent
+                                    ? 'bg-[#01390f] text-white ring-2 ring-[#01390f]/30'
+                                    : 'bg-slate-100 text-slate-400 border border-slate-200'
+                              }`}
                           >
                             {isPassed ? (
                               <Check className="w-3.5 h-3.5" />
@@ -1550,15 +1564,14 @@ function LogisticsOrderManagement() {
                             )}
                           </div>
                           <span
-                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight transition-colors ${
-                              isTabActive
+                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight transition-colors ${isTabActive
                                 ? 'text-[#01390f] underline decoration-2 underline-offset-2'
                                 : isCurrent
-                                ? 'text-[#01390f]'
-                                : isPassed
-                                ? 'text-slate-700'
-                                : 'text-slate-400'
-                            }`}
+                                  ? 'text-[#01390f]'
+                                  : isPassed
+                                    ? 'text-slate-700'
+                                    : 'text-slate-400'
+                              }`}
                           >
                             {step.label}
                           </span>
@@ -1589,13 +1602,12 @@ function LogisticsOrderManagement() {
                         onClick={() => {
                           if (isUnlocked) setActiveDrawerTab(tab.id);
                         }}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                          !isUnlocked
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${!isUnlocked
                             ? 'bg-slate-100/60 text-slate-400 cursor-not-allowed opacity-45 border border-transparent pointer-events-none select-none'
                             : isActive
-                            ? 'bg-[#01390f] text-white shadow-xs cursor-pointer'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer'
-                        }`}
+                              ? 'bg-[#01390f] text-white shadow-xs cursor-pointer'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer'
+                          }`}
                         title={
                           isUnlocked
                             ? `Stage ${tab.stageNum}: ${tab.label}`
@@ -1603,22 +1615,20 @@ function LogisticsOrderManagement() {
                         }
                       >
                         <span
-                          className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${
-                            !isUnlocked
+                          className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${!isUnlocked
                               ? 'bg-slate-200/70 text-slate-400'
                               : isActive
-                              ? 'bg-white/20 text-white'
-                              : 'bg-slate-200 text-slate-700'
-                          }`}
+                                ? 'bg-white/20 text-white'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
                         >
                           {!isUnlocked ? <Lock className="w-2.5 h-2.5 text-slate-400" /> : tab.stageNum}
                         </span>
                         <span>{tab.label}</span>
                         {isOrderCurrentStage && (
                           <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
-                              isActive ? 'bg-emerald-300 text-slate-900 font-bold' : 'bg-emerald-100 text-emerald-800'
-                            }`}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${isActive ? 'bg-emerald-300 text-slate-900 font-bold' : 'bg-emerald-100 text-emerald-800'
+                              }`}
                             title="Current fulfillment stage of this order"
                           >
                             Current
@@ -2028,7 +2038,7 @@ function LogisticsOrderManagement() {
                           type="button"
                           onClick={() => {
                             if (selectedOrder.shippingAddress) {
-                              navigator.clipboard.writeText(selectedOrder.shippingAddress);
+                              navigator.clipboard.writeText(formatShippingAddress(selectedOrder.shippingAddress));
                               showSuccessToast('Address copied to clipboard!');
                             }
                           }}
@@ -2039,7 +2049,7 @@ function LogisticsOrderManagement() {
                         </button>
                       </div>
                       <p className="text-xs font-medium text-slate-700 bg-white p-3 rounded-xl border border-slate-200 leading-relaxed">
-                        {selectedOrder.shippingAddress || 'Storefront Delivery Address'}
+                        {formatShippingAddress(selectedOrder.shippingAddress) || 'Storefront Delivery Address'}
                       </p>
                     </div>
 
@@ -2201,7 +2211,7 @@ function LogisticsOrderManagement() {
                   >
                     Close
                   </button>
-                  
+
                   {/* Process-Specific Single Forward Action Button */}
                   {getWorkflowStepIndex(selectedOrder.status) === 0 && (
                     <button

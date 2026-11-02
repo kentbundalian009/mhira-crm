@@ -70,6 +70,25 @@ const getImageUrl = (url) => {
   return `${API_BASE_URL}/${trimmed.replace(/^\/+/, "")}`;
 };
 
+const formatShippingAddress = (addr) => {
+  if (!addr) return "";
+  if (typeof addr === "string") return addr.trim();
+  if (typeof addr === "object") {
+    return [
+      addr.streetAddress || addr.street,
+      addr.apartment,
+      addr.barangay ? `Brgy. ${String(addr.barangay).replace(/^Brgy\.?\s*/i, "")}` : "",
+      addr.city,
+      addr.province || addr.region,
+      addr.postalCode,
+      addr.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }
+  return String(addr || "");
+};
+
 // ================= INTERACTIVE STAR RATING WIDGET (DRAG & HOVER GLOW) =================
 function StarRatingWidget({
   value = 0,
@@ -729,7 +748,7 @@ function CustomerOrders() {
         })();
 
       const customerAddress =
-        order.shippingAddress || "ccc, Brgy. Uwisan, Calamba City, Laguna, 4027, Philippines";
+        formatShippingAddress(order.shippingAddress) || "ccc, Brgy. Uwisan, Calamba City, Laguna, 4027, Philippines";
 
       const orderCreated = order.createdAt ? new Date(order.createdAt) : new Date();
       const orderDateFormatted = orderCreated.toLocaleDateString("en-US", {
@@ -1366,7 +1385,7 @@ function CustomerOrders() {
                         <strong className="text-slate-800 font-semibold">{order.customerName || "Customer"}</strong>
                         {order.phone && <span className="text-slate-500"> ({order.phone})</span>}
                         <span className="text-slate-400 mx-1.5">•</span>
-                        <span className="text-slate-500">{order.shippingAddress || "Default Delivery Address"}</span>
+                        <span className="text-slate-500">{formatShippingAddress(order.shippingAddress) || "Default Delivery Address"}</span>
                       </span>
                     </div>
 
@@ -2029,7 +2048,7 @@ function CustomerOrders() {
           })();
 
         const customerAddress =
-          order.shippingAddress || "ccc, Brgy. Uwisan, Calamba City, Laguna, 4027, Philippines";
+          formatShippingAddress(order.shippingAddress) || "ccc, Brgy. Uwisan, Calamba City, Laguna, 4027, Philippines";
 
         const orderCreated = order.createdAt ? new Date(order.createdAt) : new Date();
         const orderDateFormatted = orderCreated.toLocaleDateString("en-US", {

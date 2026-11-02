@@ -897,6 +897,28 @@ function CustomerProductDetail() {
                                 {new Date(rev.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
                             )}
+                            {(rev.adminReply || rev.reply || rev.marketingReply) && (
+                              <div className="mt-2.5 pl-3 border-l-2 border-[#01390f] bg-slate-50/70 rounded-r-xl py-2 pr-3 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 rounded-full bg-white border border-[#D5EAD7] flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+                                    <img
+                                      src="/mhira_removebg.png"
+                                      alt="Mhira Natural"
+                                      className="w-full h-full object-contain"
+                                    />
+                                  </div>
+                                  <span className="font-bold text-[#01390f] text-[11px]">
+                                    Mhira Natural
+                                  </span>
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-[#EDF7EE] text-[#01390f] border border-[#D5EAD7]">
+                                    Official Response
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-700 leading-relaxed pl-6 whitespace-pre-line">
+                                  {rev.adminReply || rev.reply || rev.marketingReply}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         ))}
 

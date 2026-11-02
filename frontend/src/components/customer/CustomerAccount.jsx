@@ -39,195 +39,17 @@ import { showSuccessToast, showErrorToast, showInfoToast } from "../../utils/toa
 import { getUserId } from "../../utils/userId";
 import { useAppData } from "../../context/AppDataContext";
 import { compressImageToBase64 } from "../../utils/imageCompressor";
-import { hasActiveOrders, getCachedOrders, syncCustomerOrders } from "../../utils/ordersHelper";
-
-// Comprehensive Cascading Philippine Location Data
-const PH_LOCATION_DATA = {
-  Laguna: {
-    cities: {
-      "Calamba City": {
-        barangays: ["Uwisan", "Parian", "Canlubang", "Bucal", "Poblacion", "Real", "Halang", "Makiling", "Pansol", "Turbina", "Mayapa"],
-        postalCode: "4027",
-      },
-      "Santa Rosa City": {
-        barangays: ["Balibago", "Don Jose", "Dila", "Macabling", "Tagapo", "Sinalhan", "Malitlit", "Pulong Santa Cruz"],
-        postalCode: "4026",
-      },
-      "Biñan City": {
-        barangays: ["San Antonio", "San Vicente", "Platero", "De La Paz", "Malamig", "Canlalay", "Tubigan"],
-        postalCode: "4024",
-      },
-      "San Pedro City": {
-        barangays: ["San Antonio", "San Vicente", "Landayan", "Nueva", "Cuyab", "Pacita 1", "Pacita 2"],
-        postalCode: "4023",
-      },
-      "Los Baños": {
-        barangays: ["Batong Malake", "College", "Mayondon", "San Antonio", "Tadlac", "Bayog", "Anos"],
-        postalCode: "4030",
-      },
-      "Cabuyao City": {
-        barangays: ["Sala", "Niugan", "Banay-Banay", "Pulo", "Mamatid", "Gulod"],
-        postalCode: "4025",
-      },
-    },
-  },
-  Cavite: {
-    cities: {
-      "Bacoor City": {
-        barangays: ["Molino I", "Molino III", "Panapaan", "Talaba", "Habay", "Zapote", "Niog"],
-        postalCode: "4102",
-      },
-      "Imus City": {
-        barangays: ["Anabu I", "Anabu II", "Bucandala", "Malagasang", "Tanzang Luma", "Poblacion"],
-        postalCode: "4103",
-      },
-      "Dasmariñas City": {
-        barangays: ["Salawag", "Paliparan", "Langkaan", "San Jose", "Sampaloc", "Burol"],
-        postalCode: "4114",
-      },
-      "General Trias": {
-        barangays: ["Manggahan", "San Francisco", "Bacao", "Pasong Camachile", "Tejero"],
-        postalCode: "4107",
-      },
-      "Tagaytay City": {
-        barangays: ["Kaybagal", "Mendez Crossing", "Silang Junction", "Maharlika", "Sungay"],
-        postalCode: "4120",
-      },
-    },
-  },
-  Batangas: {
-    cities: {
-      "Batangas City": {
-        barangays: ["Alangilan", "Balagtas", "Kumintang Ilaya", "Kumintang Ibaba", "Poblacion", "Libjo"],
-        postalCode: "4200",
-      },
-      "Lipa City": {
-        barangays: ["Marawoy", "Sabang", "Tambong", "Banay-banay", "Lodlod", "Mataas na Lupa"],
-        postalCode: "4217",
-      },
-      "Tanauan City": {
-        barangays: ["Darasa", "Natatas", "Poblacion", "Sambat", "Trapiche", "Boot"],
-        postalCode: "4232",
-      },
-      "Santo Tomas": {
-        barangays: ["San Roque", "San Antonio", "Santiago", "San Pedro", "San Bartolome"],
-        postalCode: "4234",
-      },
-    },
-  },
-  Rizal: {
-    cities: {
-      "Antipolo City": {
-        barangays: ["Dalig", "De La Paz", "Mayamot", "San Jose", "San Roque", "Cupang"],
-        postalCode: "1870",
-      },
-      Cainta: {
-        barangays: ["San Andres", "San Isidro", "San Juan", "San Roque", "Santa Rosa"],
-        postalCode: "1900",
-      },
-      Taytay: {
-        barangays: ["Dolores", "San Isidro", "San Juan", "Santa Ana", "Muzon"],
-        postalCode: "1920",
-      },
-    },
-  },
-  "Metro Manila": {
-    cities: {
-      "Makati City": {
-        barangays: ["Bel-Air", "Poblacion", "San Lorenzo", "Bangkal", "Pio del Pilar", "Guadalupe", "Legazpi Village"],
-        postalCode: "1200",
-      },
-      "Taguig City": {
-        barangays: ["BGC / Fort Bonifacio", "Ususan", "Tuktukan", "Pinagsama", "Western Bicutan"],
-        postalCode: "1630",
-      },
-      "Quezon City": {
-        barangays: ["Diliman", "Cubao", "Batasan Hills", "Commonwealth", "Loyola Heights", "Fairview"],
-        postalCode: "1100",
-      },
-      "Manila City": {
-        barangays: ["Ermita", "Malate", "Sampaloc", "Binondo", "Santa Cruz", "Paco", "Intramuros"],
-        postalCode: "1000",
-      },
-      "Pasig City": {
-        barangays: ["Kapitolyo", "Ortigas Center", "San Nicolas", "Rosario", "Ugong", "Maybunga"],
-        postalCode: "1600",
-      },
-      "Parañaque City": {
-        barangays: ["BF Homes", "Don Bosco", "Moonwalk", "San Antonio", "Baclaran"],
-        postalCode: "1700",
-      },
-      "Mandaluyong City": {
-        barangays: ["Highway Hills", "Plainview", "Wack-Wack", "Barangka", "Hulo"],
-        postalCode: "1550",
-      },
-      "Pasay City": {
-        barangays: ["Malibay", "San Isidro", "San Jose", "San Rafael", "Maricaban"],
-        postalCode: "1300",
-      },
-      "Muntinlupa City": {
-        barangays: ["Alabang", "Ayala Alabang", "Putatan", "Poblacion", "Tunasan"],
-        postalCode: "1770",
-      },
-    },
-  },
-  Pampanga: {
-    cities: {
-      "Angeles City": {
-        barangays: ["Balibago", "Cutcut", "Pandan", "Sto. Domingo", "Malabanias", "Pulung Maragul"],
-        postalCode: "2009",
-      },
-      "San Fernando City": {
-        barangays: ["Dolores", "San Agustin", "Sindalan", "Telebastagan", "San Jose"],
-        postalCode: "2000",
-      },
-      "Mabalacat City": {
-        barangays: ["Dau", "Mabiga", "Camachiles", "Dolores", "Poblacion"],
-        postalCode: "2010",
-      },
-    },
-  },
-  Bulacan: {
-    cities: {
-      "Malolos City": {
-        barangays: ["Guinhawa", "Dakila", "Bulihan", "Catmon", "Mojon"],
-        postalCode: "3000",
-      },
-      "San Jose del Monte": {
-        barangays: ["Muzon", "Tungkong Mangga", "Graceville", "Kaypian"],
-        postalCode: "3023",
-      },
-      "Meycauayan City": {
-        barangays: ["Calvario", "Bangkal", "Perez", "Saluysoy", "Camalig"],
-        postalCode: "3020",
-      },
-    },
-  },
-  Cebu: {
-    cities: {
-      "Cebu City": {
-        barangays: ["Lahug", "Mabolo", "Banilad", "Guadalupe", "Capitol Site"],
-        postalCode: "6000",
-      },
-      "Mandaue City": {
-        barangays: ["Subangdaku", "Banilad", "Tipolo", "Bakilid", "Centro"],
-        postalCode: "6014",
-      },
-      "Lapu-Lapu City": {
-        barangays: ["Maribago", "Mactan", "Basak", "Pusok", "Pajo"],
-        postalCode: "6015",
-      },
-    },
-  },
-  "Davao del Sur": {
-    cities: {
-      "Davao City": {
-        barangays: ["Poblacion", "Buhangin", "Talomo", "Matina", "Toril", "Agdao"],
-        postalCode: "8000",
-      },
-    },
-  },
-};
+import {
+  hasActiveOrders,
+  getCachedOrders,
+  syncCustomerOrders,
+} from "../../utils/ordersHelper";
+import { notifyLiveSync } from "../../utils/liveSync";
+import {
+  getMergedPhDirectory,
+  getCityDetailsForCustomer,
+  findRegionByProvinceName,
+} from "../../utils/phLocations";
 
 const TABS = [
   { id: "account", label: "Account Details" },
@@ -352,18 +174,28 @@ function CustomerAccount({ initialTab }) {
   const [editingAddressId, setEditingAddressId] = useState(null);
   const [savingAddress, setSavingAddress] = useState(false);
 
-  // Address Modal Form Fields
+  // Address Modal Form Fields (Powered by Nationwide PH Locations Module)
+  const [phDirectory, setPhDirectory] = useState(() => getMergedPhDirectory());
   const [addrRecipientName, setAddrRecipientName] = useState("Customer");
   const [addrStreet, setAddrStreet] = useState("");
+  const [addrRegionId, setAddrRegionId] = useState("region4a");
   const [addrProvince, setAddrProvince] = useState("Laguna");
   const [addrCity, setAddrCity] = useState("Calamba City");
   const [addrBarangay, setAddrBarangay] = useState("Uwisan");
+  const [isCustomBarangay, setIsCustomBarangay] = useState(false);
+  const [customBarangayText, setCustomBarangayText] = useState("");
   const [addrPostcode, setAddrPostcode] = useState("4027");
   const [addrCountry, setAddrCountry] = useState("Philippines");
   const [addrPhone, setAddrPhone] = useState("+63 9154673941");
   const [addrInstructions, setAddrInstructions] = useState("");
   const [addrLabelType, setAddrLabelType] = useState("Home"); // "Home" | "Work" | "Other"
   const [addrCustomLabel, setAddrCustomLabel] = useState("");
+
+  useEffect(() => {
+    const syncPhLocations = () => setPhDirectory(getMergedPhDirectory());
+    window.addEventListener("ph_locations_updated", syncPhLocations);
+    return () => window.removeEventListener("ph_locations_updated", syncPhLocations);
+  }, []);
 
   // Delete Address Confirmation Modal State
   const [isDeleteAddressModalOpen, setIsDeleteAddressModalOpen] = useState(false);
@@ -722,16 +554,26 @@ function CustomerAccount({ initialTab }) {
     }
   };
 
-  // Address Modal Helpers
+  // Address Modal Helpers (Powered by Nationwide PH Locations Module)
   const openAddAddressModal = () => {
     setEditingAddressId(null);
     setAddrRecipientName(profile.fullName || "Customer");
     setAddrStreet("");
-    setAddrProvince("Laguna");
-    const defaultCity = "Calamba City";
+    const defaultRegion =
+      phDirectory.find((r) => r.regionId === "region4a") || phDirectory[0];
+    const defaultProv = defaultRegion?.provinces?.[0]?.name || "Laguna";
+    const defaultCity =
+      defaultRegion?.provinces?.[0]?.cities?.[0] || "Calamba City";
+    const cityDetails = getCityDetailsForCustomer(defaultProv, defaultCity);
+
+    setAddrRegionId(defaultRegion?.regionId || "region4a");
+    setAddrProvince(defaultProv);
     setAddrCity(defaultCity);
-    setAddrBarangay("Uwisan");
-    setAddrPostcode(PH_LOCATION_DATA["Laguna"]?.cities[defaultCity]?.postalCode || "4027");
+    const initialBgy = cityDetails.barangays?.[0] || "Poblacion";
+    setAddrBarangay(initialBgy);
+    setIsCustomBarangay(false);
+    setCustomBarangayText("");
+    setAddrPostcode(cityDetails.postalCode || "4027");
     setAddrCountry("Philippines");
     setAddrPhone(profile.phoneNumber || "+63 9154673941");
     setAddrInstructions("");
@@ -744,15 +586,44 @@ function CustomerAccount({ initialTab }) {
     setEditingAddressId(addr._id || addr.id);
     setAddrRecipientName(addr.fullName || profile.fullName || "Customer");
     setAddrStreet(addr.streetAddress || "");
-    const prov = addr.province && PH_LOCATION_DATA[addr.province] ? addr.province : "Laguna";
+
+    const matchedRegion = findRegionByProvinceName(addr.province, phDirectory);
+    const regionProvinces = matchedRegion?.provinces || [];
+    const matchedProvObj =
+      regionProvinces.find(
+        (p) => p.name.toLowerCase() === String(addr.province || "").toLowerCase()
+      ) ||
+      regionProvinces[0] || { name: "Laguna", cities: ["Calamba City"] };
+
+    const prov = matchedProvObj.name;
+    const availableCities = matchedProvObj.cities || [];
+    const city =
+      addr.city && availableCities.includes(addr.city)
+        ? addr.city
+        : availableCities[0] || "";
+    const cityDetails = getCityDetailsForCustomer(prov, city);
+    const availableBgy = cityDetails.barangays || [];
+    const existingBgy = addr.barangay || "";
+    const isKnownBgy = availableBgy.includes(existingBgy);
+
+    setAddrRegionId(matchedRegion?.regionId || "region4a");
     setAddrProvince(prov);
-    const availableCities = PH_LOCATION_DATA[prov]?.cities || {};
-    const city = addr.city && availableCities[addr.city] ? addr.city : Object.keys(availableCities)[0] || "";
     setAddrCity(city);
-    const availableBgy = availableCities[city]?.barangays || [];
-    const bgy = addr.barangay && availableBgy.includes(addr.barangay) ? addr.barangay : (availableBgy[0] || "");
-    setAddrBarangay(bgy);
-    setAddrPostcode(addr.postalCode || availableCities[city]?.postalCode || "");
+    if (isKnownBgy) {
+      setAddrBarangay(existingBgy);
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+    } else if (existingBgy) {
+      setAddrBarangay("__CUSTOM__");
+      setIsCustomBarangay(true);
+      setCustomBarangayText(existingBgy);
+    } else {
+      setAddrBarangay(availableBgy[0] || "Poblacion");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+    }
+
+    setAddrPostcode(addr.postalCode || cityDetails.postalCode || "");
     setAddrCountry(addr.country || "Philippines");
     setAddrPhone(addr.phoneNumber || profile.phoneNumber || "+63 9154673941");
     setAddrInstructions(addr.deliveryInstructions || "");
@@ -771,42 +642,79 @@ function CustomerAccount({ initialTab }) {
     setIsAddressModalOpen(true);
   };
 
+  const handleRegionChange = (newRegionId) => {
+    setAddrRegionId(newRegionId);
+    const regObj =
+      phDirectory.find((r) => r.regionId === newRegionId) || phDirectory[0];
+    const firstProvObj = regObj?.provinces?.[0];
+    const firstProv = firstProvObj?.name || "";
+    const firstCity = firstProvObj?.cities?.[0] || "";
+    setAddrProvince(firstProv);
+    setAddrCity(firstCity);
+    if (firstProv && firstCity) {
+      const cityDetails = getCityDetailsForCustomer(firstProv, firstCity);
+      setAddrBarangay(cityDetails.barangays?.[0] || "Poblacion");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+      setAddrPostcode(cityDetails.postalCode || "");
+    } else {
+      setAddrBarangay("");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+      setAddrPostcode("");
+    }
+  };
+
   const handleProvinceChange = (newProvince) => {
     setAddrProvince(newProvince);
-    const provData = PH_LOCATION_DATA[newProvince];
-    if (provData && provData.cities) {
-      const cityList = Object.keys(provData.cities);
-      const firstCity = cityList[0] || "";
-      setAddrCity(firstCity);
-      if (firstCity && provData.cities[firstCity]) {
-        const bgyList = provData.cities[firstCity].barangays || [];
-        setAddrBarangay(bgyList[0] || "");
-        setAddrPostcode(provData.cities[firstCity].postalCode || "");
-      } else {
-        setAddrBarangay("");
-        setAddrPostcode("");
-      }
+    const matchedReg = findRegionByProvinceName(newProvince, phDirectory);
+    if (matchedReg) {
+      setAddrRegionId(matchedReg.regionId);
+    }
+    const provObj = (matchedReg?.provinces || []).find(
+      (p) => p.name === newProvince
+    );
+    const cityList = provObj?.cities || [];
+    const firstCity = cityList[0] || "";
+    setAddrCity(firstCity);
+    if (firstCity) {
+      const cityDetails = getCityDetailsForCustomer(newProvince, firstCity);
+      setAddrBarangay(cityDetails.barangays?.[0] || "Poblacion");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
+      setAddrPostcode(cityDetails.postalCode || "");
     } else {
-      setAddrCity("");
       setAddrBarangay("");
+      setIsCustomBarangay(false);
+      setCustomBarangayText("");
       setAddrPostcode("");
     }
   };
 
   const handleCityChange = (newCity) => {
     setAddrCity(newCity);
-    const provData = PH_LOCATION_DATA[addrProvince];
-    if (provData && provData.cities && provData.cities[newCity]) {
-      const bgyList = provData.cities[newCity].barangays || [];
-      setAddrBarangay(bgyList[0] || "");
-      setAddrPostcode(provData.cities[newCity].postalCode || "");
-    }
+    const cityDetails = getCityDetailsForCustomer(addrProvince, newCity);
+    setAddrBarangay(cityDetails.barangays?.[0] || "Poblacion");
+    setIsCustomBarangay(false);
+    setCustomBarangayText("");
+    setAddrPostcode(cityDetails.postalCode || "");
   };
 
   const handleSaveAddress = async (e) => {
     e.preventDefault();
     if (!addrStreet.trim()) {
       showErrorToast("Please enter your Apt, Suite, Building address.");
+      return;
+    }
+
+    const finalBarangay = isCustomBarangay
+      ? customBarangayText.trim()
+      : addrBarangay === "__CUSTOM__"
+      ? customBarangayText.trim()
+      : addrBarangay;
+
+    if (!finalBarangay) {
+      showErrorToast("Please select or specify your Barangay.");
       return;
     }
 
@@ -825,9 +733,10 @@ function CustomerAccount({ initialTab }) {
       const payload = {
         fullName: addrRecipientName.trim() || profile.fullName || "Customer",
         phoneNumber: addrPhone.trim() || profile.phoneNumber || "+63 9154673941",
+        region: currentRegionObj?.regionName || "",
         province: addrProvince,
         city: addrCity,
-        barangay: addrBarangay,
+        barangay: finalBarangay,
         postalCode: addrPostcode.trim(),
         country: "Philippines",
         streetAddress: addrStreet.trim(),
@@ -853,6 +762,10 @@ function CustomerAccount({ initialTab }) {
         await fetchAddresses();
       }
 
+      window.dispatchEvent(new CustomEvent("customer_address_updated", { detail: { address: payload } }));
+      window.dispatchEvent(new Event("storage"));
+      notifyLiveSync("shipping");
+
       setIsAddressModalOpen(false);
       setEditingAddressId(null);
       if (refetchAppData) refetchAppData(true);
@@ -873,6 +786,9 @@ function CustomerAccount({ initialTab }) {
         await fetchAddresses();
       }
       showSuccessToast("Default delivery address updated.");
+      window.dispatchEvent(new CustomEvent("customer_address_updated"));
+      window.dispatchEvent(new Event("storage"));
+      notifyLiveSync("shipping");
       if (refetchAppData) refetchAppData(true);
     } catch (err) {
       showErrorToast("Failed to update default address.");
@@ -896,6 +812,9 @@ function CustomerAccount({ initialTab }) {
         await fetchAddresses();
       }
       showSuccessToast("Delivery address removed successfully.");
+      window.dispatchEvent(new CustomEvent("customer_address_updated"));
+      window.dispatchEvent(new Event("storage"));
+      notifyLiveSync("shipping");
       setIsDeleteAddressModalOpen(false);
       setAddressToDelete(null);
       if (refetchAppData) refetchAppData(true);
@@ -1011,8 +930,28 @@ function CustomerAccount({ initialTab }) {
     }
   };
 
-  const currentProvinceData = PH_LOCATION_DATA[addrProvince] || { cities: {} };
-  const currentCityData = currentProvinceData.cities[addrCity] || { barangays: [] };
+  const currentRegionObj = useMemo(() => {
+    return (
+      phDirectory.find((r) => r.regionId === addrRegionId) ||
+      findRegionByProvinceName(addrProvince, phDirectory) ||
+      phDirectory[0]
+    );
+  }, [phDirectory, addrRegionId, addrProvince]);
+
+  const currentRegionProvinces = useMemo(() => {
+    return currentRegionObj?.provinces || [];
+  }, [currentRegionObj]);
+
+  const currentProvinceCities = useMemo(() => {
+    const provObj =
+      currentRegionProvinces.find((p) => p.name === addrProvince) ||
+      currentRegionProvinces[0];
+    return provObj?.cities || [];
+  }, [currentRegionProvinces, addrProvince]);
+
+  const currentCityData = useMemo(() => {
+    return getCityDetailsForCustomer(addrProvince, addrCity);
+  }, [addrProvince, addrCity]);
 
   return (
     <div className="bg-white min-h-screen flex flex-col font-['Poppins',sans-serif] text-slate-800 antialiased">
@@ -2374,8 +2313,27 @@ function CustomerAccount({ initialTab }) {
                   />
                 </div>
 
-                {/* Province* and City/Municipality* (2 Columns) */}
+                {/* Region* and Province* (2 Columns - Nationwide PH Module) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Region Dropdown */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      Region*
+                    </label>
+                    <select
+                      value={currentRegionObj?.regionId || addrRegionId}
+                      onChange={(e) => handleRegionChange(e.target.value)}
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
+                    >
+                      {phDirectory.map((reg) => (
+                        <option key={reg.regionId} value={reg.regionId}>
+                          {reg.regionName}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
                   {/* Province Dropdown */}
                   <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
                     <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
@@ -2384,17 +2342,20 @@ function CustomerAccount({ initialTab }) {
                     <select
                       value={addrProvince}
                       onChange={(e) => handleProvinceChange(e.target.value)}
-                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer"
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
                     >
-                      {Object.keys(PH_LOCATION_DATA).map((prov) => (
-                        <option key={prov} value={prov}>
-                          {prov}
+                      {currentRegionProvinces.map((prov) => (
+                        <option key={prov.name} value={prov.name}>
+                          {prov.name}
                         </option>
                       ))}
                     </select>
                     <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
+                </div>
 
+                {/* City/Municipality* and Barangay* (2 Columns) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* City/Municipality Dropdown */}
                   <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
                     <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
@@ -2403,9 +2364,9 @@ function CustomerAccount({ initialTab }) {
                     <select
                       value={addrCity}
                       onChange={(e) => handleCityChange(e.target.value)}
-                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer"
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
                     >
-                      {Object.keys(currentProvinceData.cities || {}).map((cityName) => (
+                      {currentProvinceCities.map((cityName) => (
                         <option key={cityName} value={cityName}>
                           {cityName}
                         </option>
@@ -2413,29 +2374,56 @@ function CustomerAccount({ initialTab }) {
                     </select>
                     <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
-                </div>
 
-                {/* Barangay* and Postcode (2 Columns) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Barangay Dropdown */}
                   <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
                     <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
                       Barangay*
                     </label>
                     <select
-                      value={addrBarangay}
-                      onChange={(e) => setAddrBarangay(e.target.value)}
-                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer"
+                      value={isCustomBarangay ? "__CUSTOM__" : addrBarangay}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__CUSTOM__") {
+                          setIsCustomBarangay(true);
+                          setAddrBarangay("__CUSTOM__");
+                        } else {
+                          setIsCustomBarangay(false);
+                          setAddrBarangay(val);
+                        }
+                      }}
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal appearance-none pr-8 cursor-pointer truncate"
                     >
                       {(currentCityData.barangays || []).map((bgy) => (
                         <option key={bgy} value={bgy}>
                           {bgy}
                         </option>
                       ))}
+                      <option value="__CUSTOM__">+ Other / Enter manually...</option>
                     </select>
                     <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
+                </div>
 
+                {/* Optional Custom Barangay Text Input */}
+                {isCustomBarangay && (
+                  <div className="relative border border-[#01390f]/40 rounded-xl px-4 py-3 focus-within:border-[#01390f] transition-colors bg-emerald-50/20">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-medium text-[#01390f]">
+                      Enter Barangay Name*
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={customBarangayText}
+                      onChange={(e) => setCustomBarangayText(e.target.value)}
+                      placeholder="Type your exact Barangay"
+                      className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
+                    />
+                  </div>
+                )}
+
+                {/* Postcode and Country/Region* (2 Columns) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Postcode Input */}
                   <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
                     <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
@@ -2449,16 +2437,16 @@ function CustomerAccount({ initialTab }) {
                       className="w-full bg-transparent outline-none text-sm text-slate-900 font-normal"
                     />
                   </div>
-                </div>
 
-                {/* Country/Region* (Auto-selected Philippines) */}
-                <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
-                  <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
-                    Country/Region*
-                  </label>
-                  <div className="flex items-center justify-between text-sm text-slate-900 font-normal">
-                    <span>Philippines</span>
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  {/* Country (Auto-selected Philippines) */}
+                  <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-slate-50/60">
+                    <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
+                      Country*
+                    </label>
+                    <div className="flex items-center justify-between text-sm text-slate-900 font-normal">
+                      <span>Philippines</span>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    </div>
                   </div>
                 </div>
               </div>

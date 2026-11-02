@@ -16,11 +16,12 @@ import {
   Award,
   Crown
 } from "lucide-react";
-import axios from "../../axios";
+import axios, { API_BASE_URL } from "../../axios";
 import HeaderContainer from "../common/HeaderContainer";
 import Footer from "../common/Footer";
 import { showSuccessToast } from "../../utils/toast";
 import { getUserId } from "../../utils/userId";
+import { useLiveSync } from "../../utils/liveSync";
 
 const DEFAULT_CATALOG = [
   {
@@ -126,19 +127,39 @@ function CustomerProductReviews() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const isLocalhost =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1");
-
-  const API_BASE_URL =
-    !isLocalhost || import.meta.env.PROD || import.meta.env.MODE === "production"
-      ? "https://mhira-crmsystem.onrender.com"
-      : "http://localhost:5000";
-
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Central review fetching logic for initial load and real-time live sync
+  const fetchProductReviews = async (targetOverride) => {
+    const targetId = targetOverride || product?._id || id;
+    if (!targetId) return;
+    try {
+      const revRes = await axios.get(
+        `${API_BASE_URL}/api/reviews/product/${targetId}`
+      );
+      if (Array.isArray(revRes.data)) {
+        setReviews(revRes.data);
+      }
+    } catch (err) {
+      console.warn("Reviews fetch error:", err);
+    }
+  };
+
+  // Real-time automatic sync when marketing replies or status changes
+  useLiveSync(["reviews"], () => {
+    fetchProductReviews();
+  });
+
+  // Also refetch when window gains focus (e.g. user switched back from Marketing tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchProductReviews();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [product, id]);
 
   // Filter tab matching CustomerOrders / Settings sidebar style
   const [activeTab, setActiveTab] = useState("All");
@@ -426,131 +447,163 @@ function CustomerProductReviews() {
                 </p>
               </div>
             ) : (
-              filteredReviews.map((rev) => {
-                const isLiked = Boolean(likedMap[rev._id]);
-                const maskedName = maskCustomerName(rev.userName, rev.isAnonymous);
-                const displayDate = formatReviewDate(rev.createdAt);
-                const userLocation = rev.country || "Philippines";
-                const ratingStars = Math.min(5, Math.max(1, Number(rev.rating || 5)));
+              <div className="divide-y divide-[#E1E9EF]">
+                {filteredReviews.map((rev) => {
+                  const isLiked = Boolean(likedMap[rev._id]);
+                  const maskedName = maskCustomerName(rev.userName, rev.isAnonymous);
+                  const displayDate = formatReviewDate(rev.createdAt);
+                  const userLocation = rev.country || "Philippines";
+                  const ratingStars = Math.min(5, Math.max(1, Number(rev.rating || 5)));
+                  const replyText = rev.adminReply || rev.reply || rev.marketingReply || "";
+                  const replyDate = rev.adminReplyAt ? formatReviewDate(rev.adminReplyAt) : null;
 
-                const initials = (rev.userName || "Verified Buyer")
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
+                  const initials = (rev.userName || "Verified Buyer")
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
 
-                return (
-                  <div
-                    key={rev._id}
-                    className="bg-white rounded-2xl border border-[#E1E9EF] shadow-2xs hover:shadow-xs transition-all overflow-hidden p-5 sm:p-6 space-y-3.5"
-                  >
-                    {/* CARD HEADER: USER INFO, LOCATION, DATE, AND 3-DOT MENU */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#EAF3E4] border border-[#79A94B]/30 text-[#246C94] font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
-                          {initials}
+                  return (
+                    <div
+                      key={rev._id}
+                      className="py-6 first:pt-0 last:pb-0 space-y-3.5 transition-colors"
+                    >
+                      {/* CARD HEADER: USER INFO, LOCATION, DATE, AND 3-DOT MENU */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[#EAF3E4] border border-[#79A94B]/30 text-[#246C94] font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                            {initials}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-[#243746] text-xs sm:text-sm tracking-tight">
+                                {maskedName}
+                              </span>
+                              <CustomerTierBadge tier={rev.userTier} badge={rev.userBadge} />
+                              {rev.verifiedPurchase !== false && (
+                                <span className="inline-flex items-center gap-1 text-[10px] bg-[#EAF3E4] text-[#79A94B] font-semibold px-2 py-0.5 rounded-full border border-[#79A94B]/30 shadow-2xs">
+                                  <ShieldCheck className="w-3 h-3 text-[#79A94B]" />
+                                  <span>Verified Purchase</span>
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                              <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                                <MapPin className="w-2.5 h-2.5 text-slate-400" />
+                                <span>{userLocation}</span>
+                              </span>
+                              <span>•</span>
+                              <span className="font-mono text-slate-400">{displayDate}</span>
+                            </div>
+                          </div>
                         </div>
 
-                        <div>
+                        {/* 3-DOT MENU BUTTON */}
+                        <div className="relative" ref={openMenuId === rev._id ? menuRef : null}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenMenuId(openMenuId === rev._id ? null : rev._id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                            title="More options"
+                            aria-label="More options"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+
+                          {/* DROPDOWN MENU */}
+                          {openMenuId === rev._id && (
+                            <div className="absolute right-0 top-8 z-30 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 animate-in fade-in zoom-in-95 duration-100">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReportingReview(rev);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 font-medium transition-colors text-left cursor-pointer"
+                              >
+                                <Flag className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                <span>Report review</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* STAR RATINGS */}
+                      <div className="flex items-center gap-1 text-amber-500">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3.5 h-3.5 ${
+                              i < ratingStars
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-slate-200 fill-slate-100"
+                            }`}
+                          />
+                        ))}
+                      </div>
+
+                      {/* REVIEW COMMENT TEXT (NO CONTAINER) */}
+                      <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                        {rev.comment}
+                      </p>
+
+                      {/* VISUAL ATTACHMENTS */}
+                      {rev.images && rev.images.length > 0 && (
+                        <div className="pt-1 flex flex-wrap gap-2.5">
+                          {rev.images.map((imgUrl, imgIndex) => (
+                            <div
+                              key={imgIndex}
+                              onClick={() => setPreviewImage(imgUrl)}
+                              className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-slate-200 cursor-pointer relative group/img bg-slate-50 shadow-2xs hover:border-[#79A94B] transition-all"
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`Customer attachment ${imgIndex + 1}`}
+                                className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
+                              />
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                <Maximize2 className="w-4 h-4 text-white drop-shadow" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* OFFICIAL MHIRA NATURAL MARKETING REPLY (THREADED ACCENT, NO HEAVY CONTAINER) */}
+                      {Boolean(replyText && replyText.trim()) && (
+                        <div className="mt-3 pl-4 border-l-2 border-[#01390f] bg-slate-50/70 rounded-r-xl py-3 pr-4 space-y-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-[#243746] text-xs sm:text-sm tracking-tight">
-                              {maskedName}
+                            <div className="w-5 h-5 rounded-full bg-white border border-[#D5EAD7] flex items-center justify-center overflow-hidden p-0.5 shrink-0 shadow-2xs">
+                              <img
+                                src="/mhira_removebg.png"
+                                alt="Mhira Natural"
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                            <span className="font-bold text-[#01390f] text-xs">
+                              Mhira Natural
                             </span>
-                            <CustomerTierBadge tier={rev.userTier} badge={rev.userBadge} />
-                            {rev.verifiedPurchase !== false && (
-                              <span className="inline-flex items-center gap-1 text-[10px] bg-[#EAF3E4] text-[#79A94B] font-semibold px-2 py-0.5 rounded-full border border-[#79A94B]/30 shadow-2xs">
-                                <ShieldCheck className="w-3 h-3 text-[#79A94B]" />
-                                <span>Verified Purchase</span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EDF7EE] text-[#01390f] border border-[#D5EAD7]">
+                              Official Response
+                            </span>
+                            {replyDate && (
+                              <span className="text-[10px] text-slate-400 font-mono ml-auto">
+                                {replyDate}
                               </span>
                             )}
                           </div>
-
-                          <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                            <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
-                              <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                              <span>{userLocation}</span>
-                            </span>
-                            <span>•</span>
-                            <span className="font-mono text-slate-400">{displayDate}</span>
-                          </div>
+                          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed pl-7 whitespace-pre-line">
+                            {replyText}
+                          </p>
                         </div>
-                      </div>
+                      )}
 
-                      {/* 3-DOT MENU BUTTON */}
-                      <div className="relative" ref={openMenuId === rev._id ? menuRef : null}>
-                        <button
-                          type="button"
-                          onClick={() => setOpenMenuId(openMenuId === rev._id ? null : rev._id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                          title="More options"
-                          aria-label="More options"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-
-                        {/* DROPDOWN MENU */}
-                        {openMenuId === rev._id && (
-                          <div className="absolute right-0 top-8 z-30 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 animate-in fade-in zoom-in-95 duration-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setReportingReview(rev);
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 font-medium transition-colors text-left cursor-pointer"
-                            >
-                              <Flag className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              <span>Report review</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* STAR RATINGS */}
-                    <div className="flex items-center gap-1 text-amber-500">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3.5 h-3.5 ${
-                            i < ratingStars
-                              ? "fill-amber-400 text-amber-400"
-                              : "text-slate-200 fill-slate-100"
-                          }`}
-                        />
-                      ))}
-                    </div>
-
-                    {/* REVIEW COMMENT TEXT */}
-                    <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                      {rev.comment}
-                    </p>
-
-                    {/* VISUAL ATTACHMENTS */}
-                    {rev.images && rev.images.length > 0 && (
-                      <div className="pt-1 flex flex-wrap gap-2.5">
-                        {rev.images.map((imgUrl, imgIndex) => (
-                          <div
-                            key={imgIndex}
-                            onClick={() => setPreviewImage(imgUrl)}
-                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-slate-200 cursor-pointer relative group/img bg-slate-50 shadow-2xs hover:border-[#79A94B] transition-all"
-                          >
-                            <img
-                              src={imgUrl}
-                              alt={`Customer attachment ${imgIndex + 1}`}
-                              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                              <Maximize2 className="w-4 h-4 text-white drop-shadow" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* LIKE REACTION BUTTON */}
-                    <div className="pt-1 flex items-center gap-4">
+                      {/* LIKE REACTION BUTTON */}
+                      <div className="pt-1 flex items-center gap-4">
                       <button
                         type="button"
                         onClick={() => handleToggleLike(rev._id)}
@@ -576,8 +629,9 @@ function CustomerProductReviews() {
                     </div>
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
+          )}
           </section>
         </div>
       </main>

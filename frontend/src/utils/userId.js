@@ -30,4 +30,29 @@ export const getUserId = () => {
   return null;
 };
 
+export const getUserFullName = (fallback = "Signature over Printed Name") => {
+  try {
+    const raw = localStorage.getItem("user") || sessionStorage.getItem("user");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const u = parsed.user || parsed;
+      const name =
+        u.Fullname ||
+        u.fullname ||
+        u.fullName ||
+        u.name ||
+        (u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : "") ||
+        u.Username ||
+        u.username ||
+        "";
+      if (name && typeof name === "string" && name.trim()) {
+        return name.trim().toUpperCase();
+      }
+    }
+  } catch (e) {
+    console.warn("Error reading user full name:", e);
+  }
+  return fallback;
+};
+
 export default getUserId;

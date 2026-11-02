@@ -44,8 +44,19 @@ export default function PinAuthModal({
   const [verifying, setVerifying] = useState(false);
   const [maskDigits, setMaskDigits] = useState(true);
   const [shake, setShake] = useState(false);
+  const [supportsTextSecurity, setSupportsTextSecurity] = useState(true);
 
   const inputRefs = useRef([]);
+
+  // Detect support for CSS text-security to avoid triggering password managers with type="password"
+  useEffect(() => {
+    if (typeof CSS !== 'undefined' && CSS.supports) {
+      const supported =
+        CSS.supports('-webkit-text-security', 'disc') ||
+        CSS.supports('text-security', 'disc');
+      setSupportsTextSecurity(Boolean(supported));
+    }
+  }, []);
 
   // Reset state when opening
   useEffect(() => {
@@ -242,178 +253,183 @@ export default function PinAuthModal({
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[88vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200 ${
+        className={`bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200/80 flex flex-col my-auto transition-all animate-in fade-in zoom-in-95 duration-200 ${
           shake ? 'animate-shake' : ''
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#01390f] shrink-0">
-              <Lock className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
-                {title}
-              </h3>
-              <p className="text-[11px] text-slate-500 font-medium">
+          <div className="min-w-0 pr-3">
+            <h3 className="text-sm font-bold text-slate-800">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
                 {subtitle}
               </p>
-            </div>
+            )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+            className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm shrink-0"
             title="Close"
           >
             ✕
           </button>
         </div>
 
-        {/* SCROLLABLE BODY */}
-        <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 custom-scrollbar text-xs sm:text-sm">
-          {/* TARGET PRODUCT INFO CARD */}
-          {targetItem && (
-            <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
-                  Target Finished Good
-                </span>
-                <span className="font-bold text-xs sm:text-sm text-slate-800 truncate block mt-0.5">
-                  {targetItem.itemName || targetItem.itemDescription || 'Product Formulation'}
-                </span>
-              </div>
-              <div className="text-right shrink-0">
-                <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-bold font-mono">
-                  {targetItem.code || 'FG0001'}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* 6-DIGIT PIN INPUT CARD */}
-          <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  Security Authorization PIN
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Enter 6-digit PIN code to view Bill of Materials formulation.
-                </p>
-              </div>
+        {/* MODAL BODY (STREAMLINED, NO REDUNDANT CONTAINERS) */}
+        <div className="p-6 flex flex-col gap-4 text-xs sm:text-sm">
+          {/* 6-DIGIT PIN INPUTS */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                Security PIN
+              </span>
               <button
                 type="button"
                 onClick={() => setMaskDigits((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-700 transition-colors cursor-pointer py-1 px-2.5 rounded-lg hover:bg-slate-200/70 shrink-0"
+                title={maskDigits ? "Show PIN" : "Hide PIN"}
+                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
               >
                 {maskDigits ? (
-                  <>
-                    <Eye className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Show</span>
-                  </>
+                  <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                 ) : (
-                  <>
-                    <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Hide</span>
-                  </>
+                  <EyeOff className="w-3.5 h-3.5 text-emerald-600 group-hover/btn:text-white transition-colors" />
                 )}
               </button>
             </div>
 
-            {/* 6-DIGIT OTP BOXES */}
-            <div className="flex items-center justify-center gap-2 sm:gap-3 py-2" onPaste={handlePaste}>
-              {digits.map((digit, idx) => (
-                <input
-                  key={idx}
-                  ref={(el) => (inputRefs.current[idx] = el)}
-                  type={maskDigits ? 'password' : 'text'}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={1}
-                  disabled={verifying || isSuccess}
-                  value={digit}
-                  onChange={(e) => handleChange(idx, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(idx, e)}
-                  className={`w-11 h-12 sm:w-12 sm:h-13 text-center text-xl sm:text-2xl font-mono font-bold rounded-xl border transition-all duration-150 outline-none select-none shadow-2xs ${
-                    isSuccess
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-400/40'
-                      : errorMsg
-                      ? 'border-rose-400 bg-rose-50 text-rose-800 ring-2 ring-rose-300/40'
-                      : digit
-                      ? 'border-[#01390f] bg-emerald-50/20 text-[#01390f] ring-2 ring-[#01390f]/20'
-                      : 'border-slate-300 bg-white hover:border-slate-400 focus:border-[#01390f] focus:ring-2 focus:ring-[#01390f]/20'
-                  }`}
-                />
-              ))}
-            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAuthorizeClick();
+              }}
+              autoComplete="off"
+              className="w-full"
+            >
+              <input
+                type="text"
+                name="prevent_autofill_username"
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+              <input
+                type="password"
+                name="prevent_autofill_password"
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+
+              <div className="flex items-center justify-center gap-2 py-1" onPaste={handlePaste}>
+                {digits.map((digit, idx) => {
+                  const inputType = supportsTextSecurity ? 'text' : (maskDigits ? 'password' : 'text');
+                  return (
+                    <input
+                      key={idx}
+                      ref={(el) => (inputRefs.current[idx] = el)}
+                      type={inputType}
+                      name={`formula_pin_digit_${idx}`}
+                      id={`formula_pin_digit_${idx}`}
+                      autoComplete="one-time-code"
+                      autoCorrect="off"
+                      spellCheck="false"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={1}
+                      disabled={verifying || isSuccess}
+                      value={digit}
+                      style={{
+                        WebkitTextSecurity: maskDigits ? 'disc' : 'none',
+                        textSecurity: maskDigits ? 'disc' : 'none',
+                      }}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-bwignore="true"
+                      data-form-type="other"
+                      onChange={(e) => handleChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(idx, e)}
+                      className={`w-11 h-12 text-center text-xl font-mono font-bold rounded-xl border transition-all duration-150 outline-none select-none shadow-2xs ${
+                        isSuccess
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-400/40'
+                          : errorMsg
+                          ? 'border-rose-400 bg-rose-50 text-rose-800 ring-2 ring-rose-300/40'
+                          : digit
+                          ? 'border-[#01390f] bg-emerald-50/20 text-[#01390f] ring-2 ring-[#01390f]/20'
+                          : 'border-slate-300 bg-white hover:border-slate-400 focus:border-[#01390f] focus:ring-2 focus:ring-[#01390f]/20'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+            </form>
 
             {/* STATUS FEEDBACK */}
             {verifying && (
-              <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 py-2 px-3 rounded-xl">
-                <Loader2 className="w-4 h-4 animate-spin text-[#01390f]" />
+              <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-600 py-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#01390f]" />
                 <span>Verifying authorization PIN...</span>
               </div>
             )}
 
             {isSuccess && (
-              <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 py-2 px-3 rounded-xl animate-in fade-in">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Access Granted! Opening formulation...</span>
+              <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 py-1 animate-in fade-in">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Access Granted! Opening...</span>
               </div>
             )}
 
             {errorMsg && (
-              <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 py-2 px-3 rounded-xl animate-in fade-in">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-rose-600 py-1 animate-in fade-in">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
           </div>
 
-          {/* NUMERIC KEYPAD CARD */}
-          <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-3.5 flex flex-col gap-2.5">
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  disabled={verifying || isSuccess}
-                  onClick={() => handleKeypadPress(num)}
-                  className="h-10 bg-white hover:bg-slate-100 active:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold font-mono text-slate-800 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
-                >
-                  {num}
-                </button>
-              ))}
+          {/* NUMERIC KEYPAD */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
+                key={num}
                 type="button"
                 disabled={verifying || isSuccess}
-                onClick={() => handleKeypadPress('clear')}
-                className="h-10 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
-                title="Clear all digits"
+                onClick={() => handleKeypadPress(num)}
+                className="h-10 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold font-mono text-slate-800 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
               >
-                Clear
+                {num}
               </button>
-              <button
-                type="button"
-                disabled={verifying || isSuccess}
-                onClick={() => handleKeypadPress(0)}
-                className="h-10 bg-white hover:bg-slate-100 active:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold font-mono text-slate-800 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
-              >
-                0
-              </button>
-              <button
-                type="button"
-                disabled={verifying || isSuccess}
-                onClick={() => handleKeypadPress('backspace')}
-                className="h-10 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-600 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
-                title="Backspace"
-              >
-                <Delete className="w-4 h-4" />
-              </button>
-            </div>
+            ))}
+            <button
+              type="button"
+              disabled={verifying || isSuccess}
+              onClick={() => handleKeypadPress('clear')}
+              className="h-10 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
+              title="Clear all digits"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              disabled={verifying || isSuccess}
+              onClick={() => handleKeypadPress(0)}
+              className="h-10 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold font-mono text-slate-800 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
+            >
+              0
+            </button>
+            <button
+              type="button"
+              disabled={verifying || isSuccess}
+              onClick={() => handleKeypadPress('backspace')}
+              className="h-10 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-600 transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-50"
+              title="Backspace"
+            >
+              <Delete className="w-4 h-4" />
+            </button>
           </div>
         </div>
 

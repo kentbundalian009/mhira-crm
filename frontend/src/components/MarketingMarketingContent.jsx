@@ -13,7 +13,12 @@ import {
   Megaphone,
   GripVertical,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Layers,
+  Type,
+  FileText,
+  Tag,
+  Plus
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { notifyLiveSync, useLiveSync } from '../utils/liveSync';
@@ -439,22 +444,22 @@ function MarketingMarketingContent() {
     carousel: {
       name: 'Hero Carousel Slider',
       badge: 'Main Banner',
-      color: 'bg-emerald-50 text-[#01390f] border-emerald-200',
+      color: 'bg-blue-50 text-[#246C94] border-blue-200',
     },
     'ads-i': {
-      name: 'Primary Promotion (Ads I)',
-      badge: 'Special Offer',
-      color: 'bg-emerald-50 text-[#01390f] border-emerald-200',
+      name: 'Special Promotion Banner (Ads I)',
+      badge: 'Special Banner',
+      color: 'bg-blue-50 text-[#246C94] border-blue-200',
     },
     'ads-ii': {
       name: 'Secondary Campaign (Ads II)',
       badge: 'Brand Deals',
-      color: 'bg-emerald-50 text-[#01390f] border-emerald-200',
+      color: 'bg-blue-50 text-[#246C94] border-blue-200',
     },
     'popup-ad': {
       name: 'Pop-Up Modal Banner',
       badge: 'Special Offer',
-      color: 'bg-amber-50 text-amber-800 border-amber-200',
+      color: 'bg-blue-50 text-[#246C94] border-blue-200',
     },
     'auth-banner': {
       name: 'Auth Page Banner (Login / Signup / Forgot Pass)',
@@ -464,7 +469,7 @@ function MarketingMarketingContent() {
     'topbar-announcement': {
       name: 'Topbar Marquee Announcement Ticker',
       badge: 'Storefront Header',
-      color: 'bg-emerald-50 text-[#01390f] border-emerald-200',
+      color: 'bg-blue-50 text-[#246C94] border-blue-200',
     },
   };
 
@@ -522,7 +527,7 @@ function MarketingMarketingContent() {
   const placementTabs = [
     { id: 'All', label: 'All Placements' },
     { id: 'carousel', label: 'Hero Slider' },
-    { id: 'ads-i', label: 'Primary (Ads I)' },
+    { id: 'ads-i', label: 'Special Banner (Ads I)' },
     { id: 'ads-ii', label: 'Secondary (Ads II)' },
     { id: 'popup-ad', label: 'Pop-Up Banner' },
     { id: 'auth-banner', label: 'Auth Banner' },
@@ -543,11 +548,10 @@ function MarketingMarketingContent() {
                 key={tab.id}
                 type="button"
                 onClick={() => setSelectedSectionFilter(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap inline-flex items-center ${
-                  selectedSectionFilter === tab.id
+                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap inline-flex items-center ${selectedSectionFilter === tab.id
                     ? 'border-[#01390f] text-[#01390f] bg-slate-50'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
               </button>
@@ -593,11 +597,10 @@ function MarketingMarketingContent() {
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, idx)}
-                  className={`bg-white rounded-2xl border ${
-                    dragOverIndex === idx
+                  className={`bg-white rounded-2xl border ${dragOverIndex === idx
                       ? 'border-[#01390f] ring-2 ring-emerald-500/20 bg-emerald-50/10'
                       : 'border-slate-200/80'
-                  } ${draggedIndex === idx ? 'opacity-40 scale-[0.99]' : 'opacity-100'} p-5 shadow-xs flex flex-col gap-4 hover:border-slate-300 transition-all duration-150 relative group`}
+                    } ${draggedIndex === idx ? 'opacity-40 scale-[0.99]' : 'opacity-100'} p-5 shadow-xs flex flex-col gap-4 hover:border-slate-300 transition-all duration-150 relative group`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2.5">
@@ -639,20 +642,14 @@ function MarketingMarketingContent() {
                     </div>
                   ) : (
                     <>
-                      {/* Section Titles & Details */}
-                      {sec.sectionName !== 'auth-banner' && (sec.title || sec.text) && (
-                        <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/60 flex flex-col gap-1">
-                          {sec.title && <span className="font-bold text-xs text-slate-800">{sec.title}</span>}
-                          {sec.text && <span className="text-xs text-slate-600 leading-relaxed font-medium">{sec.text}</span>}
-                        </div>
-                      )}
-
-                      {/* Images / Videos Grid */}
+                      {/* Images / Videos Grid (Consistent Thumbnail + Title & Caption under photo) */}
                       {sec.images.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                           {sec.images.map((img, i) => {
                             const slideDetail = (sec.slideDetails || []).find((s) => s.image === img) || (sec.slideDetails || [])[i];
-                            const hasCustomText = slideDetail && (slideDetail.title || slideDetail.text);
+                            const displayTitle = sec.sectionName === 'carousel' ? slideDetail?.title : (i === 0 ? sec.title : '');
+                            const displayText = sec.sectionName === 'carousel' ? slideDetail?.text : (i === 0 ? sec.text : '');
+                            const hasCustomText = Boolean(displayTitle || displayText);
 
                             return (
                               <div key={i} className="flex flex-col gap-1.5">
@@ -697,10 +694,10 @@ function MarketingMarketingContent() {
                                     </button>
                                   </div>
                                 </div>
-                                {sec.sectionName === 'carousel' && hasCustomText && (
+                                {hasCustomText && (
                                   <div className="px-1 text-[11px] leading-tight">
-                                    {slideDetail.title && <p className="font-bold text-slate-800 truncate" title={slideDetail.title}>{slideDetail.title}</p>}
-                                    {slideDetail.text && <p className="text-[10px] text-slate-500 truncate mt-0.5" title={slideDetail.text}>{slideDetail.text}</p>}
+                                    {displayTitle && <p className="font-bold text-slate-800 truncate" title={displayTitle}>{displayTitle}</p>}
+                                    {displayText && <p className="text-[10px] text-slate-500 truncate mt-0.5" title={displayText}>{displayText}</p>}
                                   </div>
                                 )}
                               </div>
@@ -728,28 +725,24 @@ function MarketingMarketingContent() {
         </div>
       </div>
 
-      {/* ADD / EDIT MODAL */}
+      {/* ADD / EDIT MODAL (CONSISTENT WITH CREATE PROMOTIONAL COUPON MODAL UI) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
-          <div className={`bg-white rounded-3xl shadow-2xl w-full ${activeSectionName === 'carousel' ? 'max-w-3xl' : 'max-w-2xl'} overflow-hidden flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200`}>
-            <div className="flex items-center justify-between px-6 py-4 bg-slate-50/80 shrink-0">
+          <div className={`bg-white rounded-3xl shadow-2xl w-full ${activeSectionName === 'carousel' ? 'max-w-3xl' : 'max-w-xl sm:max-w-2xl'} overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200`}>
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-800">
                   {modalMode === 'add'
-                    ? 'Add New Campaign Media Poster'
-                    : `Edit Placement: ${activeSectionName === 'topbar-announcement'
-                      ? 'TOPBAR ANNOUNCEMENT'
-                      : activeSectionName === 'popup-ad'
-                        ? 'POP-UP AD BANNER'
-                        : activeSectionName.toUpperCase()
-                    }`}
+                    ? 'Add Storefront Campaign Media'
+                    : `Manage Content — ${sectionMeta[activeSectionName]?.name || activeSectionName}`}
                 </h3>
                 <p className="text-xs text-slate-400">
                   {activeSectionName === 'topbar-announcement'
-                    ? 'Topbar announcement text ticker (scrolling marquee banner)'
+                    ? 'Configure live announcement ticker text and banner asset'
                     : isSingleMediaSection(activeSectionName)
-                      ? 'Single banner placement (1 media item only — replaces previous poster)'
-                      : 'Hero carousel banner placement (Supports multiple slides with individual titles & subtext)'}
+                      ? 'Upload and manage single banner creative placement'
+                      : 'Manage hero carousel banner slides, titles, and subheadings'}
                 </p>
               </div>
               <button
@@ -761,214 +754,100 @@ function MarketingMarketingContent() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Target Storefront Placement *
-                </label>
-                <select
-                  value={activeSectionName}
-                  onChange={(e) => handleSectionSelectChange(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white"
-                >
-                  <option value="carousel">Hero Carousel Slider (Main Banner - Multi-slide)</option>
-                  <option value="ads-i">Primary Promotion (Ads I - Single Image)</option>
-                  <option value="ads-ii">Secondary Campaign (Ads II - Single Image)</option>
-                  <option value="popup-ad">Pop-Up Modal Banner (Homepage Pop-up)</option>
-                  <option value="auth-banner">Auth Page Banner (Login / Signup / Forgot Pass - Split Left)</option>
-                  <option value="topbar-announcement">Topbar Announcement (Marquee Ticker)</option>
-                </select>
-              </div>
-
-              {activeSectionName === 'auth-banner' ? (
-                <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-[#246C94] font-medium flex items-center gap-2 shadow-2xs">
-                  <Sparkles className="w-4 h-4 text-[#246C94] shrink-0" />
-                  <span>Upload 1 image to display as the full-screen side banner on Login, Signup, and Forgot Password pages.</span>
-                </div>
-              ) : activeSectionName === 'topbar-announcement' || activeSectionName === 'popup-ad' ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                    {activeSectionName === 'popup-ad'
-                      ? 'Pop-up Promo Caption / Subtext (Optional)'
-                      : 'Topbar Scrolling Ticker Text'}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm">
+              <div className="p-6 flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar">
+                {/* TARGET STOREFRONT PLACEMENT */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    Target Storefront Placement <span className="text-rose-500">*</span>
                   </label>
-                  <textarea
-                    rows={3}
-                    placeholder={
-                      activeSectionName === 'popup-ad'
-                        ? 'e.g., Discover our latest organic handcrafted skin care collections & special promotional discounts today!'
-                        : 'e.g., Announcement: Current pricing and offers end 8/11/2026 at 11:59 PM ET / 8:59 PM PT — Grab your organic favorites now! 🌿'
-                    }
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed"
-                  />
-                </div>
-              ) : activeSectionName === 'carousel' ? null : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                      Headline Title (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Pure Botanical Care Your Skin Truly Deserves."
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white"
-                    />
+                  <div className="relative">
+                    <select
+                      value={activeSectionName}
+                      onChange={(e) => handleSectionSelectChange(e.target.value)}
+                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
+                    >
+                      <option value="carousel">Hero Carousel Slider (Main Banner - Multi-slide)</option>
+                      <option value="ads-i">Special Promotion Banner (Ads I - Special Banner)</option>
+                      <option value="ads-ii">Secondary Campaign (Ads II - Single Image)</option>
+                      <option value="popup-ad">Pop-Up Modal Banner (Homepage Pop-up)</option>
+                      <option value="auth-banner">Auth Page Banner (Login / Signup / Forgot Pass)</option>
+                      <option value="topbar-announcement">Topbar Announcement (Marquee Ticker)</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
                   </div>
+                </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                      Subtext / Promo Caption (Optional)
+                {/* AUTH BANNER NOTICE OR TOPBAR ANNOUNCEMENT TEXTAREA */}
+                {activeSectionName === 'auth-banner' ? (
+                  <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-[#246C94] font-medium flex items-center gap-2 shadow-2xs">
+                    <Sparkles className="w-4 h-4 text-[#246C94] shrink-0" />
+                    <span>Upload 1 image to display as the full-screen side banner on Login, Signup, and Forgot Password pages.</span>
+                  </div>
+                ) : activeSectionName === 'topbar-announcement' || activeSectionName === 'popup-ad' ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                      {activeSectionName === 'popup-ad'
+                        ? 'Pop-up Promo Caption / Subtext (Optional)'
+                        : 'Topbar Scrolling Ticker Text'}
                     </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Discover the transformative power of nature..."
+                    <textarea
+                      rows={3}
+                      placeholder={activeSectionName === 'popup-ad' ? 'Enter Subtext' : 'Enter Announcement Ticker Text'}
                       value={text}
                       onChange={(e) => setText(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed transition-colors"
                     />
                   </div>
-                </div>
-              )}
+                ) : null}
 
-              {/* UPLOAD MEDIA (FOR ALL CAMPAIGN SECTIONS INCLUDING TOPBAR ANNOUNCEMENT) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                    {isSingleMediaSection(activeSectionName) ? 'Select Poster / Icon (1 Media Item Only)' : 'Select Media Files (Images / Videos)'}
-                  </label>
-                  {isSingleMediaSection(activeSectionName) && (
-                    <span className="text-[10px] font-bold text-[#01390f] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      1 Media Item Allowed
-                    </span>
-                  )}
-                </div>
-                <label className="border-2 border-dashed border-slate-200 hover:border-[#01390f] rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-emerald-50/30">
-                  <UploadCloud className="w-8 h-8 text-[#01390f] mb-1.5" />
-                  <span className="text-xs font-bold text-slate-700">
-                    {isSingleMediaSection(activeSectionName)
-                      ? 'Click to choose 1 poster/icon (Single Image/Video)'
-                      : 'Click to upload poster images or videos'}
-                  </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
-                    {isSingleMediaSection(activeSectionName)
-                      ? 'Supports PNG, JPG, WEBP, MP4 (Replaces existing image)'
-                      : 'Supports PNG, JPG, WEBP, MP4 (Max 10MB each)'}
-                  </span>
-                  <input
-                    type="file"
-                    multiple={!isSingleMediaSection(activeSectionName)}
-                    accept="image/*,video/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+                {/* 1. PRODUCT STOREFRONT IMAGES (FIRST PHOTO IS MAIN THUMBNAIL) - SAME FOR ALL BANNERS */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
+                      Product Storefront Images <span className="text-[11px] font-normal text-slate-400">(First photo is main thumbnail)</span>
+                    </label>
+                    {(existingImages.length + newPreviews.length) > 0 && (
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {existingImages.length + newPreviews.length} {(existingImages.length + newPreviews.length) === 1 ? 'photo' : 'photos'} added
+                      </span>
+                    )}
+                  </div>
 
-              {/* NEW PREVIEWS */}
-              {newPreviews.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-[#01390f] uppercase tracking-wider block">
-                    New Poster to Upload ({newPreviews.length})
-                  </span>
-                  {activeSectionName === 'carousel' ? (
-                    <div className="space-y-3">
-                      {newPreviews.map((prev, idx) => {
-                        const detail = newSlideDetails[idx] || { title: '', text: '' };
-                        const isVid = isVideoFile(newFiles[idx]?.name || '');
-                        return (
-                          <div key={idx} className="flex flex-col sm:flex-row gap-3 p-3 bg-emerald-50/40 border border-emerald-200 rounded-xl relative shadow-2xs">
-                            <div className="w-full sm:w-44 aspect-video rounded-lg overflow-hidden shrink-0 border border-emerald-300 relative bg-slate-900">
-                              {isVid ? (
-                                <video src={prev} className="w-full h-full object-cover" muted />
-                              ) : (
-                                <img src={prev} alt="New Preview" className="w-full h-full object-cover" />
-                              )}
-                              <span className="absolute bottom-1 left-1 bg-black/75 text-white text-[10px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
-                                New #{idx + 1}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveNewFile(idx)}
-                                className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors cursor-pointer shadow-sm"
-                                title="Remove file"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                            <div className="flex-1 flex flex-col justify-center gap-2 min-w-0">
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                                  Slide #{existingImages.length + idx + 1} Headline Title (Optional)
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g., Pure Botanical Care Your Skin Truly Deserves"
-                                  value={detail.title || ''}
-                                  onChange={(e) => handleNewSlideDetailChange(idx, 'title', e.target.value)}
-                                  className="w-full bg-white border border-slate-200 focus:border-[#01390f] rounded-lg px-3 py-1.5 text-xs font-medium focus:outline-none"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                                  Slide #{existingImages.length + idx + 1} Subtext / Promo Caption (Optional)
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g., Discover the transformative power of nature..."
-                                  value={detail.text || ''}
-                                  onChange={(e) => handleNewSlideDetailChange(idx, 'text', e.target.value)}
-                                  className="w-full bg-white border border-slate-200 focus:border-[#01390f] rounded-lg px-3 py-1.5 text-xs font-medium focus:outline-none"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      {newPreviews.map((prev, idx) => (
-                        <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-emerald-300 shadow-2xs">
-                          <img src={prev} alt="New Preview" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveNewFile(idx)}
-                            className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors cursor-pointer"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                  {/* COMPACT ROW: UPLOAD BUTTON + PREVIEW THUMBNAILS */}
+                  <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
+                    {/* UPLOAD BUTTON - ACTION CIRCLE (MATCHES EDIT/DELETE ACTION BUTTONS) */}
+                    <label
+                      title={isSingleMediaSection(activeSectionName) ? "Choose Storefront Photo" : "Add Storefront Photos"}
+                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <input
+                        type="file"
+                        multiple={!isSingleMediaSection(activeSectionName)}
+                        accept="image/*,video/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
 
-              {/* EXISTING IMAGES */}
-              {existingImages.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                    Currently Active Media ({existingImages.length})
-                  </span>
-                  {activeSectionName === 'carousel' ? (
-                    <div className="space-y-3">
-                      {existingImages.map((imgUrl, idx) => {
-                        const detail = existingSlideDetails[idx] || { title: '', text: '' };
-                        const isVid = isVideoFile(imgUrl);
-                        return (
-                          <div key={idx} className="flex flex-col sm:flex-row gap-3 p-3 bg-slate-50/80 border border-slate-200 rounded-xl relative shadow-2xs">
-                            <div className="w-full sm:w-44 aspect-video rounded-lg overflow-hidden shrink-0 border border-slate-200 relative bg-slate-900">
+                    {/* THUMBNAILS LIST */}
+                    {(existingImages.length > 0 || newPreviews.length > 0) ? (
+                      <>
+                        {/* EXISTING STOREFRONT PHOTOS */}
+                        {existingImages.map((imgUrl, idx) => {
+                          const isVid = isVideoFile(imgUrl);
+                          const isMain = idx === 0;
+                          return (
+                            <div
+                              key={`existing-${idx}`}
+                              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs shrink-0"
+                            >
                               {isVid ? (
                                 <video
                                   src={resolveMediaSrc(imgUrl)}
                                   className="w-full h-full object-cover"
                                   muted
-                                  loop
-                                  playsInline
                                   onError={(e) => {
                                     if (!e.currentTarget.dataset.retried) {
                                       e.currentTarget.dataset.retried = 'true';
@@ -979,7 +858,7 @@ function MarketingMarketingContent() {
                               ) : (
                                 <img
                                   src={resolveMediaSrc(imgUrl)}
-                                  alt={`Slide ${idx + 1}`}
+                                  alt={`Product photo ${idx + 1}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
                                     if (!e.currentTarget.dataset.retried) {
@@ -989,95 +868,189 @@ function MarketingMarketingContent() {
                                   }}
                                 />
                               )}
-                              <span className="absolute bottom-1 left-1 bg-black/75 text-white text-[10px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
-                                Slide #{idx + 1}
-                              </span>
+                              {isMain && (
+                                <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                  Main
+                                </span>
+                              )}
+                              {isVid && (
+                                <span className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[8px] font-bold p-1 rounded backdrop-blur-xs flex items-center">
+                                  <Video className="w-2.5 h-2.5" />
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleRemoveExistingImage(idx)}
-                                className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors cursor-pointer shadow-sm"
-                                title="Remove from placement"
+                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                                title="Remove photo"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                ✕
                               </button>
                             </div>
-                            <div className="flex-1 flex flex-col justify-center gap-2 min-w-0">
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                                  Slide #{idx + 1} Headline Title (Optional)
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g., Pure Botanical Care Your Skin Truly Deserves"
-                                  value={detail.title || ''}
-                                  onChange={(e) => handleExistingSlideDetailChange(idx, 'title', e.target.value)}
-                                  className="w-full bg-white border border-slate-200 focus:border-[#01390f] rounded-lg px-3 py-1.5 text-xs font-medium focus:outline-none"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                                  Slide #{idx + 1} Subtext / Promo Caption (Optional)
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g., Discover the transformative power of nature..."
-                                  value={detail.text || ''}
-                                  onChange={(e) => handleExistingSlideDetailChange(idx, 'text', e.target.value)}
-                                  className="w-full bg-white border border-slate-200 focus:border-[#01390f] rounded-lg px-3 py-1.5 text-xs font-medium focus:outline-none"
-                                />
-                              </div>
+                          );
+                        })}
+
+                        {/* NEWLY ADDED PREVIEWS */}
+                        {newPreviews.map((prev, idx) => {
+                          const isVid = isVideoFile(newFiles[idx]?.name || '');
+                          const isMain = existingImages.length === 0 && idx === 0;
+                          return (
+                            <div
+                              key={`new-${idx}`}
+                              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-emerald-300 bg-emerald-50/40 group shadow-2xs shrink-0"
+                            >
+                              {isVid ? (
+                                <video src={prev} className="w-full h-full object-cover" muted />
+                              ) : (
+                                <img src={prev} alt={`New photo preview ${idx + 1}`} className="w-full h-full object-cover" />
+                              )}
+                              {isMain ? (
+                                <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                  Main
+                                </span>
+                              ) : (
+                                <span className="absolute bottom-1.5 left-1.5 bg-emerald-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                  New
+                                </span>
+                              )}
+                              {isVid && (
+                                <span className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[8px] font-bold p-1 rounded backdrop-blur-xs flex items-center">
+                                  <Video className="w-2.5 h-2.5" />
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveNewFile(idx)}
+                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                                title="Remove photo"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">
+                        No photos uploaded yet. Click &ldquo;+&rdquo; to upload storefront photos.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. HEADLINE & SUBTEXT INPUTS (SAME 2-COL UI FOR ALL BANNERS) */}
+                {activeSectionName === 'carousel' ? (
+                  (existingImages.length > 0 || newPreviews.length > 0) && (
+                    <div className="space-y-4 pt-1">
+                      {/* Existing Slides */}
+                      {existingImages.map((imgUrl, idx) => {
+                        const detail = existingSlideDetails[idx] || { title: '', text: '' };
+                        return (
+                          <div key={`detail-existing-${idx}`} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                                Slide #{idx + 1} Headline Title {idx === 0 ? <span className="text-[11px] font-bold text-[#01390f]">(Main)</span> : null}
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Enter Headline Title"
+                                value={detail.title || ''}
+                                onChange={(e) => handleExistingSlideDetailChange(idx, 'title', e.target.value)}
+                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                                Slide #{idx + 1} Promo Caption / Subtext
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Enter Subtext"
+                                value={detail.text || ''}
+                                onChange={(e) => handleExistingSlideDetailChange(idx, 'text', e.target.value)}
+                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* New Upload Slides */}
+                      {newPreviews.map((prev, idx) => {
+                        const detail = newSlideDetails[idx] || { title: '', text: '' };
+                        const slideNum = existingImages.length + idx + 1;
+                        const isMain = existingImages.length === 0 && idx === 0;
+                        return (
+                          <div key={`detail-new-${idx}`} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                                Slide #{slideNum} Headline Title {isMain ? <span className="text-[11px] font-bold text-[#01390f]">(Main)</span> : <span className="text-[11px] font-bold text-emerald-700">(New)</span>}
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Enter Headline Title"
+                                value={detail.title || ''}
+                                onChange={(e) => handleNewSlideDetailChange(idx, 'title', e.target.value)}
+                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                                Slide #{slideNum} Promo Caption / Subtext
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Enter Subtext"
+                                value={detail.text || ''}
+                                onChange={(e) => handleNewSlideDetailChange(idx, 'text', e.target.value)}
+                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                              />
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      {existingImages.map((imgUrl, idx) => (
-                        <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
-                          {isVideoFile(imgUrl) ? (
-                            <video
-                              src={resolveMediaSrc(imgUrl)}
-                              className="w-full h-full object-cover"
-                              muted
-                              loop
-                              playsInline
-                              onError={(e) => {
-                                if (!e.currentTarget.dataset.retried) {
-                                  e.currentTarget.dataset.retried = 'true';
-                                  e.currentTarget.src = getImageUrl(imgUrl);
-                                }
-                              }}
-                            />
-                          ) : (
-                            <img
-                              src={resolveMediaSrc(imgUrl)}
-                              alt="Existing Asset"
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                if (!e.currentTarget.dataset.retried) {
-                                  e.currentTarget.dataset.retried = 'true';
-                                  e.currentTarget.src = getImageUrl(imgUrl);
-                                }
-                              }}
-                            />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveExistingImage(idx)}
-                            className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors cursor-pointer"
-                            title="Remove from placement"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
+                  )
+                ) : activeSectionName !== 'auth-banner' && activeSectionName !== 'topbar-announcement' ? (
+                  /* SPECIAL BANNER (ADS I), ADS II, AND OTHER BANNERS - EXACT SAME 2-COL UI AS MAIN BANNER */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                        Headline Title <span className="text-[11px] font-bold text-[#01390f]">(Main)</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter Headline Title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      />
                     </div>
-                  )}
-                </div>
-              )}
 
-              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 -mx-6 -mb-6 mt-4 whitespace-nowrap">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                        Promo Caption / Subtext
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter Subtext"
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                {/* STATUS HELPER NOTICE */}
+                <div className="pt-1 text-xs text-slate-500">
+                  <span>Changes will be live immediately across customer storefront once saved.</span>
+                </div>
+              </div>
+
+              {/* ACTION BUTTONS FOOTER (MATCHES CATALOG & FINISHED GOODS MODAL) */}
+              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -1088,9 +1061,9 @@ function MarketingMarketingContent() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                  className="px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
                 >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   <span className="whitespace-nowrap">{submitting ? 'Saving...' : 'Save Campaign Media'}</span>
                 </button>
               </div>

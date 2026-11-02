@@ -90,6 +90,10 @@ const collectionSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    isArchived: {
+      type: Boolean,
+      default: false
+    },
     navbarTag: {
       type: String,
       default: 'Skin Care'

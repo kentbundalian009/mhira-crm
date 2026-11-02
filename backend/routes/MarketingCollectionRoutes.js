@@ -7,7 +7,8 @@ import {
     getInventoryProducts,
     createCatalogProduct, 
     updateCatalogProduct, 
-    deleteCatalogProduct 
+    deleteCatalogProduct,
+    toggleArchiveCatalogProduct
 } from '../controllers/MarketingCollectionController.js';
 
 const router = express.Router();
@@ -23,6 +24,7 @@ router.get('/catalog', getAllCatalogProducts);
 router.get('/inventory-products', getInventoryProducts);
 router.post('/catalog', createCatalogProduct);
 router.put('/catalog/:id', updateCatalogProduct);
+router.patch('/catalog/:id/archive', toggleArchiveCatalogProduct);
 router.delete('/catalog/:id', deleteCatalogProduct);
 
 export default router;
