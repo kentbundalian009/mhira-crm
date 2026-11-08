@@ -998,11 +998,10 @@ function LogisticsPerformanceAnalytics() {
                       setStatusFilter(tab.id);
                     }
                   }}
-                  className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'border-[#01390f] text-[#01390f] bg-slate-50'
-                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                  }`}
+                  className={`px-3.5 py-2 text-xs font-bold rounded-t-lg transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 ${isSelected
+                    ? 'border-[#01390f] text-[#01390f] bg-slate-50'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                    }`}
                 >
                   {tab.isLeaderboard && <Award className="w-3.5 h-3.5 text-amber-500" />}
                   <span>{tab.label}</span>
@@ -1135,11 +1134,10 @@ function LogisticsPerformanceAnalytics() {
                         key={tier.id}
                         type="button"
                         onClick={() => setRankTierFilter(rankTierFilter === tier.id ? 'All' : tier.id)}
-                        className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                          rankTierFilter === tier.id
-                            ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-bold'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
+                        className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${rankTierFilter === tier.id
+                          ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
                       >
                         {tier.label}
                       </button>
@@ -1393,7 +1391,7 @@ function LogisticsPerformanceAnalytics() {
                       onClick={() => {
                         try {
                           dateInputRef.current?.showPicker();
-                        } catch (err) {}
+                        } catch (err) { }
                       }}
                       className="relative w-full cursor-pointer"
                     >
@@ -1406,12 +1404,12 @@ function LogisticsPerformanceAnalytics() {
                         onClick={(e) => {
                           try {
                             e.currentTarget.showPicker();
-                          } catch (err) {}
+                          } catch (err) { }
                         }}
                         onFocus={(e) => {
                           try {
                             e.currentTarget.showPicker();
-                          } catch (err) {}
+                          } catch (err) { }
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -1420,12 +1418,11 @@ function LogisticsPerformanceAnalytics() {
                             e.preventDefault();
                             try {
                               e.currentTarget.showPicker();
-                            } catch (err) {}
+                            } catch (err) { }
                           }
                         }}
-                        className={`w-full h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer ${
-                          selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
-                        }`}
+                        className={`w-full h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer ${selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
+                          }`}
                       />
                       {selectedDate && (
                         <button
@@ -1479,11 +1476,10 @@ function LogisticsPerformanceAnalytics() {
                     <button
                       type="button"
                       onClick={() => setStatusFilter(statusFilter === 'Delivered' ? 'All' : 'Delivered')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                        statusFilter === 'Delivered'
-                          ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${statusFilter === 'Delivered'
+                        ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
                     >
                       Delivered Only
                     </button>
@@ -1491,11 +1487,10 @@ function LogisticsPerformanceAnalytics() {
                     <button
                       type="button"
                       onClick={() => setStatusFilter(statusFilter === 'In Transit' ? 'All' : 'In Transit')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                        statusFilter === 'In Transit'
-                          ? 'bg-amber-50 border-amber-600 text-amber-700 font-semibold'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${statusFilter === 'In Transit'
+                        ? 'bg-amber-50 border-amber-600 text-amber-700 font-semibold'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
                     >
                       In Transit Only
                     </button>
@@ -1506,11 +1501,10 @@ function LogisticsPerformanceAnalytics() {
                         const todayStr = new Date().toISOString().split('T')[0];
                         setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                       }}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                        selectedDate === new Date().toISOString().split('T')[0]
-                          ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedDate === new Date().toISOString().split('T')[0]
+                        ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
                     >
                       Today's Logs
                     </button>
