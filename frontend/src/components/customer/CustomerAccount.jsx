@@ -1047,15 +1047,11 @@ function CustomerAccount({ initialTab }) {
                 </div>
 
                 {/* VIP MEMBERSHIP & REWARD POINTS CARD */}
-                <div className="bg-[#FAFBF9] border border-[#D5EAD7] rounded-2xl p-5 sm:p-6 shadow-2xs">
+                <div className="bg-white border border-[#D5EAD7] rounded-2xl p-5 sm:p-6 shadow-2xs">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
                     <div className="flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-full bg-[#EDF7EE] border border-[#01390f]/20 text-[#01390f] font-bold text-lg flex items-center justify-center shrink-0 overflow-hidden">
-                        {profile.profileImage ? (
-                          <img src={profile.profileImage} alt="" className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                          (profile.fullName || profile.username || 'U').charAt(0).toUpperCase()
-                        )}
+                      <div className="w-12 h-12 rounded-2xl bg-[#EDF7EE] border border-[#01390f]/20 text-[#01390f] flex items-center justify-center shrink-0 shadow-2xs">
+                        <Award className="w-6 h-6 text-[#01390f]" />
                       </div>
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#01390f] block">
@@ -1101,40 +1097,43 @@ function CustomerAccount({ initialTab }) {
 
                   {/* Points & Membership Metrics Bar */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
-                    <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
+                    <div className="bg-[#FAFBF9] border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
                       <div>
                         <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Reward Points</span>
-                        <span className="text-base font-bold text-[#01390f] font-mono">
-                          <span className="text-amber-500 drop-shadow-xs font-black">⭐ {profile.rewardPoints || 0}</span> pts
-                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Star className="w-4 h-4 fill-amber-400 text-amber-500 shrink-0" />
+                          <span className="text-base font-bold text-[#01390f] font-mono">
+                            {profile.rewardPoints || 0} pts
+                          </span>
+                        </div>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
                           ₱{profile.rewardPoints || 0}.00 discount at checkout
                         </span>
                       </div>
-                      <span className="text-[11px] font-medium text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
+                      <span className="text-[11px] font-bold text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
                         ₱{profile.rewardPoints || 0}.00 OFF
                       </span>
                     </div>
 
-                    <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
+                    <div className="bg-[#FAFBF9] border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
                       <div>
                         <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Membership Tier</span>
-                        <span className="text-base font-bold text-slate-800">
+                        <span className="text-base font-bold text-slate-800 block mt-0.5">
                           {profile.tier ? `${profile.tier} Tier` : "Bronze Tier"}
                         </span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
-                          {profile.tier === "Gold" || profile.tier === "Platinum" ? "Top VIP Tier Reached 🎉" : "Active Member Privileges"}
+                          {profile.tier === "Gold" || profile.tier === "Platinum" ? "Top VIP Tier Reached" : "Active Member Privileges"}
                         </span>
                       </div>
-                      <span className="text-[11px] font-medium text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
+                      <span className="text-[11px] font-bold text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
                         Active VIP
                       </span>
                     </div>
 
-                    <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
+                    <div className="bg-[#FAFBF9] border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
                       <div>
                         <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Loyalty Rate</span>
-                        <span className="text-xs font-medium text-slate-700 block mt-0.5">
+                        <span className="text-xs font-semibold text-slate-700 block mt-1">
                           1 pt per ₱50.00 spent
                         </span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
@@ -1148,51 +1147,62 @@ function CustomerAccount({ initialTab }) {
                   </div>
                 </div>
 
-                {/* Profile Photo Row */}
-                <div className="flex items-center gap-4 py-2 border-b border-slate-100 pb-4">
-                  <div
-                    onClick={() => !isUploadingPhoto && fileInputRef.current?.click()}
-                    className="w-16 h-16 rounded-full bg-[#01390f] text-white font-bold flex items-center justify-center text-xl overflow-hidden cursor-pointer relative hover:opacity-90 transition-opacity ring-2 ring-[#01390f]/20"
-                    title="Click to upload profile photo"
-                  >
-                    {isUploadingPhoto ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-emerald-200" />
-                    ) : profile.profileImage ? (
-                      <img
-                        src={profile.profileImage}
-                        alt={profile.fullName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span>{profile.fullName ? profile.fullName.slice(0, 2).toUpperCase() : "KB"}</span>
-                    )}
-                  </div>
-
-                  <div className="space-y-0.5">
-                    <h3 className="font-semibold text-slate-900 text-sm">{profile.fullName || "Customer"}</h3>
-                    <div className="flex items-center gap-3 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="text-[#01390f] font-semibold hover:underline cursor-pointer"
-                      >
-                        {profile.profileImage ? "Change photo" : "Upload photo"}
-                      </button>
-                      {profile.profileImage && (
-                        <>
-                          <span className="text-slate-300">•</span>
-                          <button
-                            type="button"
-                            onClick={handleRemovePhoto}
-                            className="text-rose-600 font-semibold hover:underline cursor-pointer"
-                          >
-                            Remove
-                          </button>
-                        </>
-                      )}
+                {/* PROFILE INFORMATION CARD (SINGLE USER AVATAR & CONSISTENT CONTAINER) */}
+                <div className="bg-white border border-[#D5EAD7] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-[#01390f]" />
+                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                        Personal Profile Details
+                      </h3>
                     </div>
                   </div>
-                </div>
+
+                  {/* Profile Photo Row */}
+                  <div className="flex items-center gap-4 py-1">
+                    <div
+                      onClick={() => !isUploadingPhoto && fileInputRef.current?.click()}
+                      className="w-16 h-16 rounded-full bg-[#01390f] text-white font-bold flex items-center justify-center text-xl overflow-hidden cursor-pointer relative hover:opacity-90 transition-opacity ring-2 ring-[#01390f]/20 shrink-0 shadow-xs"
+                      title="Click to upload profile photo"
+                    >
+                      {isUploadingPhoto ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-emerald-200" />
+                      ) : profile.profileImage ? (
+                        <img
+                          src={profile.profileImage}
+                          alt={profile.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span>{profile.fullName ? profile.fullName.slice(0, 2).toUpperCase() : "KB"}</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <h3 className="font-semibold text-slate-900 text-sm">{profile.fullName || "Customer"}</h3>
+                      <div className="flex items-center gap-3 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[#01390f] font-semibold hover:underline cursor-pointer"
+                        >
+                          {profile.profileImage ? "Change photo" : "Upload photo"}
+                        </button>
+                        {profile.profileImage && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <button
+                              type="button"
+                              onClick={handleRemovePhoto}
+                              className="text-rose-600 font-semibold hover:underline cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
                 {/* Form Fields: Outline Floating Labels */}
                 <div className="space-y-5">
@@ -1461,29 +1471,29 @@ function CustomerAccount({ initialTab }) {
                     )}
                   </div>
                 </div>
-
-                {/* Divider between Profile and Security */}
-                <div className="border-t border-slate-200 my-8" />
+              </div>
 
                 {/* ================= SECURITY SECTION ================= */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-[#01390f]" />
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Security
-                    </h3>
+                <div className="bg-white border border-[#D5EAD7] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-[#01390f]" />
+                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                        Security & Password
+                      </h3>
+                    </div>
                   </div>
                   <p className="text-xs text-slate-600">
                     Manage your password and security credentials to keep your account safe.
                   </p>
 
                   {/* Password Card (DO NOT SHOW ANY PASSWORD OR HIDDEN DOTS TO PREVENT HACKER/INFO LEAK) */}
-                  <div className="border border-slate-200 rounded-2xl p-5 bg-white space-y-4 shadow-2xs">
+                  <div className="border border-[#D5EAD7] rounded-xl p-4 sm:p-5 bg-[#FAFBF9] space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Lock className="w-4 h-4 text-slate-600" />
-                          <span className="text-sm font-semibold text-slate-900 block">
+                          <Lock className="w-4 h-4 text-[#01390f]" />
+                          <span className="text-sm font-bold text-slate-900 block">
                             Password
                           </span>
                         </div>
@@ -1501,7 +1511,7 @@ function CustomerAccount({ initialTab }) {
                             setConfirmPassword("");
                           }
                         }}
-                        className="bg-slate-900 hover:bg-black text-white px-5 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer shadow-xs whitespace-nowrap self-start sm:self-auto"
+                        className="bg-[#01390f] hover:bg-[#0a5219] text-white px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs whitespace-nowrap self-start sm:self-auto"
                       >
                         {isEditingPassword ? "Cancel" : "Change Password"}
                       </button>
@@ -1509,7 +1519,7 @@ function CustomerAccount({ initialTab }) {
 
                     {/* Expandable Password Editor */}
                     {isEditingPassword && (
-                      <div className="pt-4 border-t border-slate-100 space-y-4 animate-fadeIn">
+                      <div className="pt-4 border-t border-slate-200/60 space-y-4 animate-fadeIn">
                         {/* Current Password */}
                         <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white">
                           <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-xs font-normal text-slate-500">
@@ -1588,7 +1598,7 @@ function CustomerAccount({ initialTab }) {
                             type="button"
                             onClick={() => setIsConfirmModalOpen(true)}
                             disabled={!currentPassword || !newPassword || newPassword !== confirmPassword || newPassword.length < 6 || submittingPassword}
-                            className="bg-[#01390f] hover:bg-[#024a14] text-white px-6 py-2.5 rounded-full text-xs font-semibold tracking-normal transition-all cursor-pointer disabled:opacity-40"
+                            className="bg-[#01390f] hover:bg-[#024a14] text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
                           >
                             Save New Password
                           </button>
@@ -1610,16 +1620,13 @@ function CustomerAccount({ initialTab }) {
                   </div>
                 </div>
 
-                {/* Divider between Security and Delete Account */}
-                <div className="border-t border-slate-200 my-8" />
-
                 {/* ================= DANGER ZONE: DELETE ACCOUNT (PINAKA BABA) ================= */}
-                <div className="space-y-4">
-                  <div className="border border-rose-200 bg-rose-50/40 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="border border-rose-200 bg-rose-50/50 rounded-2xl p-5 sm:p-6 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-rose-600" />
-                        <span className="text-sm font-semibold text-rose-900 block">
+                        <span className="text-sm font-bold text-rose-900 uppercase tracking-wider block">
                           Delete Account
                         </span>
                       </div>
@@ -1630,7 +1637,7 @@ function CustomerAccount({ initialTab }) {
                     <button
                       type="button"
                       onClick={() => setIsDeleteModalOpen(true)}
-                      className="border border-rose-300 hover:bg-rose-600 hover:text-white bg-white text-rose-700 px-6 py-2 rounded-full text-xs font-medium transition-colors cursor-pointer self-start sm:self-auto shrink-0 shadow-xs"
+                      className="border border-rose-300 hover:bg-rose-600 hover:text-white bg-white text-rose-700 px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer self-start sm:self-auto shrink-0 shadow-xs"
                     >
                       Delete Account
                     </button>
@@ -1697,8 +1704,9 @@ function CustomerAccount({ initialTab }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-emerald-800/80">
                       <div className="bg-white/10 rounded-xl p-3.5">
                         <span className="text-[10px] font-bold text-emerald-200 uppercase block tracking-wider">Available Points</span>
-                        <span className="text-2xl font-black text-amber-300 font-mono">
-                          ⭐ {profile.rewardPoints || 0} pts
+                        <span className="text-2xl font-black text-amber-300 font-mono inline-flex items-center">
+                          <Star className="w-5 h-5 fill-amber-300 text-amber-300 inline mr-1.5 shrink-0" />
+                          <span>{profile.rewardPoints || 0} pts</span>
                         </span>
                         <span className="text-[11px] text-emerald-100 block mt-0.5">
                           = ₱{profile.rewardPoints || 0}.00 OFF automatically usable at checkout
@@ -1969,8 +1977,9 @@ function CustomerAccount({ initialTab }) {
                   </p>
                 </div>
 
-                {/* Avatar & Display Name */}
-                <div className="space-y-4 pt-3 border-t border-slate-100">
+                <div className="bg-white border border-[#D5EAD7] rounded-2xl p-5 sm:p-6 shadow-2xs space-y-6">
+                  {/* Avatar & Display Name */}
+                  <div className="space-y-4">
                   <div className="flex items-center gap-4 py-2">
                     <div
                       onClick={() => !isUploadingPhoto && fileInputRef.current?.click()}
@@ -2090,44 +2099,8 @@ function CustomerAccount({ initialTab }) {
                   </div>
                 </div>
 
-                {/* Location Sharing */}
-                <div className="space-y-3 pt-4 border-t border-slate-100">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Location Sharing
-                  </h3>
-                  <div className="space-y-2">
-                    {[
-                      { id: "friends", label: "Share my location with verified buyers only" },
-                      { id: "none", label: "Don't share my location" },
-                    ].map((opt) => (
-                      <label
-                        key={opt.id}
-                        className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
-                      >
-                        <input
-                          type="radio"
-                          name="locationSharing"
-                          value={opt.id}
-                          checked={profile.profileVisibility?.locationSharing === opt.id}
-                          onChange={(e) =>
-                            setProfile((prev) => ({
-                              ...prev,
-                              profileVisibility: {
-                                ...prev.profileVisibility,
-                                locationSharing: e.target.value,
-                              },
-                            }))
-                          }
-                          className="w-4 h-4 accent-[#01390f] cursor-pointer"
-                        />
-                        <span className="text-xs sm:text-sm text-slate-800">{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Save Button */}
-                <div className="pt-4">
+                <div className="pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={handleSaveVisibility}
@@ -2137,6 +2110,7 @@ function CustomerAccount({ initialTab }) {
                   </button>
                 </div>
               </div>
+            </div>
             )}
 
             {/* TAB 5: PRIVACY */}

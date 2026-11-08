@@ -632,7 +632,7 @@ export default function CustomerEmailNotificationModal({
                           onChange={(e) => setTargetAudience(e.target.value)}
                           className="accent-[#01390f]"
                         />
-                        <span>Broadcast to All Customers</span>
+                        <span>Broadcast to Verified Customers</span>
                       </label>
                     </div>
                   </div>
@@ -762,7 +762,7 @@ export default function CustomerEmailNotificationModal({
                       {sending
                         ? 'Broadcasting Campaign...'
                         : targetAudience === 'ALL_CUSTOMERS'
-                        ? 'Broadcast Advertisement to All Customers'
+                        ? 'Broadcast Advertisement to Verified Customers'
                         : 'Send Advertisement to Customer'}
                     </span>
                   </button>
@@ -800,7 +800,7 @@ export default function CustomerEmailNotificationModal({
                   {activeTab === 'order'
                     ? recipientEmail || 'customer@gmail.com'
                     : targetAudience === 'ALL_CUSTOMERS'
-                    ? 'All Registered VIP Customers'
+                    ? 'All Verified VIP Customers'
                     : marketingEmail || 'customer@gmail.com'}
                 </div>
                 <div className="font-bold text-slate-900 text-xs truncate pt-0.5">

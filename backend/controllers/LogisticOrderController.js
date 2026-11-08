@@ -2,78 +2,260 @@ import mongoose from "mongoose";
 import Order from "../models/LogisticOrder.js";
 import Cart from "../models/CustomerCart.js";
 import Product from "../models/InventoryProduct.js";
+import Collection from "../models/MarketingCollection.js";
 import { User } from "../models/AdminUser.js";
 import { calculateTier } from "./AdminAuthController.js";
 import { populateProductsList } from "./CustomerCartController.js";
 import { computeLocationShipping } from "./LogisticsShippingController.js";
 
-// Helper function to deduct or restore stock in Product inventory (Bulk execution)
+export const isTransitOrBeyond = (status) => {
+  const s = String(status || "").toLowerCase().trim();
+  return (
+    s === "in transit" ||
+    s === "in-transit" ||
+    s === "to receive" ||
+    s === "to-receive" ||
+    s === "completed" ||
+    s === "delivered"
+  );
+};
+
+export const isPreTransit = (status) => {
+  const s = String(status || "").toLowerCase().trim();
+  return (
+    s === "order placed" ||
+    s === "order-placed" ||
+    s === "to pay" ||
+    s === "to-pay" ||
+    s === "to ship" ||
+    s === "to-ship" ||
+    s === "cancelled" ||
+    s === "return refund" ||
+    s === "return" ||
+    s === "returned"
+  );
+};
+
+/**
+ * Resolves an order item to target inventory products in the database.
+ * Handles:
+ * 1. Direct Product ObjectId
+ * 2. Collection ObjectId (resolving coll.productRef)
+ * 3. Package Set Bundles (resolving each bundleItem to its Product and applying bundle quantity)
+ * 4. Product Code match (e.g. FG0001)
+ * 5. Product Name / itemDescription match
+ */
+export const resolveProductTargets = async (item, itemQty) => {
+  const targets = [];
+  const baseQty = Number(item?.quantity ?? itemQty ?? 1);
+  if (baseQty <= 0) return targets;
+
+  // 1. If item.product is a valid ObjectId
+  if (item.product && mongoose.Types.ObjectId.isValid(item.product)) {
+    const prodId = new mongoose.Types.ObjectId(item.product);
+
+    // Direct Product check
+    const directProduct = await Product.findById(prodId).lean();
+    if (directProduct) {
+      targets.push({
+        productId: directProduct._id,
+        productName: directProduct.itemName || directProduct.itemDescription,
+        qty: baseQty,
+      });
+      return targets;
+    }
+
+    // Collection check
+    const coll = await Collection.findById(prodId).lean();
+    if (coll) {
+      if (coll.isBundle && Array.isArray(coll.bundleItems) && coll.bundleItems.length > 0) {
+        for (const bItem of coll.bundleItems) {
+          const bQty = Number(bItem.quantity || 1) * baseQty;
+          let bProd = null;
+          if (bItem.productRef) {
+            bProd = await Product.findById(bItem.productRef).lean();
+          }
+          if (!bProd && bItem.code) {
+            bProd = await Product.findOne({
+              $or: [{ code: bItem.code }, { code: new RegExp(`^${bItem.code}$`, "i") }],
+            }).lean();
+          }
+          if (bProd) {
+            targets.push({
+              productId: bProd._id,
+              collectionId: coll._id,
+              productName: bProd.itemName || bProd.itemDescription,
+              qty: bQty,
+            });
+          }
+        }
+        if (targets.length > 0) return targets;
+      } else if (coll.productRef) {
+        const refProduct = await Product.findById(coll.productRef).lean();
+        if (refProduct) {
+          targets.push({
+            productId: refProduct._id,
+            collectionId: coll._id,
+            productName: refProduct.itemName || refProduct.itemDescription,
+            qty: baseQty,
+          });
+          return targets;
+        }
+      }
+    }
+  }
+
+  // 2. Try resolving by code
+  const codeCandidate = item.code || (typeof item.product === "string" ? item.product : "");
+  if (codeCandidate && codeCandidate.trim()) {
+    const cleanCode = codeCandidate.trim();
+    const prodByCode = await Product.findOne({
+      $or: [
+        { code: cleanCode },
+        { code: new RegExp(`^${cleanCode}$`, "i") },
+      ],
+    }).lean();
+    if (prodByCode) {
+      targets.push({
+        productId: prodByCode._id,
+        productName: prodByCode.itemName || prodByCode.itemDescription,
+        qty: baseQty,
+      });
+      return targets;
+    }
+  }
+
+  // 3. Try resolving by name or description
+  const nameCandidate = item.name || item.itemName || item.itemDescription;
+  if (nameCandidate && nameCandidate.trim()) {
+    const cleanName = nameCandidate.trim();
+    const prodByName = await Product.findOne({
+      $or: [
+        { itemName: cleanName },
+        { itemName: new RegExp(`^${cleanName}$`, "i") },
+        { itemDescription: cleanName },
+        { itemDescription: new RegExp(`^${cleanName}$`, "i") },
+        { code: cleanName },
+        { code: new RegExp(`^${cleanName}$`, "i") },
+      ],
+    }).lean();
+    if (prodByName) {
+      targets.push({
+        productId: prodByName._id,
+        productName: prodByName.itemName || prodByName.itemDescription,
+        qty: baseQty,
+      });
+      return targets;
+    }
+
+    // Check Collection by name (and bundle support)
+    const collByName = await Collection.findOne({
+      $or: [
+        { itemDescription: cleanName },
+        { itemDescription: new RegExp(`^${cleanName}$`, "i") },
+        { code: cleanName },
+        { code: new RegExp(`^${cleanName}$`, "i") },
+      ],
+    }).lean();
+    if (collByName) {
+      if (collByName.isBundle && Array.isArray(collByName.bundleItems) && collByName.bundleItems.length > 0) {
+        for (const bItem of collByName.bundleItems) {
+          const bQty = Number(bItem.quantity || 1) * baseQty;
+          let bProd = null;
+          if (bItem.productRef) {
+            bProd = await Product.findById(bItem.productRef).lean();
+          }
+          if (!bProd && bItem.code) {
+            bProd = await Product.findOne({
+              $or: [{ code: bItem.code }, { code: new RegExp(`^${bItem.code}$`, "i") }],
+            }).lean();
+          }
+          if (bProd) {
+            targets.push({
+              productId: bProd._id,
+              collectionId: collByName._id,
+              productName: bProd.itemName || bProd.itemDescription,
+              qty: bQty,
+            });
+          }
+        }
+        if (targets.length > 0) return targets;
+      } else if (collByName.productRef) {
+        const refProduct = await Product.findById(collByName.productRef).lean();
+        if (refProduct) {
+          targets.push({
+            productId: refProduct._id,
+            collectionId: collByName._id,
+            productName: refProduct.itemName || refProduct.itemDescription,
+            qty: baseQty,
+          });
+          return targets;
+        }
+      }
+    }
+  }
+
+  return targets;
+};
+
+// Helper function to deduct or restore stock in Product inventory (Specifically upon "In Transit")
 export const handleInventoryStockSync = async (order, newStatus) => {
   try {
-    const deductStatuses = ["To Ship", "To Receive", "Completed"];
-    const restoreStatuses = ["Cancelled", "Return Refund", "Order Placed", "To Pay"];
+    if (!order || !order.items || order.items.length === 0) return;
 
-    if (deductStatuses.includes(newStatus) && !order.inventoryDeducted) {
-      const bulkOps = [];
-      for (const item of order.items || []) {
-        if (!item.name && !item.product) continue;
-        const qtyToDeduct = Number(item.quantity || 1);
+    // A. DEDUCT: Triggered when order reaches "In Transit" or beyond, and has NOT yet been deducted
+    if (isTransitOrBeyond(newStatus) && !order.inventoryDeducted) {
+      for (const item of order.items) {
+        const targets = await resolveProductTargets(item, item.quantity);
+        for (const t of targets) {
+          // Decrement from Product inventory
+          await Product.updateOne(
+            { _id: t.productId },
+            { $inc: { quantity: -t.qty } }
+          );
 
-        if (item.product && mongoose.Types.ObjectId.isValid(item.product)) {
-          bulkOps.push({
-            updateOne: {
-              filter: { _id: item.product },
-              update: { $inc: { quantity: -qtyToDeduct } },
-            },
-          });
-        } else if (item.name) {
-          bulkOps.push({
-            updateOne: {
-              filter: { $or: [{ itemDescription: item.name }, { code: item.name }] },
-              update: { $inc: { quantity: -qtyToDeduct } },
-            },
-          });
+          // Decrement Collection quantity if present
+          if (t.collectionId) {
+            await Collection.updateOne(
+              { _id: t.collectionId },
+              { $inc: { quantity: -t.qty } }
+            );
+          }
         }
       }
 
-      if (bulkOps.length > 0) {
-        await Product.bulkWrite(bulkOps, { ordered: false }).catch(() => {});
-      }
       order.inventoryDeducted = true;
-      await Order.updateOne({ _id: order._id }, { $set: { inventoryDeducted: true } }).catch(() => {});
+      await Order.updateOne({ _id: order._id }, { $set: { inventoryDeducted: true } });
+      console.log(`[Inventory Stock Sync] Deducted stock for Order ${order._id} on status: ${newStatus} (In Transit)`);
     }
 
-    if (restoreStatuses.includes(newStatus) && order.inventoryDeducted) {
-      const bulkOps = [];
-      for (const item of order.items || []) {
-        if (!item.name && !item.product) continue;
-        const qtyToRestore = Number(item.quantity || 1);
+    // B. RESTORE: Triggered if an in-transit order is cancelled, returned, or reset to pre-transit
+    if (isPreTransit(newStatus) && order.inventoryDeducted) {
+      for (const item of order.items) {
+        const targets = await resolveProductTargets(item, item.quantity);
+        for (const t of targets) {
+          // Increment back into Product inventory
+          await Product.updateOne(
+            { _id: t.productId },
+            { $inc: { quantity: t.qty } }
+          );
 
-        if (item.product && mongoose.Types.ObjectId.isValid(item.product)) {
-          bulkOps.push({
-            updateOne: {
-              filter: { _id: item.product },
-              update: { $inc: { quantity: qtyToRestore } },
-            },
-          });
-        } else if (item.name) {
-          bulkOps.push({
-            updateOne: {
-              filter: { $or: [{ itemDescription: item.name }, { code: item.name }] },
-              update: { $inc: { quantity: qtyToRestore } },
-            },
-          });
+          // Increment Collection quantity if present
+          if (t.collectionId) {
+            await Collection.updateOne(
+              { _id: t.collectionId },
+              { $inc: { quantity: t.qty } }
+            );
+          }
         }
       }
 
-      if (bulkOps.length > 0) {
-        await Product.bulkWrite(bulkOps, { ordered: false }).catch(() => {});
-      }
       order.inventoryDeducted = false;
-      await Order.updateOne({ _id: order._id }, { $set: { inventoryDeducted: false } }).catch(() => {});
+      await Order.updateOne({ _id: order._id }, { $set: { inventoryDeducted: false } });
+      console.log(`[Inventory Stock Sync] Restored stock for Order ${order._id} on status: ${newStatus}`);
     }
   } catch (err) {
-    console.warn("Non-blocking inventory sync warning:", err.message);
+    console.warn("[Inventory Stock Sync] Non-blocking warning:", err.message);
   }
 };
 
@@ -269,6 +451,8 @@ export const getUserOrders = async (req, res) => {
         query.status = { $in: ["Completed", "Delivered", "To Review"] };
       } else if (status === "Returns" || status === "Return" || status === "Return Refund") {
         query.status = { $in: ["Return", "Returned", "Return Requested", "Return Refund"] };
+      } else if (status === "In Transit" || status === "To Receive") {
+        query.status = { $in: ["In Transit", "To Receive"] };
       } else {
         query.status = status;
       }
@@ -353,7 +537,7 @@ export const updateOrderStatus = async (req, res) => {
         timestamp: new Date(),
         status: "To Ship",
       });
-    } else if (status === "To Receive") {
+    } else if (status === "To Receive" || status === "In Transit") {
       const courierName = order.courier || "Courier Partner";
       const waybill = order.trackingNumber ? ` (Waybill: ${order.trackingNumber})` : "";
       order.trackingTimeline.push({

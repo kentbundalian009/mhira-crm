@@ -161,7 +161,7 @@ export default function MarketingEmailCampaigns() {
         bodyText:
           'Indulge your skin with our pure, cold-pressed botanical oils and natural antioxidant serums. Handcrafted in micro-batches to preserve bio-active botanical potency.\n\nEnjoy an exclusive 20% savings on your entire order this weekend only. Cash on delivery is accepted nationwide.',
         targetAudience: 'ALL_CUSTOMERS',
-        recipientsCount: 42,
+        recipientsCount: 1,
         discountCode: 'GLOW20',
         discountNote: '20% OFF Site-wide + Free Nationwide Shipping',
         ctaText: 'Claim Your Botanical Offer',
@@ -197,16 +197,22 @@ export default function MarketingEmailCampaigns() {
     } catch (_e) {}
   };
 
-  // Fetch Customers from backend
+  // Fetch Customers from backend (strictly verified customer accounts)
   const fetchCustomerAudience = async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/users`);
       if (res.data && Array.isArray(res.data)) {
-        const custs = res.data.filter((u) => u.role === 'Customer' && u.email);
+        const custs = res.data.filter(
+          (u) =>
+            u.role === 'Customer' &&
+            u.email &&
+            Boolean(u.isEmailVerified) &&
+            !u.isArchived
+        );
         setRegisteredCustomers(custs);
       }
     } catch (e) {
-      console.warn('Could not fetch registered customers list:', e.message);
+      console.warn('Could not fetch verified customers list:', e.message);
     }
   };
 
@@ -330,7 +336,7 @@ export default function MarketingEmailCampaigns() {
           recipientEmail: targetAudience === 'CUSTOM' ? recipientEmail.trim() : null,
           recipientsCount:
             res.data.sentCount ||
-            (targetAudience === 'ALL_CUSTOMERS' ? registeredCustomers.length || 42 : 1),
+            (targetAudience === 'ALL_CUSTOMERS' ? registeredCustomers.length : 1),
           discountCode: discountCode.trim(),
           discountNote: discountNote.trim(),
           ctaText: ctaText.trim(),
@@ -458,7 +464,7 @@ export default function MarketingEmailCampaigns() {
         idx + 1,
         stripEmojis(item.title || 'Broadcast Campaign'),
         item.targetAudience === 'ALL_CUSTOMERS'
-          ? `All Customers (${item.recipientsCount || 1})`
+          ? `All Verified Customers (${item.recipientsCount || 1})`
           : item.recipientEmail || 'Single Recipient',
         item.discountCode || 'None',
         new Date(item.dispatchedAt).toLocaleString(),
@@ -625,7 +631,7 @@ export default function MarketingEmailCampaigns() {
                     className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="All">All Target Audiences</option>
-                    <option value="ALL_CUSTOMERS">Broadcast (All Customers)</option>
+                    <option value="ALL_CUSTOMERS">Broadcast (Verified Customers)</option>
                     <option value="CUSTOM">Single Recipient</option>
                   </select>
                   <ChevronDown className="w-3 h-3 absolute right-1.5 top-1.5 text-slate-400 pointer-events-none" />
@@ -777,7 +783,7 @@ export default function MarketingEmailCampaigns() {
                       {/* 2. Target Audience */}
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {item.targetAudience === 'ALL_CUSTOMERS'
-                          ? 'All Registered Customers'
+                          ? 'All Verified Customers'
                           : item.recipientEmail || 'Single Recipient'}
                       </td>
 
@@ -951,7 +957,7 @@ export default function MarketingEmailCampaigns() {
                         className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
                       >
                         <option value="ALL_CUSTOMERS">
-                          All Registered Customers ({registeredCustomers.length || 42})
+                          All Verified Customers ({registeredCustomers.length})
                         </option>
                         <option value="CUSTOM">Single Customer / Test Email</option>
                       </select>
@@ -965,7 +971,7 @@ export default function MarketingEmailCampaigns() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                        Pick Registered Customer
+                        Pick Verified Customer
                       </label>
                       <div className="relative">
                         <Users className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
@@ -974,7 +980,7 @@ export default function MarketingEmailCampaigns() {
                           onChange={handleCustomerSelect}
                           className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors truncate"
                         >
-                          <option value="">Select from accounts...</option>
+                          <option value="">Select from verified accounts...</option>
                           {registeredCustomers.map((c) => (
                             <option key={c._id} value={c._id}>
                               {c.fullName || 'Customer'} ({c.email})

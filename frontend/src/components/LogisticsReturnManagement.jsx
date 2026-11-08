@@ -705,26 +705,82 @@ function LogisticsReturnManagement() {
       {/* MAIN CARD CONTAINER (HOUSING TOOLBAR, FILTERS & TABLE) */}
       <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-4 sm:p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
         {/* EXCEL SHEET TABS */}
-        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'all', label: 'Returns' },
-              { id: 'pending', label: 'Pending Review' },
-              { id: 'approved', label: 'Approved' },
-              { id: 'rejected', label: 'Rejected' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.id
-                    ? 'border-[#01390f] text-[#01390f] bg-slate-50'
+        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 overflow-x-auto no-scrollbar border-b border-slate-100 sm:border-b-0">
+          <div className="flex items-center gap-1 -mb-px">
+            {/* 1. All Returns Master Sheet */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('all')}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'all'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
+              <span>All Returns</span>
+            </button>
+
+            {/* 2. Pending Review Notification Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'pending'
+                  ? (counts.pending || 0) > 0
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : (counts.pending || 0) > 0
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+              title="Filter by Pending Return Requests"
+            >
+              {(counts.pending || 0) > 0 && (
+                <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
+              )}
+              <span>Pending Review</span>
+              {(counts.pending || 0) > 0 && (
+                <span
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
+                    counts.pending > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                  } ${
+                    activeTab === 'pending'
+                      ? 'bg-[#c81e1e] text-white'
+                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
                   }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+                  title={`${counts.pending} Pending Return Requests`}
+                >
+                  {counts.pending > 99 ? '99+' : counts.pending}
+                </span>
+              )}
+            </button>
+
+            {/* 3. Approved Sheet Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('approved')}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'approved'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <span>Approved</span>
+            </button>
+
+            {/* 4. Rejected Sheet Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('rejected')}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'rejected'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <span>Rejected</span>
+            </button>
           </div>
         </div>
 
@@ -1081,9 +1137,15 @@ function LogisticsReturnManagement() {
                               onClick={() => openRmaDrawer(req)}
                               title="View & Process Return"
                               aria-label="View & Process Return"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
+                              className="relative w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
+                              {(req.status || '').toLowerCase() === 'pending' && (
+                                <span
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c81e1e] border-2 border-white animate-pulse"
+                                  title="Pending Return Review"
+                                />
+                              )}
                             </button>
                           </div>
                         </td>

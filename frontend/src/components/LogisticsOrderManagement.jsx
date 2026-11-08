@@ -884,45 +884,181 @@ function LogisticsOrderManagement() {
       {/* MAIN CARD CONTAINER (HOUSING TOOLBAR, FILTERS & TABLE) */}
       <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-4 sm:p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
         {/* EXCEL SHEET TABS */}
-        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'order-placed', label: 'Order Placed', count: counts['order-placed'] || 0, hasDot: true },
-              { id: 'waiting-courier', label: 'Waiting for Courier', count: counts['waiting-courier'] || 0, hasDot: true },
-              { id: 'in-transit', label: 'In Transit', count: counts['in-transit'] || 0, hasDot: true },
-              { id: 'delivered', label: 'Delivered', count: counts['delivered'] || 0, hasDot: true },
-              { id: 'cancel', label: 'Cancel', count: counts['cancel'] || 0, hasDot: false },
-            ].map((tab) => {
-              const hasItems = tab.hasDot && (tab.count || 0) > 0;
-              const cancelRequestsCount = tab.id === 'order-placed' ? (counts['cancel-requests'] || 0) : 0;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setFilterCancelRequestsOnly(false);
-                  }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap inline-flex items-center gap-1.5 ${activeTab === tab.id
-                      ? 'border-[#01390f] text-[#01390f] bg-slate-50'
-                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                    }`}
+        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 overflow-x-auto no-scrollbar border-b border-slate-100 sm:border-b-0">
+          <div className="flex items-center gap-1 -mb-px">
+            {/* 1. All Orders Masterlist Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('all');
+                setFilterCancelRequestsOnly(false);
+              }}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'all'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
+              <span>All Orders</span>
+            </button>
+
+            {/* 2. Order Placed Notification Tab (Exact same UI as Unread Comments in Marketing) */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('order-placed');
+                setFilterCancelRequestsOnly(false);
+              }}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'order-placed'
+                  ? (counts['order-placed'] || 0) > 0
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : (counts['order-placed'] || 0) > 0
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+              title="Filter by Order Placed (Awaiting confirmation)"
+            >
+              {(counts['order-placed'] || 0) > 0 && (
+                <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
+              )}
+              <span>Order Placed</span>
+
+              {(counts['cancel-requests'] || 0) > 0 && (
+                <span
+                  className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-rose-600 text-white shadow-2xs animate-pulse tracking-tight flex items-center gap-1"
+                  title={`${counts['cancel-requests']} Cancellation Request(s) Pending Review`}
                 >
-                  <span className="relative inline-flex items-center gap-1.5">
-                    <span>{tab.label}</span>
-                    {cancelRequestsCount > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-rose-600 text-white shadow-2xs animate-pulse tracking-tight flex items-center gap-1" title={`${cancelRequestsCount} Cancellation Request(s) Pending Review`}>
-                        <AlertTriangle className="w-2.5 h-2.5" />
-                        <span>{cancelRequestsCount} CANCEL REQ</span>
-                      </span>
-                    )}
-                    {hasItems && cancelRequestsCount === 0 && (
-                      <span className="w-1.5 h-1.5 bg-[#c81e1e] rounded-full ml-1.5 shrink-0" />
-                    )}
-                  </span>
-                </button>
-              );
-            })}
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  <span>{counts['cancel-requests']} CANCEL REQ</span>
+                </span>
+              )}
+
+              {(counts['order-placed'] || 0) > 0 && (
+                <span
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
+                    (counts['order-placed'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                  } ${
+                    activeTab === 'order-placed'
+                      ? 'bg-[#c81e1e] text-white'
+                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                  }`}
+                  title={`${counts['order-placed']} Order Placed`}
+                >
+                  {counts['order-placed'] > 99 ? '99+' : counts['order-placed']}
+                </span>
+              )}
+            </button>
+
+            {/* 3. Waiting for Courier Notification Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('waiting-courier');
+                setFilterCancelRequestsOnly(false);
+              }}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'waiting-courier'
+                  ? (counts['waiting-courier'] || 0) > 0
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : (counts['waiting-courier'] || 0) > 0
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+              title="Filter by Waiting for Courier (To Ship / Packing)"
+            >
+              {(counts['waiting-courier'] || 0) > 0 && (
+                <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
+              )}
+              <span>Waiting for Courier</span>
+              {(counts['waiting-courier'] || 0) > 0 && (
+                <span
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
+                    (counts['waiting-courier'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                  } ${
+                    activeTab === 'waiting-courier'
+                      ? 'bg-[#c81e1e] text-white'
+                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                  }`}
+                  title={`${counts['waiting-courier']} Waiting for Courier`}
+                >
+                  {(counts['waiting-courier'] || 0) > 99 ? '99+' : counts['waiting-courier']}
+                </span>
+              )}
+            </button>
+
+            {/* 4. In Transit Notification Tab */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('in-transit');
+                setFilterCancelRequestsOnly(false);
+              }}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'in-transit'
+                  ? (counts['in-transit'] || 0) > 0
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : (counts['in-transit'] || 0) > 0
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+              title="Filter by In Transit (Dispatched to Courier)"
+            >
+              {(counts['in-transit'] || 0) > 0 && (
+                <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
+              )}
+              <span>In Transit</span>
+              {(counts['in-transit'] || 0) > 0 && (
+                <span
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
+                    (counts['in-transit'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                  } ${
+                    activeTab === 'in-transit'
+                      ? 'bg-[#c81e1e] text-white'
+                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                  }`}
+                  title={`${counts['in-transit']} In Transit`}
+                >
+                  {(counts['in-transit'] || 0) > 99 ? '99+' : counts['in-transit']}
+                </span>
+              )}
+            </button>
+
+            {/* 5. Delivered Sheet Tab (Clean: No Numbers, No Dot) */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('delivered');
+                setFilterCancelRequestsOnly(false);
+              }}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'delivered'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <span>Delivered</span>
+            </button>
+
+            {/* 6. Cancel Sheet Tab (Clean: No Numbers, No Dot) */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('cancel');
+                setFilterCancelRequestsOnly(false);
+              }}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'cancel'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <span>Cancel</span>
+            </button>
           </div>
         </div>
 
@@ -1357,9 +1493,15 @@ function LogisticsOrderManagement() {
                               onClick={() => setSelectedOrder(order)}
                               title="View Order Details"
                               aria-label="View Order Details"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
+                              className="relative w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
+                              {((order.status || '').toLowerCase() === 'order placed' || (order.status || '').toLowerCase() === 'to pay') && (
+                                <span
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c81e1e] border-2 border-white animate-pulse"
+                                  title="Order Placed - Awaiting Confirmation"
+                                />
+                              )}
                             </button>
                           </div>
                         </td>

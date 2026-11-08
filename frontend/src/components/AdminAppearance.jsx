@@ -425,7 +425,7 @@ function AdminAppearance() {
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif] antialiased text-slate-700">
       
       {/* 1. MAIN CARD CONTAINER (HOUSING EXCEL RIBBON TOOLBAR & STUDIO) */}
-      <div className="w-full bg-white border border-slate-100 text-slate-600 rounded-2xl p-3 sm:p-6 shadow-sm flex flex-col gap-4 sm:gap-6 transition-colors duration-200">
+      <div className="w-full bg-white border border-slate-200/80 text-slate-600 rounded-2xl p-3 sm:p-5 shadow-xs flex flex-col gap-4 transition-colors duration-200">
         
         {/* COMPACT EXCEL RIBBON TOOLBAR (SEAMLESS WHITE DESIGN) */}
         <div className="w-full bg-white flex flex-col">
@@ -466,220 +466,129 @@ function AdminAppearance() {
           </div>
 
           {/* MS EXCEL-STYLE RIBBON TOOLBAR (CLEAN 1-ROW NO-WRAP CONTROLS) */}
-          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap border-b border-slate-100">
+          <div className="py-2 bg-white flex items-center gap-3 overflow-x-auto flex-nowrap border-b border-slate-100">
             
-            {/* GROUP 1: ACTIONS (Tall Save Button + Stacked Quick Actions) */}
-            <div className="w-[230px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex items-stretch gap-1.5 flex-1">
-                {/* Tall Full-Height Action Button: SAVE */}
+            {/* GROUP 1: ACTIONS (Save Button + Stacked Quick Actions) */}
+            <div className="shrink-0 flex items-center gap-2 border-r border-slate-200 pr-3">
+              {/* Save Button */}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="h-[52px] px-3 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-300 text-[#01390f] transition-all cursor-pointer group flex flex-col items-center justify-center gap-0.5 shadow-2xs active:scale-95 disabled:opacity-50"
+                title="Save Appearance & Theme Colors"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 text-[#01390f] animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 text-[#01390f] group-hover:scale-110 transition-transform" strokeWidth={2.4} />
+                )}
+                <span className="text-[10px] font-bold text-slate-800 leading-tight">
+                  {isSaving ? "Saving..." : "Save Theme"}
+                </span>
+              </button>
+
+              {/* Stacked Compact Rows */}
+              <div className="flex flex-col justify-center gap-1">
                 <button
                   type="button"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="w-[82px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-emerald-50 active:bg-emerald-100 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f] disabled:opacity-50"
-                  title="Save Appearance & Theme Colors"
+                  onClick={handleApplyToAllRoles}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap h-[22px]"
+                  title="Apply current theme to all 4 staff roles"
                 >
-                  {isSaving ? (
-                    <Loader2 className="w-5 h-5 text-[#01390f] animate-spin mb-1" />
-                  ) : (
-                    <Save className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.2} />
-                  )}
-                  <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
-                    {isSaving ? "Saving..." : "Save\nTheme"}
-                  </span>
+                  <Layers className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Sync All Roles</span>
                 </button>
 
-                {/* Stacked Compact Rows */}
-                <div className="flex-1 min-w-[130px] flex flex-col justify-between py-0.5 space-y-0.5">
-                  {/* Layer 1: Sync to All Roles */}
-                  <button
-                    type="button"
-                    onClick={handleApplyToAllRoles}
-                    className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
-                    title="Apply current theme to all 4 staff roles"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="truncate">Sync All Roles</span>
-                  </button>
-
-                  {/* Layer 2: Reset Current Role */}
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={handleResetCurrentRole}
-                    className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap h-[22px]"
                     title={`Reset ${selectedRole} to defaults`}
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="truncate">Reset {selectedRole}</span>
+                    <RotateCcw className="w-3 h-3 text-slate-500 shrink-0" />
+                    <span>Reset {selectedRole}</span>
                   </button>
 
-                  {/* Layer 3: Reset All Roles */}
                   <button
                     type="button"
                     onClick={handleResetAllRoles}
-                    className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-rose-50 text-slate-700 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-rose-50 text-slate-700 hover:text-rose-700 transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap h-[22px]"
                     title="Reset all staff roles to brand defaults"
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                    <span className="truncate">Reset All Defaults</span>
+                    <RotateCcw className="w-3 h-3 text-rose-500 shrink-0" />
+                    <span>Reset All</span>
                   </button>
                 </div>
-              </div>
-
-              {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
-                Theme Actions
               </div>
             </div>
 
-            {/* GROUP 2: TARGET ELEMENT SELECTOR */}
-            <div className="w-[310px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex flex-col justify-between flex-1 py-0.5 gap-1">
-                <div className="grid grid-cols-2 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTarget("solid")}
-                    className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      activeTarget === "solid"
-                        ? "bg-[#01390f] text-white shadow-2xs"
-                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    <TableIcon className="w-3.5 h-3.5" />
-                    <span className="truncate">Buttons & Tables</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTarget("hover")}
-                    className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      activeTarget === "hover"
-                        ? "bg-[#01390f] text-white shadow-2xs"
-                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    <MousePointer className="w-3.5 h-3.5" />
-                    <span className="truncate">Sidebar Hover</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTarget("sidebar")}
-                    className={`px-1.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer truncate ${
-                      activeTarget === "sidebar"
-                        ? "bg-[#01390f] text-white shadow-2xs"
-                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    Sidebar Grad
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTarget("header")}
-                    className={`px-1.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer truncate ${
-                      activeTarget === "header"
-                        ? "bg-[#01390f] text-white shadow-2xs"
-                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    Header Grad
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTarget("both")}
-                    className={`px-1.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer truncate ${
-                      activeTarget === "both"
-                        ? "bg-[#01390f] text-white shadow-2xs"
-                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    Both Grads
-                  </button>
-                </div>
-              </div>
-
-              {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
-                Target Element to Style
+            {/* GROUP 2: TARGET ELEMENT SELECTOR (Single-row clean segmented pills) */}
+            <div className="flex-1 min-w-0 flex items-center border-r border-slate-200 pr-3">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { id: "solid", label: "Buttons & Tables", icon: TableIcon },
+                  { id: "hover", label: "Sidebar Hover", icon: MousePointer },
+                  { id: "sidebar", label: "Sidebar Grad", icon: Palette },
+                  { id: "header", label: "Header Grad", icon: LayoutDashboard },
+                  { id: "both", label: "Both Grads", icon: Sparkles },
+                ].map((target) => {
+                  const Icon = target.icon;
+                  const isActive = activeTarget === target.id;
+                  return (
+                    <button
+                      key={target.id}
+                      type="button"
+                      onClick={() => setActiveTarget(target.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-2xs ${
+                        isActive
+                          ? "bg-[#01390f] text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200/90 text-slate-700 hover:text-slate-900 border border-slate-200/70"
+                      }`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-slate-500"}`} />
+                      <span>{target.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* GROUP 3: QUICK HARMONIZERS & UTILITIES */}
-            <div className="w-[210px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-0.5">
-                {/* Auto Coordinate Solid Colors */}
+            <div className="shrink-0 flex items-center pl-1">
+              <div className="flex flex-col justify-center gap-1">
                 <button
                   type="button"
                   onClick={handleAutoCoordinateSolidColors}
-                  className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-amber-50 text-slate-700 hover:text-amber-800 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
+                  className="flex items-center gap-1.5 px-2.5 py-0.5 rounded hover:bg-amber-50 text-slate-700 hover:text-amber-800 transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap h-[22px]"
                   title="Auto-extract button & hover colors from gradient"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span className="truncate">Auto-Sync Solid</span>
+                  <span>Auto-Sync Solid</span>
                 </button>
 
-                {/* Sidebar -> Header */}
-                <button
-                  type="button"
-                  onClick={handleCopySidebarToHeader}
-                  className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
-                  title="Copy Sidebar Gradient to Page Header"
-                >
-                  <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="truncate">Sidebar → Header</span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleCopySidebarToHeader}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap h-[22px]"
+                    title="Copy Sidebar Gradient to Page Header"
+                  >
+                    <Copy className="w-3 h-3 text-slate-500 shrink-0" />
+                    <span>Sidebar → Header</span>
+                  </button>
 
-                {/* Header -> Sidebar */}
-                <button
-                  type="button"
-                  onClick={handleCopyHeaderToSidebar}
-                  className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
-                  title="Copy Page Header Gradient to Sidebar"
-                >
-                  <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="truncate">Header → Sidebar</span>
-                </button>
-              </div>
-
-              {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
-                Harmonizers
-              </div>
-            </div>
-
-            {/* GROUP 4: SHUFFLE & ACTIVE COLOR PILL */}
-            <div className="flex-1 min-w-[200px] flex flex-col justify-between pl-1 min-h-[92px]">
-              <div className="flex items-center justify-between gap-3 flex-1 py-0.5">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className="w-10 h-10 rounded-xl shadow-xs border border-slate-200 shrink-0"
-                    style={{ background: currentTargetValue }}
-                  />
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
-                      Active: {activeTarget.toUpperCase()}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-slate-800 block truncate">
-                      {currentTargetValue}
-                    </span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyHeaderToSidebar}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap h-[22px]"
+                    title="Copy Page Header Gradient to Sidebar"
+                  >
+                    <Copy className="w-3 h-3 text-slate-500 shrink-0" />
+                    <span>Header → Sidebar</span>
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleRandomHarmonious}
-                  className="px-3 py-2 text-xs font-bold text-[#01390f] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
-                  title="Shuffle style randomly"
-                >
-                  <Shuffle className="w-3.5 h-3.5 text-[#01390f]" />
-                  <span>Shuffle</span>
-                </button>
-              </div>
-
-              {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
-                Active Value & Shuffle
               </div>
             </div>
 
@@ -1106,14 +1015,10 @@ function AdminAppearance() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleApplyCustomGradient}
-                    className="px-4 py-2 bg-[#01390f] hover:bg-[#01250a] text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 self-start sm:self-auto shadow-xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    Apply Color to {selectedRole}
-                  </button>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Real-time preview • Click <strong>Save Theme</strong> to keep</span>
+                  </div>
                 </div>
               ) : (
                 /* If Gradient Mode */
@@ -1309,21 +1214,17 @@ function AdminAppearance() {
 
                   </div>
 
-                  {/* Apply Custom Palette Action */}
+                  {/* Custom Palette Action */}
                   <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={handleApplyCustomGradient}
-                      className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center gap-2 whitespace-nowrap"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      Apply Custom Palette to {selectedRole}
-                    </button>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Real-time preview • Click <strong>Save Theme</strong> to keep</span>
+                    </div>
 
                     <button
                       type="button"
                       onClick={handleApplyToAllRoles}
-                      className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap flex items-center gap-1.5"
+                      className="px-4 py-2 rounded-xl bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-xs font-bold transition-all shadow-2xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap flex items-center gap-1.5"
                       title="Copy current theme across Admin, Inventory, Logistics, and Marketing"
                     >
                       <Layers className="w-3.5 h-3.5 text-[#01390f]" />

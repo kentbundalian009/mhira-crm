@@ -175,13 +175,18 @@ export const sendMarketingAd = async (req, res) => {
       return res.status(400).json({ success: false, message: "Recipient email is required for custom audience" });
     }
 
-    // Determine recipients
+    // Determine recipients (strictly target verified customer accounts when ALL_CUSTOMERS)
     let recipients = [];
     if (targetAudience === "ALL_CUSTOMERS") {
-      const customers = await User.find({ role: "Customer", email: { $exists: true, $ne: "" } }).select("email fullName");
+      const customers = await User.find({
+        role: "Customer",
+        isEmailVerified: true,
+        isArchived: { $ne: true },
+        email: { $exists: true, $ne: "" },
+      }).select("email fullName");
       recipients = customers.map((c) => ({ email: c.email, name: c.fullName || "Valued Customer" }));
       if (recipients.length === 0) {
-        return res.status(400).json({ success: false, message: "No registered customer emails found in system." });
+        return res.status(400).json({ success: false, message: "No verified customer accounts found in system." });
       }
     } else {
       recipients = [{ email: recipientEmail, name: "Valued Customer" }];

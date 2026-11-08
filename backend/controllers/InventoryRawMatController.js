@@ -1,5 +1,6 @@
 import RawMaterial from '../models/InventoryRawMaterial.js';
 import SupplierReturnTicket from '../models/InventorySupplierReturnTicket.js';
+import Expiry from '../models/InventoryExpiry.js';
 
 // Helper function to auto-create Supplier Return Ticket when raw material is flagged Quarantine or Rejected
 const triggerSupplierReturnTicket = async (material, qcStatus, customNotes = '') => {
@@ -148,13 +149,34 @@ export const updateRawMaterial = async (req, res) => {
   }
 };
 
-// DELETE raw material
+// DELETE raw material (Cascades removal from Expiry Monitoring)
 export const deleteRawMaterial = async (req, res) => {
   try {
-    const deletedMaterial = await RawMaterial.findByIdAndDelete(req.params.id);
-
-    if (!deletedMaterial) {
+    const material = await RawMaterial.findById(req.params.id);
+    if (!material) {
       return res.status(404).json({ message: 'Raw material not found.' });
+    }
+
+    await RawMaterial.findByIdAndDelete(req.params.id);
+
+    // Cascade: Also remove any standalone Expiry records tied to this material code or name
+    if (material.code || material.itemName || material.itemDescription) {
+      const orClauses = [];
+      if (material.code) {
+        orClauses.push({ code: material.code });
+        orClauses.push({ code: new RegExp(`^${material.code}$`, 'i') });
+      }
+      if (material.itemName) {
+        orClauses.push({ itemDescription: material.itemName });
+        orClauses.push({ itemDescription: new RegExp(`^${material.itemName}$`, 'i') });
+      }
+      if (material.itemDescription) {
+        orClauses.push({ itemDescription: material.itemDescription });
+        orClauses.push({ itemDescription: new RegExp(`^${material.itemDescription}$`, 'i') });
+      }
+      if (orClauses.length > 0) {
+        await Expiry.deleteMany({ $or: orClauses }).catch(() => {});
+      }
     }
 
     return res.status(200).json({ message: 'Raw material deleted successfully.' });

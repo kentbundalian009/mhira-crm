@@ -413,14 +413,7 @@ function CustomerPackageSet() {
               </div>
             ) : sortedPackages.length === 0 ? (
               <div className="text-center py-20 max-w-md mx-auto">
-                <p className="text-slate-400 italic text-sm mb-4">No package sets found in this selection.</p>
-                <button
-                  type="button"
-                  onClick={() => handleSelectCategory("All")}
-                  className="text-xs font-semibold text-[#01390f] hover:underline cursor-pointer"
-                >
-                  View all package sets
-                </button>
+                <p className="text-slate-400 italic text-sm">No package sets found in this selection.</p>
               </div>
             ) : (
               <div

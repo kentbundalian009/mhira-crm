@@ -62,9 +62,57 @@ function MarketingCustomerFeedback() {
   const [replyText, setReplyText] = useState('');
   const [savingReply, setSavingReply] = useState(false);
 
-  const handleOpenCommentModal = (rev) => {
+  const handleOpenCommentModal = async (rev) => {
     setSelectedReview(rev);
     setReplyText(rev?.adminReply || '');
+
+    // Mark as read if not already read
+    if (rev && !rev.isRead && (!rev.adminReply || String(rev.adminReply).trim() === '')) {
+      const revId = rev._id;
+      setReviews((prev) =>
+        prev.map((r) => (r._id === revId ? { ...r, isRead: true, readAt: new Date().toISOString() } : r))
+      );
+
+      const remainingUnread = Math.max(
+        0,
+        reviews.filter(
+          (r) => r._id !== revId && !r.isRead && (!r.adminReply || String(r.adminReply).trim() === '')
+        ).length
+      );
+      try {
+        localStorage.setItem('unread_feedback_count', String(remainingUnread));
+      } catch (e) { }
+      window.dispatchEvent(new CustomEvent('reviewsUpdated', { detail: remainingUnread }));
+      window.dispatchEvent(new CustomEvent('sidebarCountRefresh'));
+
+      try {
+        const token = localStorage.getItem('token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        axios.patch(`${API_BASE_URL}/api/reviews/${revId}/read`, {}, { headers }).catch(() => { });
+        notifyLiveSync('reviews');
+      } catch (err) {
+        console.error('Error marking review as read:', err);
+      }
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      await axios.patch(`${API_BASE_URL}/api/reviews/mark-all-read`, {}, { headers });
+      setReviews((prev) => prev.map((r) => ({ ...r, isRead: true, readAt: new Date().toISOString() })));
+      try {
+        localStorage.setItem('unread_feedback_count', '0');
+      } catch (e) { }
+      window.dispatchEvent(new CustomEvent('reviewsUpdated', { detail: 0 }));
+      window.dispatchEvent(new CustomEvent('sidebarCountRefresh'));
+      notifyLiveSync('reviews');
+      showSuccessToast('All customer feedback comments marked as read!');
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+      showErrorToast('Failed to mark all as read.');
+    }
   };
 
   const handleSaveReply = async (e) => {
@@ -83,12 +131,12 @@ function MarketingCustomerFeedback() {
       setReviews((prev) =>
         prev.map((r) =>
           r._id === selectedReview._id
-            ? { ...r, adminReply: trimmed, adminReplyAt: trimmed ? new Date().toISOString() : null }
+            ? { ...r, adminReply: trimmed, adminReplyAt: trimmed ? new Date().toISOString() : null, isRead: true }
             : r
         )
       );
       setSelectedReview((prev) =>
-        prev ? { ...prev, adminReply: trimmed, adminReplyAt: trimmed ? new Date().toISOString() : null } : null
+        prev ? { ...prev, adminReply: trimmed, adminReplyAt: trimmed ? new Date().toISOString() : null, isRead: true } : null
       );
       notifyLiveSync('reviews');
       showSuccessToast(trimmed ? 'Mhira Natural reply posted to customer review!' : 'Reply removed.');
@@ -118,7 +166,15 @@ function MarketingCustomerFeedback() {
       ]);
 
       if (revRes.status === 'fulfilled') {
-        setReviews(revRes.value.data || []);
+        const fetchedReviews = revRes.value.data || [];
+        setReviews(fetchedReviews);
+        const unread = fetchedReviews.filter(
+          (r) => !r.isRead && (!r.adminReply || String(r.adminReply).trim() === '')
+        ).length;
+        try {
+          localStorage.setItem('unread_feedback_count', String(unread));
+        } catch (e) { }
+        window.dispatchEvent(new CustomEvent('reviewsUpdated', { detail: unread }));
       } else {
         showErrorToast('Failed to load customer reviews.');
       }
@@ -249,6 +305,12 @@ function MarketingCustomerFeedback() {
   // Summary Metrics
   const totalCount = reviews.length;
 
+  const unreadCount = useMemo(() => {
+    return reviews.filter(
+      (r) => !r.isRead && (!r.adminReply || String(r.adminReply).trim() === '')
+    ).length;
+  }, [reviews]);
+
   const averageRating = useMemo(() => {
     if (totalCount === 0) return '5.0';
     const sum = reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
@@ -280,7 +342,9 @@ function MarketingCustomerFeedback() {
         (r.productName || '').toLowerCase().includes(q);
 
       let matchesRating = true;
-      if (ratingFilter === '5') {
+      if (ratingFilter === 'unread') {
+        matchesRating = !r.isRead && (!r.adminReply || String(r.adminReply).trim() === '');
+      } else if (ratingFilter === '5') {
         matchesRating = Number(r.rating) === 5;
       } else if (ratingFilter === 'low') {
         matchesRating = (Number(r.rating) || 5) <= 3;
@@ -401,11 +465,42 @@ function MarketingCustomerFeedback() {
             <button
               type="button"
               onClick={() => setRatingFilter('All')}
-              className="px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg"
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
+                ratingFilter === 'All'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
               <span>All Reviews</span>
             </button>
+
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setRatingFilter(ratingFilter === 'unread' ? 'All' : 'unread')}
+                className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                  ratingFilter === 'unread'
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                }`}
+                title="Filter by unread customer comments"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
+                <span>Unread Comments</span>
+                <span
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
+                    unreadCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                  } ${
+                    ratingFilter === 'unread'
+                      ? 'bg-[#c81e1e] text-white'
+                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                  }`}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -429,6 +524,21 @@ function MarketingCustomerFeedback() {
                     Reset Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
                   </span>
                 </button>
+
+                {/* Mark All As Read */}
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllAsRead}
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-rose-50 hover:bg-rose-100 border border-rose-200 text-[#c81e1e] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap"
+                    title={`Mark all ${unreadCount} unread feedback comments as read`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#c81e1e] shrink-0" />
+                    <span className="whitespace-nowrap">
+                      Mark Read ({unreadCount})
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -473,6 +583,7 @@ function MarketingCustomerFeedback() {
                     className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
                   >
                     <option value="All">All Ratings</option>
+                    {unreadCount > 0 && <option value="unread">Unread Comments ({unreadCount})</option>}
                     <option value="5">5 Stars</option>
                     <option value="4">4 Stars</option>
                     <option value="3">3 Stars</option>
@@ -665,16 +776,27 @@ function MarketingCustomerFeedback() {
                             <button
                               type="button"
                               onClick={() => handleOpenCommentModal(rev)}
-                              title={rev.adminReply ? 'View Comment & Mhira Natural Reply' : 'View Customer Comment & Reply'}
+                              title={
+                                !rev.isRead && (!rev.adminReply || String(rev.adminReply).trim() === '')
+                                  ? 'Unread Comment - Click to read & reply'
+                                  : rev.adminReply
+                                    ? 'View Comment & Mhira Natural Reply'
+                                    : 'View Customer Comment & Reply'
+                              }
                               className="relative w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
-                              {rev.adminReply && String(rev.adminReply).trim() !== '' && (
+                              {!rev.isRead && (!rev.adminReply || String(rev.adminReply).trim() === '') ? (
+                                <span
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c81e1e] border-2 border-white animate-pulse"
+                                  title="Unread comment"
+                                />
+                              ) : rev.adminReply && String(rev.adminReply).trim() !== '' ? (
                                 <span
                                   className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"
                                   title="Replied by Mhira Natural"
                                 />
-                              )}
+                              ) : null}
                             </button>
                           </div>
                         </td>

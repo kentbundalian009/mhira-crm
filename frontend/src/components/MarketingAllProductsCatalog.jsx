@@ -520,15 +520,32 @@ function MarketingAllProductsCatalog() {
 
   // Package Set Handlers
   const generateNextPackageCode = () => {
-    const existingCodes = catalogProducts
-      .filter((p) => isPackageSet(p) || (p.code && p.code.startsWith('PKG')))
-      .map((p) => p.code || '')
-      .filter((c) => c.startsWith('PKG'));
-    const numbers = existingCodes
-      .map((c) => parseInt(c.replace('PKG', ''), 10))
-      .filter((n) => !isNaN(n));
-    const nextNum = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
-    return `PKG${String(nextNum).padStart(4, '0')}`;
+    let maxNum = 0;
+    (catalogProducts || []).forEach((item) => {
+      const codeStr = item?.code || '';
+      const match = codeStr.match(/^(?:PKG-?|PKG)(\d+)/i);
+      if (match) {
+        const numPart = parseInt(match[1], 10);
+        if (!isNaN(numPart) && numPart > maxNum) {
+          maxNum = numPart;
+        }
+      }
+    });
+    try {
+      if (maxNum === 0) {
+        const cached = JSON.parse(localStorage.getItem('cached_marketing_catalog_products') || '[]');
+        if (Array.isArray(cached)) {
+          cached.forEach((item) => {
+            const match = (item?.code || '').match(/^(?:PKG-?|PKG)(\d+)/i);
+            if (match) {
+              const numPart = parseInt(match[1], 10);
+              if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+            }
+          });
+        }
+      }
+    } catch (e) { }
+    return `PKG${String(maxNum + 1).padStart(4, '0')}`;
   };
 
   const openAddPackageSetModal = () => {
@@ -551,7 +568,7 @@ function MarketingAllProductsCatalog() {
 
     setPackageFormData({
       _id: pkg._id,
-      code: pkg.code || '',
+      code: pkg.code || generateNextPackageCode(),
       itemName: pkg.itemName || pkg.itemDescription || '',
       itemDescription: pkg.itemDescription || pkg.itemName || '',
       category: 'Package Sets',
@@ -801,8 +818,10 @@ function MarketingAllProductsCatalog() {
       const token = localStorage.getItem('token');
       const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
+      const finalCode = (packageFormData.code && packageFormData.code.trim()) ? packageFormData.code.trim().toUpperCase() : generateNextPackageCode();
+
       const payload = {
-        code: packageFormData.code.trim().toUpperCase(),
+        code: finalCode,
         itemName: packageFormData.itemName.trim(),
         itemDescription: packageFormData.itemName.trim(),
         category: 'Package Sets',
@@ -2804,15 +2823,15 @@ function MarketingAllProductsCatalog() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Package Code <span className="text-rose-500">*</span>
+                      Package Code <span className="text-[10px] text-slate-500 font-bold">(Auto-generated)</span>
                     </label>
                     <input
                       type="text"
-                      required
-                      value={packageFormData.code}
-                      onChange={(e) => setPackageFormData({ ...packageFormData, code: e.target.value.toUpperCase() })}
+                      name="code"
+                      readOnly
+                      value={packageFormData.code || ''}
                       placeholder="PKG0001"
-                      className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-mono font-bold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      className="w-full h-[36px] bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-3 text-xs font-mono font-bold focus:outline-none cursor-not-allowed select-none"
                     />
                   </div>
 

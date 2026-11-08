@@ -7,9 +7,16 @@ import {
   deleteReview,
   toggleLikeReview,
   reportReview,
+  getUnreadReviewsCount,
+  markReviewAsRead,
+  markAllReviewsAsRead,
 } from "../controllers/MarketingReviewController.js";
 
 const router = express.Router();
+
+router.get("/unread-count", getUnreadReviewsCount);
+router.patch("/mark-all-read", markAllReviewsAsRead);
+router.patch("/:id/read", markReviewAsRead);
 
 router.get("/", getAllReviews);
 router.post("/", createReview);

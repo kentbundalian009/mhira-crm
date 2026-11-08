@@ -7,9 +7,10 @@ import Product from '../models/InventoryProduct.js';
 export const getExpiryItems = async (req, res) => {
   try {
     // 1. Fetch active Products, Raw Materials, Standalone Expiries, WIPs, and Inbounds in parallel
+    // Strictly filter out archived/deleted records from active mapping
     const [allProducts, allRawMaterials, standaloneItems, wipBatches, inboundBatches] = await Promise.all([
-      Product.find().lean().maxTimeMS(8000).catch(() => []),
-      RawMaterial.find().lean().maxTimeMS(8000).catch(() => []),
+      Product.find({ isArchived: { $ne: true } }).lean().maxTimeMS(8000).catch(() => []),
+      RawMaterial.find({ isArchived: { $ne: true } }).lean().maxTimeMS(8000).catch(() => []),
       Expiry.find().lean().maxTimeMS(8000).catch(() => []),
       WIP.find().sort({ expDate: 1 }).lean().maxTimeMS(8000).catch(() => []),
       Inbound.find().sort({ dateReceived: -1 }).lean().maxTimeMS(8000).catch(() => [])
@@ -40,41 +41,46 @@ export const getExpiryItems = async (req, res) => {
     const rawMap = new Map();
 
     // 2. Process real WIP Finished Goods batches matching real products
+    // STRICT: Only include WIP if the Finished Good product ACTUALLY EXISTS in active Products records!
     wipBatches.forEach((w) => {
       if (!w.expDate) return;
       const codeKey = (w.productCode || '').toLowerCase().trim();
       const nameKey = (w.productName || '').toLowerCase().trim();
       const matchingProduct = productCodeMap.get(codeKey) || productNameMap.get(nameKey);
 
-      if (matchingProduct || w.productCode) {
-        const itemCode = matchingProduct?.code || w.productCode || 'FG-BATCH';
-        const itemName = matchingProduct?.itemName || matchingProduct?.itemDescription || w.productName || 'Finished Good';
-        const itemSpec = matchingProduct?.specification ? `${matchingProduct.specification} ${matchingProduct.uom || ''}` : `Status: ${w.status}`;
-        const itemUom = matchingProduct?.uom || 'pcs';
-        const itemQty = w.producedQuantity > 0 ? w.producedQuantity : (w.targetQuantity || 0);
-
-        const key = `${w.wipBatchCode}_${itemCode}`.toLowerCase();
-        const disposedInfo = disposedMap.get((w.wipBatchCode || '').toLowerCase().trim());
-
-        rawMap.set(key, {
-          _id: w._id,
-          batchNo: w.wipBatchCode,
-          code: itemCode,
-          category: matchingProduct?.category || 'Finished Goods',
-          itemDescription: itemName,
-          specification: itemSpec,
-          quantity: itemQty,
-          uom: itemUom,
-          mfgDate: w.mfgDate,
-          expiryDate: w.expDate,
-          status: disposedInfo ? 'Disposed' : (w.status || 'Active'),
-          disposalDetails: disposedInfo ? disposedInfo.disposalDetails : undefined,
-          source: 'WIP Production'
-        });
+      // If product does not exist or was deleted from Records > Finished Goods, DO NOT show in Expiry Monitoring!
+      if (!matchingProduct) {
+        return;
       }
+
+      const itemCode = matchingProduct.code || w.productCode;
+      const itemName = matchingProduct.itemName || matchingProduct.itemDescription || w.productName;
+      const itemSpec = matchingProduct.specification ? `${matchingProduct.specification} ${matchingProduct.uom || ''}` : `Status: ${w.status}`;
+      const itemUom = matchingProduct.uom || 'pcs';
+      const itemQty = w.producedQuantity > 0 ? w.producedQuantity : (w.targetQuantity || 0);
+
+      const key = `${w.wipBatchCode}_${itemCode}`.toLowerCase();
+      const disposedInfo = disposedMap.get((w.wipBatchCode || '').toLowerCase().trim());
+
+      rawMap.set(key, {
+        _id: w._id,
+        batchNo: w.wipBatchCode,
+        code: itemCode,
+        category: matchingProduct.category || 'Finished Goods',
+        itemDescription: itemName,
+        specification: itemSpec,
+        quantity: itemQty,
+        uom: itemUom,
+        mfgDate: w.mfgDate,
+        expiryDate: w.expDate,
+        status: disposedInfo ? 'Disposed' : (w.status || 'Active'),
+        disposalDetails: disposedInfo ? disposedInfo.disposalDetails : undefined,
+        source: 'WIP Production'
+      });
     });
 
     // 3. Process real Inbound Raw Materials batches matching real raw materials
+    // STRICT: Only include Inbound batch item if the Raw Material ACTUALLY EXISTS in active Raw Materials records!
     inboundBatches.forEach((inb) => {
       if (Array.isArray(inb.items)) {
         inb.items.forEach((it, idx) => {
@@ -82,14 +88,19 @@ export const getExpiryItems = async (req, res) => {
           const nameKey = (it.itemName || it.itemDescription || '').toLowerCase().trim();
           const matchingRM = rawMaterialCodeMap.get(codeKey) || rawMaterialNameMap.get(nameKey);
 
+          // If raw material does not exist or was deleted from Records > Raw Materials, DO NOT show in Expiry Monitoring!
+          if (!matchingRM) {
+            return;
+          }
+
           const rDate = inb.dateReceived ? new Date(inb.dateReceived) : new Date();
           const autoExp = new Date(rDate);
           autoExp.setFullYear(autoExp.getFullYear() + 1);
 
-          const itemCode = matchingRM?.code || it.code || 'RM-INBOUND';
-          const itemName = matchingRM?.itemName || matchingRM?.itemDescription || it.itemName || it.itemDescription || 'Inbound Raw Material';
-          const itemUom = matchingRM?.uom || it.uom || 'g';
-          const itemQty = it.actualQuantity || it.quantityReceived || it.expectedQuantity || matchingRM?.quantity || 0;
+          const itemCode = matchingRM.code || it.code;
+          const itemName = matchingRM.itemName || matchingRM.itemDescription || it.itemName || it.itemDescription;
+          const itemUom = matchingRM.uom || it.uom || 'g';
+          const itemQty = it.actualQuantity || it.quantityReceived || it.expectedQuantity || matchingRM.quantity || 0;
           const batchNo = inb.batchPoNo || inb.deliveryReceiptNo || `DR-${inb._id.toString().slice(-6).toUpperCase()}`;
 
           const key = `${batchNo}_${itemCode}`.toLowerCase();
@@ -99,10 +110,10 @@ export const getExpiryItems = async (req, res) => {
             _id: `${inb._id}_${idx}`,
             batchNo,
             code: itemCode,
-            category: matchingRM?.category || it.category || 'Raw Materials',
-            segment: matchingRM?.segment || it.segment || 'Receiving',
+            category: matchingRM.category || it.category || 'Raw Materials',
+            segment: matchingRM.segment || it.segment || 'Receiving',
             itemDescription: itemName,
-            specification: matchingRM?.specification || it.specification || (inb.supplierName ? `Supplier: ${inb.supplierName}` : 'Standard'),
+            specification: matchingRM.specification || it.specification || (inb.supplierName ? `Supplier: ${inb.supplierName}` : 'Standard'),
             quantity: itemQty,
             uom: itemUom,
             mfgDate: inb.dateReceived ? new Date(inb.dateReceived).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -116,7 +127,21 @@ export const getExpiryItems = async (req, res) => {
     });
 
     // 4. Process Standalone Expiry Items
+    // STRICT: Only include standalone expiry item if its item code or description exists in active Products or active Raw Materials!
     standaloneItems.forEach((st) => {
+      const codeKey = (st.code || '').toLowerCase().trim();
+      const nameKey = (st.itemDescription || st.itemName || '').toLowerCase().trim();
+      const cat = (st.category || '').toLowerCase();
+      const isFG = cat.includes('finish') || codeKey.startsWith('fg');
+
+      if (isFG) {
+        const matchingProduct = productCodeMap.get(codeKey) || productNameMap.get(nameKey);
+        if (!matchingProduct) return; // Deleted from Finished Goods!
+      } else {
+        const matchingRM = rawMaterialCodeMap.get(codeKey) || rawMaterialNameMap.get(nameKey);
+        if (!matchingRM) return; // Deleted from Raw Materials!
+      }
+
       const key = `standalone_${st.batchNo || st._id}`.toLowerCase();
       if (!rawMap.has(key)) {
         rawMap.set(key, {

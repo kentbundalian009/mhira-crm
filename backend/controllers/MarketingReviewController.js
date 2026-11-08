@@ -266,8 +266,11 @@ export const getAllReviews = async (req, res) => {
         r.uom ||
         "";
 
+      const isRead = Boolean(r.isRead || (r.adminReply && String(r.adminReply).trim() !== ""));
+
       return {
         ...r,
+        isRead,
         userEmail: resolvedEmail,
         productName: resolvedItemName || resolvedItemDesc,
         itemName: resolvedItemName,
@@ -296,6 +299,10 @@ export const updateReviewStatus = async (req, res) => {
     if (adminReply !== undefined) {
       updateData.adminReply = adminReply;
       updateData.adminReplyAt = adminReply ? new Date() : null;
+      if (adminReply && String(adminReply).trim() !== "") {
+        updateData.isRead = true;
+        updateData.readAt = new Date();
+      }
     }
 
     const updatedReview = await Review.findByIdAndUpdate(id, updateData, { new: true });
@@ -378,4 +385,54 @@ export const reportReview = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// 8. Get Unread Reviews Count (For Sidebar Notification)
+export const getUnreadReviewsCount = async (req, res) => {
+  try {
+    const count = await Review.countDocuments({
+      isRead: { $ne: true },
+      $or: [
+        { adminReply: { $exists: false } },
+        { adminReply: "" },
+        { adminReply: null }
+      ]
+    });
+    return res.status(200).json({ unreadCount: count });
+  } catch (error) {
+    console.error("Error fetching unread reviews count:", error);
+    return res.status(200).json({ unreadCount: 0 });
+  }
+};
+
+// 9. Mark Single Review as Read
+export const markReviewAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const review = await Review.findByIdAndUpdate(
+      id,
+      { isRead: true, readAt: new Date() },
+      { new: true }
+    );
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+    return res.status(200).json({ success: true, review });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// 10. Mark All Reviews as Read
+export const markAllReviewsAsRead = async (req, res) => {
+  try {
+    await Review.updateMany(
+      { isRead: { $ne: true } },
+      { $set: { isRead: true, readAt: new Date() } }
+    );
+    return res.status(200).json({ success: true, message: "All reviews marked as read" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 

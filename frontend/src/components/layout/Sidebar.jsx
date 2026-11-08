@@ -138,6 +138,51 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
     } catch (e) { }
     return 0;
   });
+  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(() => {
+    try {
+      const stored = localStorage.getItem('unread_feedback_count');
+      return stored ? parseInt(stored, 10) || 0 : 0;
+    } catch (e) {
+      return 0;
+    }
+  });
+  const [expiryAlertCount, setExpiryAlertCount] = useState(() => {
+    try {
+      const stored = localStorage.getItem('expiry_alert_count');
+      if (stored !== null) return parseInt(stored, 10) || 0;
+      const cached = localStorage.getItem('cached_inventory_expiry');
+      if (cached) {
+        const items = JSON.parse(cached);
+        if (Array.isArray(items)) {
+          return items.filter((i) => {
+            if (i.status === 'Disposed' || Boolean(i.isArchived)) return false;
+            const days = Number(i.daysUntilExpiry);
+            return days <= 30 || i.status === 'Expired' || days <= 0;
+          }).length;
+        }
+      }
+    } catch (e) { }
+    return 0;
+  });
+  const [purchaseRequestCount, setPurchaseRequestCount] = useState(() => {
+    try {
+      const stored = localStorage.getItem('purchase_request_count');
+      if (stored !== null) return parseInt(stored, 10) || 0;
+      const cached = localStorage.getItem('cached_inventory_raw_materials');
+      if (cached) {
+        const raw = JSON.parse(cached);
+        if (Array.isArray(raw)) {
+          return raw.filter((mat) => {
+            if (mat.isArchived) return false;
+            const qty = Number(mat.quantity ?? mat.qty ?? 0);
+            const restock = Number(mat.restockWarningPoint !== undefined && mat.restockWarningPoint !== '' ? mat.restockWarningPoint : 5000);
+            return qty <= restock;
+          }).length;
+        }
+      }
+    } catch (e) { }
+    return 0;
+  });
 
   const fetchNotificationCounts = useCallback(async () => {
     try {
@@ -184,9 +229,9 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
       // 3. Fetch Open Customer Support Tickets
       API.get('/api/chatbot/tickets', { headers })
         .then((res) => {
-          const tickets = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+          const tickets = Array.isArray(res.data) ? res.data : (res.data?.tickets || res.data?.data || []);
           const open = tickets.filter(
-            (t) => (t.status || '').toLowerCase() === 'open' || (t.status || '').toLowerCase() === 'pending'
+            (t) => (t.status || '').toLowerCase() !== 'resolved' && (t.status || '').toLowerCase() !== 'closed'
           ).length;
           setOpenSupportCount(open);
         })
@@ -200,6 +245,50 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
             (r) => (r.status || '').toLowerCase() === 'pending'
           ).length;
           setPendingReturnsCount(pending);
+        })
+        .catch(() => { });
+
+      // 5. Fetch Unread Customer Feedback Count
+      API.get('/api/reviews/unread-count', { headers })
+        .then((res) => {
+          const count = typeof res.data?.unreadCount === 'number' ? res.data.unreadCount : 0;
+          setUnreadFeedbackCount(count);
+          try {
+            localStorage.setItem('unread_feedback_count', String(count));
+          } catch (e) { }
+        })
+        .catch(() => { });
+
+      // 6. Fetch Expiry Monitoring Alerts (Expired or Critical <= 30 days)
+      API.get('/api/inventory-expiry', { headers })
+        .then((res) => {
+          const list = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.items || []);
+          const count = list.filter((i) => {
+            if (i.status === 'Disposed' || Boolean(i.isArchived)) return false;
+            const days = Number(i.daysUntilExpiry);
+            return days <= 30 || i.status === 'Expired' || days <= 0;
+          }).length;
+          setExpiryAlertCount(count);
+          try {
+            localStorage.setItem('expiry_alert_count', String(count));
+          } catch (e) { }
+        })
+        .catch(() => { });
+
+      // 7. Fetch Purchase Requests Needed (Raw Materials in Critical Alert or Restock Warning)
+      API.get('/api/inventory-raw-materials', { headers })
+        .then((res) => {
+          const raw = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.rawMaterials || res.data?.items || []);
+          const count = raw.filter((mat) => {
+            if (mat.isArchived) return false;
+            const qty = Number(mat.quantity ?? mat.qty ?? 0);
+            const restock = Number(mat.restockWarningPoint !== undefined && mat.restockWarningPoint !== '' ? mat.restockWarningPoint : 5000);
+            return qty <= restock;
+          }).length;
+          setPurchaseRequestCount(count);
+          try {
+            localStorage.setItem('purchase_request_count', String(count));
+          } catch (e) { }
         })
         .catch(() => { });
     } catch (e) { }
@@ -223,6 +312,23 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
       }
     };
 
+    const handleFeedbackUpdate = (e) => {
+      if (typeof e.detail === 'number') {
+        setUnreadFeedbackCount(e.detail);
+        try {
+          localStorage.setItem('unread_feedback_count', String(e.detail));
+        } catch (err) { }
+      } else {
+        try {
+          const stored = localStorage.getItem('unread_feedback_count');
+          if (stored !== null) setUnreadFeedbackCount(parseInt(stored, 10) || 0);
+          else fetchNotificationCounts();
+        } catch (err) {
+          fetchNotificationCounts();
+        }
+      }
+    };
+
     const handleGeneralRefresh = () => {
       fetchNotificationCounts();
     };
@@ -231,6 +337,12 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
     window.addEventListener('sidebarCountRefresh', handleGeneralRefresh);
     window.addEventListener('ordersUpdated', handleGeneralRefresh);
     window.addEventListener('returnsUpdated', handleGeneralRefresh);
+    window.addEventListener('ticketsUpdated', handleGeneralRefresh);
+    window.addEventListener('reviewsUpdated', handleFeedbackUpdate);
+    window.addEventListener('feedbackCountUpdated', handleFeedbackUpdate);
+    window.addEventListener('expiryUpdated', handleGeneralRefresh);
+    window.addEventListener('rawMaterialsUpdated', handleGeneralRefresh);
+    window.addEventListener('inventoryUpdated', handleGeneralRefresh);
     window.addEventListener('storage', handleWipUpdate);
 
     // Periodic refresh every 25 seconds
@@ -240,6 +352,12 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
       window.removeEventListener('sidebarCountRefresh', handleGeneralRefresh);
       window.removeEventListener('ordersUpdated', handleGeneralRefresh);
       window.removeEventListener('returnsUpdated', handleGeneralRefresh);
+      window.removeEventListener('ticketsUpdated', handleGeneralRefresh);
+      window.removeEventListener('reviewsUpdated', handleFeedbackUpdate);
+      window.removeEventListener('feedbackCountUpdated', handleFeedbackUpdate);
+      window.removeEventListener('expiryUpdated', handleGeneralRefresh);
+      window.removeEventListener('rawMaterialsUpdated', handleGeneralRefresh);
+      window.removeEventListener('inventoryUpdated', handleGeneralRefresh);
       window.removeEventListener('storage', handleWipUpdate);
       clearInterval(interval);
     };
@@ -375,6 +493,33 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
       return {
         count: openSupportCount,
         label: openSupportCount > 99 ? "99+" : String(openSupportCount),
+        pillClass: "text-white font-semibold text-xs",
+        dotClass: "bg-[#c81e1e]",
+        isRedDot: true,
+      };
+    }
+    if (itemId === "customer-feedback" && unreadFeedbackCount > 0) {
+      return {
+        count: unreadFeedbackCount,
+        label: unreadFeedbackCount > 99 ? "99+" : String(unreadFeedbackCount),
+        pillClass: "text-white font-semibold text-xs",
+        dotClass: "bg-[#c81e1e]",
+        isRedDot: true,
+      };
+    }
+    if (itemId === "inv-expiry" && expiryAlertCount > 0) {
+      return {
+        count: expiryAlertCount,
+        label: expiryAlertCount > 99 ? "99+" : String(expiryAlertCount),
+        pillClass: "text-white font-semibold text-xs",
+        dotClass: "bg-[#c81e1e]",
+        isRedDot: true,
+      };
+    }
+    if (itemId === "material-requests" && purchaseRequestCount > 0) {
+      return {
+        count: purchaseRequestCount,
+        label: purchaseRequestCount > 99 ? "99+" : String(purchaseRequestCount),
         pillClass: "text-white font-semibold text-xs",
         dotClass: "bg-[#c81e1e]",
         isRedDot: true,

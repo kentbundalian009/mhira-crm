@@ -458,7 +458,7 @@ export const verifyPayMongoPayment = async (req, res) => {
         status: "To Ship",
       });
 
-      // Deduct stock from inventory
+      // Order is in packing / 'To Ship'; inventory will be deducted once order moves to 'In Transit'
       await handleInventoryStockSync(order, "To Ship");
 
       // Update user loyalty points & tier

@@ -1,5 +1,6 @@
 import Product from '../models/InventoryProduct.js';
 import Collection from '../models/MarketingCollection.js';
+import Expiry from '../models/InventoryExpiry.js';
 import { invalidateProductsCache } from './MarketingCollectionController.js';
 
 // Get all products
@@ -174,14 +175,36 @@ export const updateProduct = async (req, res) => {
   }
 };
 
-// Delete product
+// Delete product (Cascades removal from Expiry Monitoring)
 export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedProduct = await Product.findByIdAndDelete(id);
+    const product = await Product.findById(id);
 
-    if (!deletedProduct) {
+    if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+
+    await Product.findByIdAndDelete(id);
+
+    // Cascade: Also remove any standalone Expiry records tied to this product code or name
+    if (product.code || product.itemName || product.itemDescription) {
+      const orClauses = [];
+      if (product.code) {
+        orClauses.push({ code: product.code });
+        orClauses.push({ code: new RegExp(`^${product.code}$`, 'i') });
+      }
+      if (product.itemName) {
+        orClauses.push({ itemDescription: product.itemName });
+        orClauses.push({ itemDescription: new RegExp(`^${product.itemName}$`, 'i') });
+      }
+      if (product.itemDescription) {
+        orClauses.push({ itemDescription: product.itemDescription });
+        orClauses.push({ itemDescription: new RegExp(`^${product.itemDescription}$`, 'i') });
+      }
+      if (orClauses.length > 0) {
+        await Expiry.deleteMany({ $or: orClauses }).catch(() => {});
+      }
     }
 
     res.status(200).json({ message: 'Product deleted successfully' });

@@ -34,7 +34,8 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Eye,
-  RotateCcw
+  RotateCcw,
+  FileSpreadsheet
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -218,6 +219,8 @@ function LogisticsSupportCenter() {
       if (data.success) {
         showSuccessToast(`Ticket marked as ${statusToSet === "resolved" ? "Resolved" : "Active"}.`);
         fetchTickets();
+        window.dispatchEvent(new Event('ticketsUpdated'));
+        window.dispatchEvent(new Event('sidebarCountRefresh'));
       }
     } catch (err) {
       showErrorToast("Failed to update status.");
@@ -243,6 +246,8 @@ function LogisticsSupportCenter() {
           setSelectedTicket(null);
         }
         fetchTickets();
+        window.dispatchEvent(new Event('ticketsUpdated'));
+        window.dispatchEvent(new Event('sidebarCountRefresh'));
       }
     } catch (err) {
       showErrorToast("Failed to remove ticket.");
@@ -498,25 +503,69 @@ function LogisticsSupportCenter() {
       {/* MAIN CARD CONTAINER (HOUSING TOOLBAR, FILTERS & TABLE) */}
       <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-4 sm:p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
         {/* EXCEL SHEET TABS */}
-        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'all', label: 'All Inquiries' },
-              { id: 'pending', label: 'Active & Pending' },
-              { id: 'resolved', label: 'Resolved' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.id
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50'
+        <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 overflow-x-auto no-scrollbar border-b border-slate-100 sm:border-b-0">
+          <div className="flex items-center gap-1 -mb-px">
+            {/* 1. All Inquiries Master Sheet */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('all')}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'all'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
+              <span>All Inquiries</span>
+            </button>
+
+            {/* 2. Active & Pending Notification Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'pending'
+                  ? activeCount > 0
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : activeCount > 0
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+              title="Filter by Active & Pending Customer Support Cases"
+            >
+              {activeCount > 0 && (
+                <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
+              )}
+              <span>Active & Pending</span>
+              {activeCount > 0 && (
+                <span
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
+                    activeCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                  } ${
+                    activeTab === 'pending'
+                      ? 'bg-[#c81e1e] text-white'
+                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
                   }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+                  title={`${activeCount} Active / Pending Support Cases`}
+                >
+                  {activeCount > 99 ? '99+' : activeCount}
+                </span>
+              )}
+            </button>
+
+            {/* 3. Resolved Sheet Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('resolved')}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
+                activeTab === 'resolved'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <span>Resolved</span>
+            </button>
           </div>
           <div className="flex items-center gap-2 pb-1">
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200">
@@ -866,9 +915,15 @@ function LogisticsSupportCenter() {
                               onClick={() => handleSelectTicket(t)}
                               title="View & Respond to Inquiry"
                               aria-label="View & Respond to Inquiry"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
+                              className="relative w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
+                              {t.status !== 'resolved' && (
+                                <span
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c81e1e] border-2 border-white animate-pulse"
+                                  title="Active / Pending Support Inquiry"
+                                />
+                              )}
                             </button>
                           </div>
                         </td>

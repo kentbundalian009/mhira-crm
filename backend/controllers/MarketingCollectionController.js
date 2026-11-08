@@ -361,7 +361,35 @@ export const getInventoryProducts = async (req, res) => {
 // 5. Create / Add New Catalog Item
 export const createCatalogProduct = async (req, res) => {
     try {
-        const newProduct = new Collection(req.body);
+        const productData = { ...req.body };
+
+        if (!productData.code || productData.code.trim() === '') {
+            const isPackage =
+                productData.category === 'Package Sets' ||
+                productData.category === 'Package Set' ||
+                productData.category === 'Special Bundles' ||
+                productData.isBundle === true ||
+                (Array.isArray(productData.bundleItems) && productData.bundleItems.length > 0);
+
+            const prefix = isPackage ? 'PKG' : 'FG';
+            const allItems = await Collection.find({}, 'code');
+            let maxNum = 0;
+            allItems.forEach((p) => {
+                if (p.code) {
+                    const regex = new RegExp(`^(?:${prefix}-?|${prefix})(\\d+)`, 'i');
+                    const match = p.code.match(regex);
+                    if (match) {
+                        const numPart = parseInt(match[1], 10);
+                        if (!isNaN(numPart) && numPart > maxNum) {
+                            maxNum = numPart;
+                        }
+                    }
+                }
+            });
+            productData.code = `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+        }
+
+        const newProduct = new Collection(productData);
         const savedProduct = await newProduct.save();
         invalidateProductsCache();
         return res.status(201).json(savedProduct);

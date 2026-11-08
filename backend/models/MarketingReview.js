@@ -75,6 +75,14 @@ const reviewSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -82,6 +90,7 @@ const reviewSchema = new mongoose.Schema(
 // High-performance database query indexes
 reviewSchema.index({ productId: 1, status: 1, createdAt: -1 });
 reviewSchema.index({ userId: 1 });
+reviewSchema.index({ isRead: 1 });
 
 const Review = mongoose.models.Review || mongoose.model("Review", reviewSchema);
 export default Review;
