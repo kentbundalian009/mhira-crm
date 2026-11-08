@@ -292,7 +292,7 @@ function Chatbot({ isOpen: externalOpen }) {
       return "📦 Salamat po sa inyong order inquiry! Na-forward na po namin ang inyong buong order details sa aming Mhira Customer Support & Logistics Staff.\n\nKasalukuyan na pong sinusuri ng aming team ang inyong order at makikipag-ugnayan ang aming live specialist dito sa chat sa ilang sandali lamang. Kung mayroon pa po kayong karagdagang tanong o request (hal. delivery address correction, rider follow-up, o product concern), i-type lamang po ito rito.";
     }
     if (lower.includes("serum") || lower.includes("face serum")) {
-      return "✨ Best Face Serum Recommendation:\nOur #1 bestseller is the Mhira Collagen & Vitamin C Brightening Serum (30ml). It boosts skin elasticity, fades dark spots, and provides lightweight 24-hr hydration using pure botanical extracts. Check it out under Our Collection > Skin Care!";
+      return "dito galing yun go Best Face Serum Recommendation:\nOur #1 bestseller is the Mhira Collagen & Vitamin C Brightening Serum (30ml). It boosts skin elasticity, fades dark spots, and provides lightweight 24-hr hydration using pure botanical extracts. Check it out under Our Collection > Skin Care!";
     }
     if (lower.includes("hair") || lower.includes("hair care")) {
       return "💆‍♀️ Natural Hair Care Tips:\n1. Use our sulfate-free organic shampoo bars to avoid scalp dryness.\n2. Apply pure Coconut & Argan Hair Oil on damp ends for frizz-free shine.\n3. Rinse with lukewarm water to seal hair cuticles.";
@@ -502,7 +502,7 @@ function Chatbot({ isOpen: externalOpen }) {
       {/* Main Chat Overlay */}
       {isOpen && (
         <div className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 w-[95vw] sm:w-[410px] h-[600px] max-h-[88vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 border-0 font-['Poppins',sans-serif] animate-fadeIn">
-          
+
           {/* 1. Header (Strictly CHAT and X, matching FAQ'S) */}
           <div className="bg-[#01390f] px-5 py-3.5 text-white flex items-center justify-between shrink-0 border-b border-[#012a0b]">
             <h2 id="live-chat-title" className="font-bold text-sm tracking-wider text-white uppercase">
@@ -553,7 +553,7 @@ function Chatbot({ isOpen: externalOpen }) {
 
           {/* 2. Chat Stream */}
           <div className="flex-1 p-3.5 overflow-y-auto bg-[#f8faf8] space-y-3.5 custom-scrollbar">
-            
+
             {/* Timestamp Badge */}
             <div className="flex justify-center">
               <span className="bg-slate-200/70 text-slate-600 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
@@ -653,13 +653,12 @@ function Chatbot({ isOpen: externalOpen }) {
               return (
                 <div key={index} className={`flex ${isCust ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-2xs text-xs flex flex-col gap-1.5 ${
-                      isCust
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-2xs text-xs flex flex-col gap-1.5 ${isCust
                         ? "bg-[#01390f] text-white rounded-tr-none"
                         : isCsr
-                        ? "bg-amber-600 text-white rounded-tl-none"
-                        : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"
-                    }`}
+                          ? "bg-amber-600 text-white rounded-tl-none"
+                          : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"
+                      }`}
                   >
                     {/* RICH ORDER CARD IF ATTACHED */}
                     {msg.orderData && (
@@ -714,9 +713,8 @@ function Chatbot({ isOpen: externalOpen }) {
                     )}
 
                     <span
-                      className={`text-[9px] text-right font-medium ${
-                        isCust || isCsr ? "text-slate-200" : "text-slate-400"
-                      }`}
+                      className={`text-[9px] text-right font-medium ${isCust || isCsr ? "text-slate-200" : "text-slate-400"
+                        }`}
                     >
                       {isCsr ? `Logistics Staff • ${msg.time}` : msg.time}
                     </span>
@@ -845,11 +843,10 @@ function Chatbot({ isOpen: externalOpen }) {
               <button
                 type="submit"
                 disabled={(!input.trim() && !filePreview) || loading}
-                className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all ${
-                  (input.trim() || filePreview) && !loading
+                className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all ${(input.trim() || filePreview) && !loading
                     ? "bg-[#01390f] hover:bg-[#0a5219] text-white shadow-md active:scale-[0.99] cursor-pointer"
                     : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                }`}
+                  }`}
               >
                 <span>Send</span>
                 <Send className="w-3 h-3" />

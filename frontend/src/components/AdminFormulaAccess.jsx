@@ -208,7 +208,7 @@ export default function AdminFormulaAccess() {
   return (
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif]">
       {/* TOP OVERVIEW BANNER */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="flex items-start sm:items-center gap-4">
           <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-[#EDF7EE] border border-[#d5ead7] flex items-center justify-center text-[#01390f] shrink-0 shadow-2xs">
             <KeyRound className="w-7 h-7" strokeWidth={2.2} />
@@ -268,7 +268,7 @@ export default function AdminFormulaAccess() {
         <div className="lg:col-span-5 flex flex-col gap-6">
           
           {/* CURRENT PIN DISPLAY CARD */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex flex-col gap-4">
+          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -341,7 +341,7 @@ export default function AdminFormulaAccess() {
           </div>
 
           {/* SIMULATOR & PIN VALIDATOR CARD */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex flex-col gap-4">
+          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col gap-4">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Verification Sandbox
@@ -411,7 +411,7 @@ export default function AdminFormulaAccess() {
           </div>
 
           {/* SYSTEM GUIDELINES CARD */}
-          <div className="bg-[#EDF7EE]/60 border border-[#d5ead7] rounded-3xl p-5 flex items-start gap-3.5">
+          <div className="bg-[#EDF7EE]/60 border border-[#d5ead7] rounded-2xl p-3 sm:p-5 flex items-start gap-3.5">
             <div className="w-9 h-9 rounded-full bg-white border border-[#d5ead7] flex items-center justify-center text-[#01390f] shrink-0 mt-0.5">
               <ShieldCheck className="w-5 h-5" />
             </div>
@@ -431,7 +431,7 @@ export default function AdminFormulaAccess() {
         <div className="lg:col-span-7 flex flex-col gap-6">
           
           {/* CONFIGURE NEW PIN FORM CARD */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm flex flex-col gap-5">
+          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col gap-5">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Security Administration

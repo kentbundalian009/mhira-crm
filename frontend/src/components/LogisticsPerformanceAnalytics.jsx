@@ -111,21 +111,20 @@ function LogisticsPerformanceAnalytics() {
   };
 
   // Helper for Tier calculation
-  const getTierFromAmount = (total) => {
+  const getTierFromAmount = (total, orderCount = 0) => {
     const num = Number(total || 0);
-    if (num >= 10000) return 'Platinum';
-    if (num >= 5000) return 'Gold';
-    if (num >= 1000) return 'Silver';
+    const count = Number(orderCount || 0);
+    if (num >= 5000 || count >= 3) return 'Gold';
+    if (count >= 1 || num >= 1000) return 'Silver';
     return 'Bronze';
   };
 
   // Helper for Badge Label
-  const getBadgeLabel = (tier, total) => {
-    const t = (tier || getTierFromAmount(total)).toLowerCase();
-    if (t.includes('platinum')) return 'Platinum VIP';
-    if (t.includes('gold')) return 'Gold VIP';
-    if (t.includes('silver')) return 'Silver Loyal';
-    return 'Bronze Member';
+  const getBadgeLabel = (tier, total, orderCount = 0) => {
+    const t = (tier || getTierFromAmount(total, orderCount)).toLowerCase();
+    if (t.includes('gold') || t.includes('loyal') || t.includes('platinum')) return 'Gold Tier';
+    if (t.includes('silver')) return 'Silver Tier';
+    return 'Bronze Tier';
   };
 
   // Dynamic Customer Rankings aggregation (from backend data or aggregated from salesData)
@@ -191,7 +190,17 @@ function LogisticsPerformanceAnalytics() {
 
         // 2. Tier Filter
         if (rankTierFilter !== 'All') {
-          if ((c.tier || '').toLowerCase() !== rankTierFilter.toLowerCase()) {
+          const filterLower = rankTierFilter.toLowerCase();
+          const tierLower = (c.tier || '').toLowerCase();
+          if (filterLower === 'gold' || filterLower === 'loyal') {
+            if (!tierLower.includes('gold') && !tierLower.includes('loyal') && !tierLower.includes('platinum')) {
+              return false;
+            }
+          } else if (filterLower === 'silver') {
+            if (!tierLower.includes('silver')) return false;
+          } else if (filterLower === 'bronze') {
+            if (!tierLower.includes('bronze')) return false;
+          } else if (tierLower !== filterLower) {
             return false;
           }
         }
@@ -299,30 +308,26 @@ function LogisticsPerformanceAnalytics() {
   // Helper: Customer Loyalty Tier Badge UI Component
   const renderCustomerBadge = (tier) => {
     const t = (tier || '').toLowerCase();
-    if (t.includes('platinum')) {
+    if (t.includes('gold') || t.includes('loyal') || t.includes('platinum')) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs whitespace-nowrap">
-          Platinum
-        </span>
-      );
-    }
-    if (t.includes('gold')) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs whitespace-nowrap">
-          Gold
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs whitespace-nowrap">
+          <Award className="w-3 h-3 text-amber-600" />
+          Gold Tier
         </span>
       );
     }
     if (t.includes('silver')) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs whitespace-nowrap">
-          Silver
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs whitespace-nowrap">
+          <ShieldCheck className="w-3 h-3 text-slate-600" />
+          Silver Tier
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200 shadow-2xs whitespace-nowrap">
-        Bronze
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200 shadow-2xs whitespace-nowrap">
+        <Star className="w-3 h-3 text-orange-600" />
+        Bronze Tier
       </span>
     );
   };
@@ -514,17 +519,18 @@ function LogisticsPerformanceAnalytics() {
       );
 
       const tableHead = [
-        ['Rank', 'Customer Name', 'Username', 'Loyalty Badge', 'Orders', 'Total Spent (PHP)', 'Last Purchase']
+        ['Rank', 'Customer Name', 'Username', 'Mhira Shoppers Tier', 'Orders', 'Discounts (PHP)', 'Total Spent (PHP)', 'Last Purchase']
       ];
 
       const tableBody = filteredCustomerRankings.map((c) => [
         `#${c.rank}`,
         c.name || 'Valued Customer',
         `@${c.username || 'customer'}`,
-        c.badgeLabel || `${c.tier} Member`,
-        c.orderCount || 1,
+        c.badgeLabel || `${c.tier} Tier`,
+        c.orderCount || 0,
+        `PHP ${Number(c.totalDiscounts || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
         `PHP ${Number(c.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
-        c.lastOrderDate || 'Recent'
+        c.lastOrderDate || 'None'
       ]);
 
       autoTable(doc, {
@@ -560,11 +566,11 @@ function LogisticsPerformanceAnalytics() {
   // Export Customer Rankings CSV
   const handleExportLeaderboardCsv = () => {
     if (filteredCustomerRankings.length === 0) return showErrorToast('No ranking data to export.');
-    const headers = 'Rank,Customer Name,Username,Loyalty Badge,Tier,Total Orders,Total Spent,Last Purchase\n';
+    const headers = 'Rank,Customer Name,Username,Mhira Shoppers Tier,Tier,Total Orders,Discounts Availed (PHP),Total Spent,Last Purchase\n';
     const rows = filteredCustomerRankings
       .map(
         (c) =>
-          `"${c.rank}","${c.name}","@${c.username}","${c.badgeLabel}","${c.tier}",${c.orderCount},${c.totalSpent},"${c.lastOrderDate}"`
+          `"${c.rank}","${c.name}","@${c.username}","${c.badgeLabel}","${c.tier}",${c.orderCount || 0},${c.totalDiscounts || 0},${c.totalSpent || 0},"${c.lastOrderDate || 'None'}"`
       )
       .join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
@@ -1093,11 +1099,10 @@ function LogisticsPerformanceAnalytics() {
                         onChange={(e) => setRankTierFilter(e.target.value)}
                         className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate font-medium"
                       >
-                        <option value="All">All Loyalty Tiers</option>
-                        <option value="Platinum">Platinum VIP (₱10k+)</option>
-                        <option value="Gold">Gold VIP (₱5k+)</option>
-                        <option value="Silver">Silver Loyal (₱1k+)</option>
-                        <option value="Bronze">Bronze Member</option>
+                        <option value="All">All Shoppers</option>
+                        <option value="Gold">Gold Tier (₱5k+ or 3+ orders)</option>
+                        <option value="Silver">Silver Tier (₱1k+ or 1+ order)</option>
+                        <option value="Bronze">Bronze Tier (New Shopper / 0 orders)</option>
                       </select>
                       <ChevronDown className="w-3 h-3 absolute right-1.5 top-1.5 text-slate-400 pointer-events-none" />
                     </div>
@@ -1121,10 +1126,10 @@ function LogisticsPerformanceAnalytics() {
                   {/* Layer 3: Quick Filter Toggles */}
                   <div className="grid grid-cols-4 gap-2 w-full">
                     {[
-                      { id: 'All', label: 'All Customers' },
-                      { id: 'Platinum', label: 'Platinum' },
-                      { id: 'Gold', label: 'Gold' },
-                      { id: 'Silver', label: 'Silver' },
+                      { id: 'All', label: 'All Shoppers' },
+                      { id: 'Gold', label: 'Gold Tier' },
+                      { id: 'Silver', label: 'Silver Tier' },
+                      { id: 'Bronze', label: 'Bronze Tier' },
                     ].map((tier) => (
                       <button
                         key={tier.id}
@@ -1169,9 +1174,10 @@ function LogisticsPerformanceAnalytics() {
                     <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
                       <th className="py-3.5 px-4 text-center w-16">Rank</th>
                       <th className="py-3.5 px-4 min-w-[200px]">Customer Name & Username</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Loyalty Tier</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Mhira Shoppers Tier</th>
                       <th className="py-3.5 px-4 text-right font-mono whitespace-nowrap">Total Spent</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap">Orders Placed</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Discounts Availed</th>
                       <th className="py-3.5 px-4 text-right font-mono whitespace-nowrap">Avg / Order</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap">Last Purchase</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-32">
@@ -1183,7 +1189,7 @@ function LogisticsPerformanceAnalytics() {
                   <tbody className="divide-y divide-slate-100 font-medium">
                     {loading ? (
                       <tr>
-                        <td colSpan="8" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                        <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
                           <div className="flex items-center justify-center gap-2">
                             <Loader2 className="w-5 h-5 animate-spin" />
                             <span>Computing customer leaderboard & badges...</span>
@@ -1192,7 +1198,7 @@ function LogisticsPerformanceAnalytics() {
                       </tr>
                     ) : filteredCustomerRankings.length === 0 ? (
                       <tr>
-                        <td colSpan="8" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                        <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
                           No customer rankings found matching your search.
                         </td>
                       </tr>
@@ -1239,7 +1245,7 @@ function LogisticsPerformanceAnalytics() {
                               </div>
                             </td>
 
-                            {/* Loyalty Badge */}
+                            {/* Mhira Shoppers Tier Badge */}
                             <td className="py-3 px-4 text-center">
                               {renderCustomerBadge(c.tier, c.badgeLabel)}
                             </td>
@@ -1254,6 +1260,22 @@ function LogisticsPerformanceAnalytics() {
                               <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 text-[11px] font-bold">
                                 {c.orderCount} {c.orderCount === 1 ? 'order' : 'orders'}
                               </span>
+                            </td>
+
+                            {/* Discounts Availed */}
+                            <td className="py-3 px-4 text-center font-mono text-slate-700">
+                              {Number(c.totalDiscounts || 0) > 0 ? (
+                                <div className="flex flex-col items-center">
+                                  <span className="font-bold text-emerald-700 text-xs">
+                                    -₱{Number(c.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {c.discountCount || 1} {c.discountCount === 1 ? 'voucher' : 'vouchers'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">₱0.00 (0)</span>
+                              )}
                             </td>
 
                             {/* Avg / Order */}

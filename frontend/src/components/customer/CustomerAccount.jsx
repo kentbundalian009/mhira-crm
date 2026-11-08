@@ -1047,71 +1047,105 @@ function CustomerAccount({ initialTab }) {
                 </div>
 
                 {/* VIP MEMBERSHIP & REWARD POINTS CARD */}
-                <div className="bg-gradient-to-br from-[#01390f] to-[#01260a] text-white rounded-2xl p-5 sm:p-6 shadow-md relative overflow-hidden">
-                  <div className="relative z-10 space-y-4">
-                    <div className="flex items-start justify-between gap-3">
+                <div className="bg-[#FAFBF9] border border-[#D5EAD7] rounded-2xl p-5 sm:p-6 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-full bg-[#EDF7EE] border border-[#01390f]/20 text-[#01390f] font-bold text-lg flex items-center justify-center shrink-0 overflow-hidden">
+                        {profile.profileImage ? (
+                          <img src={profile.profileImage} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          (profile.fullName || profile.username || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
                       <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#01390f] block">
                           Mhira Natural VIP Membership
                         </span>
-                        <h3 className="text-lg font-black text-white mt-0.5">
-                          {profile.fullName || "Valued Customer"}
-                        </h3>
-                        <p className="font-mono text-xs text-emerald-300">
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          <h3 className="text-base font-bold text-slate-900">
+                            {profile.fullName || "Valued Customer"}
+                          </h3>
+                          {profile.tier === "Gold" || profile.tier === "Loyal" || profile.tier === "Platinum" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+                              <Award className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Gold Tier</span>
+                            </span>
+                          ) : profile.tier === "Silver" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
+                              <ShieldCheck className="w-3.5 h-3.5 text-slate-700" />
+                              <span>Silver Tier</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-800 border border-orange-200 shadow-2xs">
+                              <Star className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Bronze Tier</span>
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-mono text-xs text-[#01390f] font-medium mt-0.5">
                           @{profile.username || (profile.fullName ? profile.fullName.toLowerCase().replace(/[^a-z0-9]/g, "") : "customer")}
                         </p>
                       </div>
-
-                      {/* VIP BADGE */}
-                      <div>
-                        {profile.tier === "Platinum" ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 shadow-xs">
-                            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                            <span>Platinum VIP</span>
-                          </span>
-                        ) : profile.tier === "Gold" ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 shadow-xs">
-                            <Award className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Gold VIP</span>
-                          </span>
-                        ) : profile.tier === "Silver" ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-slate-200 text-slate-900 shadow-xs">
-                            <ShieldCheck className="w-3.5 h-3.5 text-slate-700" />
-                            <span>Silver Loyal</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-orange-100 text-orange-900 shadow-xs">
-                            <Star className="w-3.5 h-3.5 text-orange-600" />
-                            <span>Bronze Member</span>
-                          </span>
-                        )}
-                      </div>
                     </div>
 
-                    {/* POINTS & STATUS COUNTERS */}
-                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-emerald-800/80">
-                      <div className="bg-white/10 rounded-xl p-3 backdrop-blur-xs">
-                        <span className="text-[10px] uppercase font-bold text-emerald-200 block tracking-wider">Reward Points</span>
-                        <span className="text-xl font-black text-amber-300 font-mono">
-                          ⭐ {profile.rewardPoints || 0} pts
+                    <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+                      <Link
+                        to="/collection"
+                        className="py-2.5 px-5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer text-center inline-flex items-center gap-2"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <span>Shop & Earn Points</span>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Points & Membership Metrics Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+                    <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Reward Points</span>
+                        <span className="text-base font-bold text-[#01390f] font-mono">
+                          <span className="text-amber-500 drop-shadow-xs font-black">⭐ {profile.rewardPoints || 0}</span> pts
                         </span>
-                        <span className="text-[10px] text-emerald-100 block mt-0.5">
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
                           ₱{profile.rewardPoints || 0}.00 discount at checkout
                         </span>
                       </div>
+                      <span className="text-[11px] font-medium text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
+                        ₱{profile.rewardPoints || 0}.00 OFF
+                      </span>
+                    </div>
 
-                      <div className="bg-white/10 rounded-xl p-3 backdrop-blur-xs">
-                        <span className="text-[10px] uppercase font-bold text-emerald-200 block tracking-wider">VIP Status</span>
-                        <span className="text-xl font-black text-white">
-                          {profile.tier ? `${profile.tier} VIP` : "Bronze Member"}
+                    <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Membership Tier</span>
+                        <span className="text-base font-bold text-slate-800">
+                          {profile.tier ? `${profile.tier} Tier` : "Bronze Tier"}
                         </span>
-                        <span className="text-[10px] text-emerald-100 block mt-0.5">
-                          {profile.tier === "Platinum" ? "Highest VIP Tier Reached 🎉" : "Active Member Privileges"}
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          {profile.tier === "Gold" || profile.tier === "Platinum" ? "Top VIP Tier Reached 🎉" : "Active Member Privileges"}
                         </span>
                       </div>
+                      <span className="text-[11px] font-medium text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
+                        Active VIP
+                      </span>
+                    </div>
+
+                    <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Loyalty Rate</span>
+                        <span className="text-xs font-medium text-slate-700 block mt-0.5">
+                          1 pt per ₱50.00 spent
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          Earn points automatically
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                        Automatic
+                      </span>
                     </div>
                   </div>
-                  <Award className="w-48 h-48 absolute -right-6 -bottom-10 text-white/5 pointer-events-none" />
                 </div>
 
                 {/* Profile Photo Row */}
@@ -1642,25 +1676,20 @@ function CustomerAccount({ initialTab }) {
                         </p>
                       </div>
 
-                      {profile.tier === "Platinum" ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-900 shadow-xs">
-                          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                          <span>Platinum VIP</span>
-                        </span>
-                      ) : profile.tier === "Gold" ? (
+                      {profile.tier === "Gold" || profile.tier === "Loyal" || profile.tier === "Platinum" ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 shadow-xs">
                           <Award className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Gold VIP</span>
+                          <span>Gold Tier</span>
                         </span>
                       ) : profile.tier === "Silver" ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-slate-200 text-slate-900 shadow-xs">
                           <ShieldCheck className="w-3.5 h-3.5 text-slate-700" />
-                          <span>Silver Loyal</span>
+                          <span>Silver Tier</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-orange-100 text-orange-900 shadow-xs">
                           <Star className="w-3.5 h-3.5 text-orange-600" />
-                          <span>Bronze Member</span>
+                          <span>Bronze Tier</span>
                         </span>
                       )}
                     </div>

@@ -224,7 +224,6 @@ function InventoryDeliveryReceiving() {
   // Modal Detail View for Inbound Logs
   const [selectedLog, setSelectedLog] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [isMasterConfigModalOpen, setIsMasterConfigModalOpen] = useState(false);
 
   // Check if current Delivery Receipt No. is already existing
   const isDrDuplicate = useMemo(() => {
@@ -944,28 +943,41 @@ function InventoryDeliveryReceiving() {
         },
       });
 
-      // Table of Received Items
+      // Table of Received Items (Consistent UI: Status column removed, Quantity td colored with soft tint)
       const tableHead = [
-        ['#', 'ITEM CODE', 'MATERIAL DESCRIPTION', 'QTY RECEIVED', 'UOM', 'EXPIRY DATE', 'RECEIVING STATUS']
+        ['#', 'ITEM CODE', 'MATERIAL DESCRIPTION', 'QTY RECEIVED', 'UOM', 'EXPIRY DATE']
       ];
 
       const tableBody = (log.items || []).map((item, idx) => {
         const isHeld = item.receivingStatus === 'Hold / Supplier Return' || item.receivingStatus === 'Rejected';
-        const statusText = isHeld
-          ? `ON HOLD (${item.supplierReturnTicketNo || 'Return Ticket'})`
-          : 'Stock Received';
+        const isPending = item.receivingStatus === 'Pending';
+        const qtyNum = item.quantityReceived ?? item.actualQuantity ?? item.expectedQuantity ?? 0;
         const qtyText = isHeld
           ? `0 (+${item.quantityReceived ?? item.actualQuantity ?? 0} Held)`
-          : `+${item.quantityReceived ?? item.actualQuantity ?? item.expectedQuantity ?? 0}`;
+          : `+${qtyNum}`;
+
+        const colorStyles = isHeld
+          ? { fillColor: [254, 226, 226], textColor: [185, 28, 28] } // Soft red tint (red-100) for Held / Rejected
+          : isPending
+          ? { fillColor: [254, 249, 195], textColor: [161, 98, 7] }  // Soft yellow tint (amber-100) for Pending
+          : { fillColor: [220, 252, 231], textColor: [22, 101, 52] }; // Soft green tint (emerald-100) for Stock Received
 
         return [
           idx + 1,
           item.code || item.itemCode || 'N/A',
           item.itemName || item.itemDescription || item.description || 'Raw Material',
-          qtyText,
+          {
+            content: qtyText,
+            styles: {
+              fillColor: colorStyles.fillColor,
+              textColor: colorStyles.textColor,
+              fontStyle: 'bold',
+              halign: 'center',
+              overflow: 'ellipsize',
+            },
+          },
           (item.uom || 'pcs').toUpperCase(),
           item.expiryDate || item.expirationDate || 'N/A',
-          statusText
         ];
       });
 
@@ -974,17 +986,17 @@ function InventoryDeliveryReceiving() {
         startY: mainTableStartY,
         margin: { left: 14, right: 14, top: 19, bottom: 12 },
         head: tableHead,
-        body: tableBody.length > 0 ? tableBody : [['-', '-', 'No materials recorded', '-', '-', '-', '-']],
+        body: tableBody.length > 0 ? tableBody : [['-', '-', 'No materials recorded', '-', '-', '-']],
         theme: 'grid',
         styles: {
           font: 'helvetica',
           fontSize: 6.8,
           textColor: [51, 65, 85],
-          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          cellPadding: { top: 2.2, bottom: 2.2, left: 2, right: 2 },
           lineColor: [226, 232, 240],
           lineWidth: 0.15,
           valign: 'middle',
-          overflow: 'linebreak',
+          overflow: 'ellipsize', // whitespace nowrap: prevents table td from wrapping
         },
         headStyles: {
           fillColor: [21, 62, 151],
@@ -992,30 +1004,33 @@ function InventoryDeliveryReceiving() {
           fontStyle: 'bold',
           fontSize: 7,
           halign: 'center',
+          valign: 'middle',
           lineColor: [21, 62, 151],
           lineWidth: 0.2,
+          overflow: 'ellipsize',
+        },
+        bodyStyles: {
+          overflow: 'ellipsize',
+          valign: 'middle',
         },
         alternateRowStyles: {
           fillColor: [248, 250, 255],
         },
         columnStyles: {
           0: { halign: 'center', cellWidth: 10 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
-          2: { fontStyle: 'bold', halign: 'left', cellWidth: 50 },
-          3: { halign: 'center', fontStyle: 'bold', cellWidth: 24 },
-          4: { fontStyle: 'bold', halign: 'center', cellWidth: 16 },
-          5: { halign: 'center', cellWidth: 24 },
-          6: { halign: 'center', fontStyle: 'bold', cellWidth: 32 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 28 },
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 70 },
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 30 },
+          4: { fontStyle: 'bold', halign: 'center', cellWidth: 18 },
+          5: { halign: 'center', cellWidth: 26 },
         },
         didParseCell: (data) => {
-          if (data.section === 'body') {
-            const txt = String(data.cell.raw || '');
-            if (txt.includes('HOLD') || txt.includes('Rejected')) {
-              data.cell.styles.textColor = [190, 18, 60];
-              data.cell.styles.fontStyle = 'bold';
-            } else if (txt.includes('Stock Received')) {
-              data.cell.styles.textColor = [21, 62, 151];
-              data.cell.styles.fontStyle = 'bold';
+          if (data.section === 'body' && data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.styles) {
+            if (data.cell.raw.styles.fillColor) {
+              data.cell.styles.fillColor = data.cell.raw.styles.fillColor;
+            }
+            if (data.cell.raw.styles.textColor) {
+              data.cell.styles.textColor = data.cell.raw.styles.textColor;
             }
           }
         },

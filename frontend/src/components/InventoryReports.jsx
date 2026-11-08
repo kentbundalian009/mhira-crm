@@ -693,7 +693,7 @@ function InventoryReports() {
           lineWidth: 0.15,
           halign: 'center',
           valign: 'middle',
-          overflow: 'linebreak',
+          overflow: 'ellipsize',
         },
         headStyles: {
           fillColor: [239, 246, 255], // Soft blue tint #eff6ff
@@ -703,6 +703,7 @@ function InventoryReports() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         bodyStyles: {
           fillColor: [255, 255, 255],
@@ -712,6 +713,7 @@ function InventoryReports() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         columnStyles: {
           0: { cellWidth: 45.5 },
@@ -722,200 +724,283 @@ function InventoryReports() {
       });
 
       // ========================================================
-      // 4. BUILD MAIN DATA TABLE (AutoTable - Blue Header & Strict Whitespace-Nowrap)
+      // 4. BUILD CATEGORY-GROUPED DATA TABLES (Strict Whitespace-Nowrap, Category Title Row & Condition-Colored Quantity)
       // ========================================================
-      let tableHead = [];
-      let tableBody = [];
+      const getConditionColor = (condKey) => {
+        if (condKey === 'Critical Alert') {
+          return {
+            fillColor: [254, 226, 226], // Soft red tint (red-100) with deep red text
+            textColor: [185, 28, 28],
+          };
+        }
+        if (condKey === 'Restock Warning') {
+          return {
+            fillColor: [254, 249, 195], // Soft yellow tint (amber-100) with deep amber text
+            textColor: [161, 98, 7],
+          };
+        }
+        if (condKey === 'Overstock') {
+          return {
+            fillColor: [224, 242, 254], // Soft blue tint (sky-100) with deep blue text
+            textColor: [29, 78, 216],
+          };
+        }
+        // Healthy
+        return {
+          fillColor: [220, 252, 231], // Soft green tint (emerald-100) with deep green text
+          textColor: [22, 101, 52],
+        };
+      };
+
+      // 4A. Group items strictly by Category (sama-sama lahat per category, no separate Category column)
+      const categoryMap = new Map();
+
+      if (showExpiryOnly) {
+        filteredExpiryItems.forEach((item) => {
+          const cat = (item.category || (activeTab === 'finished-goods' ? 'Finished Goods' : 'Raw Materials')).trim() || 'General';
+          if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+          categoryMap.get(cat).push(item);
+        });
+      } else if (activeTab === 'finished-goods') {
+        filteredFinishedGoods.forEach((p) => {
+          const cat = (p.category || 'Finished Goods').trim() || 'General';
+          if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+          categoryMap.get(cat).push(p);
+        });
+      } else {
+        filteredRawMaterials.forEach((r) => {
+          const cat = (r.category || 'Raw Materials').trim() || 'General';
+          if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+          categoryMap.get(cat).push(r);
+        });
+      }
+
+      const sortedCategoryNames = Array.from(categoryMap.keys()).sort((a, b) => a.localeCompare(b));
+
+      // 4B. Column Definitions (Exact 182mm total width in Portrait A4, No Category Column)
+      let colHeaders = [];
       let columnStyles = {};
 
       if (showExpiryOnly) {
-        tableHead = [
-          ['ITEM CODE', 'BATCH / LOT NO', 'CATEGORY', 'ITEM NAME', 'STOCK VOLUME', 'MFG DATE', 'EXPIRY DATE', 'DAYS REMAINING']
-        ];
-        tableBody = filteredExpiryItems.map((item) => {
-          const days = item.daysUntilExpiry !== undefined ? Number(item.daysUntilExpiry) : Number(item.daysRemaining);
-          const isExpired = !isNaN(days) && days <= 0;
-          const isCritical = !isNaN(days) && days > 0 && days <= 7;
-          const isNear = !isNaN(days) && days > 7 && days <= 30;
-
-          const expDate = item.expiryDate || item.expDate;
-          const expStr = expDate && !isNaN(new Date(expDate).getTime()) ? new Date(expDate).toLocaleDateString() : 'N/A';
-          const mfgStr = item.mfgDate && !isNaN(new Date(item.mfgDate).getTime()) ? new Date(item.mfgDate).toLocaleDateString() : 'N/A';
-          const daysStr = item.status === 'Disposed'
-            ? 'Disposed'
-            : isExpired
-            ? '0d (Expired)'
-            : isCritical
-            ? `${days}d left (Critical)`
-            : isNear
-            ? `${days}d left (Near)`
-            : `${days}d left`;
-
-          return [
-            item.code || item.itemCode || 'N/A',
-            item.batchNo || 'N/A',
-            item.category || (activeTab === 'finished-goods' ? 'Finished Goods' : 'Raw Materials'),
-            item.itemName || item.itemDescription || 'N/A',
-            `${Number(item.quantity ?? item.stockVolume ?? 0).toLocaleString()} ${item.uom || (activeTab === 'finished-goods' ? 'pcs' : 'kg')}`,
-            mfgStr,
-            expStr,
-            daysStr,
-          ];
-        });
-
-        // Exact 182mm total width in Portrait (Full text display without ellipsis)
+        colHeaders = ['ITEM CODE', 'BATCH / LOT NO', 'ITEM NAME', 'STOCK VOLUME', 'MFG DATE', 'EXPIRY DATE', 'DAYS REMAINING'];
         columnStyles = {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 20 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 20 },
-          2: { halign: 'left', cellWidth: 32 }, // CATEGORY widened
-          3: { fontStyle: 'bold', halign: 'left', cellWidth: 30 }, // ITEM NAME reduced
-          4: { fontStyle: 'bold', halign: 'center', cellWidth: 22 },
-          5: { halign: 'center', cellWidth: 18 },
-          6: { fontStyle: 'bold', halign: 'center', cellWidth: 18 },
-          7: { fontStyle: 'bold', halign: 'center', cellWidth: 22 },
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 22 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
+          2: { fontStyle: 'bold', halign: 'left', cellWidth: 46 },
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 24 },
+          4: { halign: 'center', cellWidth: 20 },
+          5: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
+          6: { fontStyle: 'bold', halign: 'center', cellWidth: 26 },
         };
       } else if (activeTab === 'finished-goods') {
-        tableHead = [
-          ['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'SPECIFICATION & UOM']
-        ];
-        tableBody = filteredFinishedGoods.map((p) => {
-          const qty = Number(p.quantity ?? 0);
-          const resolved = getResolvedThreshold(p);
-          const condition = getStockCondition(qty, resolved);
-          const specUom = `${p.specification ? p.specification : '-'} • ${p.uom || 'PCS'}`;
-
-          return [
-            p.code || p.sku || 'N/A',
-            p.category || 'Finished Goods',
-            p.itemName || p.name || p.itemDescription || 'Finished Good',
-            `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
-            specUom,
-          ];
-        });
-
-        // Exact 182mm total width in Portrait (Full text display without ellipsis)
+        colHeaders = ['CODE', 'ITEM NAME', 'QUANTITY', 'SPECIFICATION & UOM'];
         columnStyles = {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
-          1: { halign: 'left', cellWidth: 42 }, // CATEGORY widened from 28 to 42
-          2: { fontStyle: 'bold', halign: 'left', cellWidth: 41 }, // ITEM NAME reduced from 55 to 41
-          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
-          4: { halign: 'center', cellWidth: 30 },
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 80 },
+          2: { fontStyle: 'bold', halign: 'center', cellWidth: 42 },
+          3: { halign: 'center', cellWidth: 34 },
         };
       } else {
-        tableHead = [
-          ['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'UOM']
-        ];
-        tableBody = filteredRawMaterials.map((r) => {
-          const qty = Number(r.quantity ?? r.qty ?? 0);
-          const resolved = getResolvedThreshold(r);
-          const condition = getStockCondition(qty, resolved);
-
-          return [
-            r.code || r.itemCode || 'N/A',
-            r.category || 'Raw Materials',
-            r.itemName || r.itemDescription || 'Raw Material',
-            `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
-            (r.uom || r.unit || 'pcs').toUpperCase(),
-          ];
-        });
-
-        // Exact 182mm total width in Portrait (Full text display without ellipsis)
+        colHeaders = ['CODE', 'ITEM NAME', 'QUANTITY', 'UOM'];
         columnStyles = {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
-          1: { halign: 'left', cellWidth: 44 }, // CATEGORY widened from 28 to 44
-          2: { fontStyle: 'bold', halign: 'left', cellWidth: 49 }, // ITEM NAME reduced from 65 to 49
-          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
-          4: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 28 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 86 },
+          2: { fontStyle: 'bold', halign: 'center', cellWidth: 44 },
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 24 },
         };
       }
 
-      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+      // 4C. Render Category Tables with Title Row Above Header
+      let currentTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
 
-      autoTable(doc, {
-        startY: mainTableStartY,
-        margin: { left: 14, right: 14, top: 19, bottom: 12 },
-        head: tableHead,
-        body: tableBody,
-        theme: 'grid',
-        styles: {
-          font: 'helvetica',
-          fontSize: 6.8,
-          textColor: [51, 65, 85], // matches text-slate-700
-          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
-          lineColor: [226, 232, 240], // matches divide-slate-100/border-slate-200
-          lineWidth: 0.15,
-          valign: 'middle',
-          overflow: 'linebreak', // FULL TEXT DISPLAY! No '...' clipping!
-        },
-        headStyles: {
-          fillColor: [21, 62, 151], // Royal Blue #153E97
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 7,
-          halign: 'center',
-          valign: 'middle',
-          lineColor: [21, 62, 151],
-          lineWidth: 0.2,
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 255], // Subtle cool blue tint
-        },
-        columnStyles: columnStyles,
-        didParseCell: (data) => {
-          if (data.section === 'body') {
-            const txt = String(data.cell.raw || '');
-            if (txt.includes('Expired') || txt.includes('Critical')) {
-              data.cell.styles.textColor = [190, 18, 60]; // rose-700
-              data.cell.styles.fontStyle = 'bold';
-            } else if (txt.includes('Warning') || txt.includes('Near') || txt.includes('Low')) {
-              data.cell.styles.textColor = [180, 83, 9]; // amber-700
-              data.cell.styles.fontStyle = 'bold';
-            } else if (txt.includes('Healthy') || txt.includes('Safe Buffer')) {
-              data.cell.styles.textColor = [21, 62, 151]; // royal blue
-              data.cell.styles.fontStyle = 'bold';
+      if (sortedCategoryNames.length === 0) {
+        // Fallback for empty results
+        autoTable(doc, {
+          startY: currentTableStartY,
+          margin: { left: 14, right: 14, top: 19, bottom: 12 },
+          head: [colHeaders],
+          body: [['-', 'No inventory records found for the selected criteria.', '-', '-']],
+          theme: 'grid',
+          styles: { font: 'helvetica', fontSize: 6.8, halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+          headStyles: { fillColor: [21, 62, 151], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7, halign: 'center', overflow: 'ellipsize' },
+        });
+      } else {
+        sortedCategoryNames.forEach((catName, catIdx) => {
+          const catItems = categoryMap.get(catName);
+          let catBody = [];
+
+          if (showExpiryOnly) {
+            catBody = catItems.map((item) => {
+              const days = item.daysUntilExpiry !== undefined ? Number(item.daysUntilExpiry) : Number(item.daysRemaining);
+              const isExpired = !isNaN(days) && days <= 0;
+              const isCritical = !isNaN(days) && days > 0 && days <= 7;
+              const isNear = !isNaN(days) && days > 7 && days <= 30;
+
+              const expDate = item.expiryDate || item.expDate;
+              const expStr = expDate && !isNaN(new Date(expDate).getTime()) ? new Date(expDate).toLocaleDateString() : 'N/A';
+              const mfgStr = item.mfgDate && !isNaN(new Date(item.mfgDate).getTime()) ? new Date(item.mfgDate).toLocaleDateString() : 'N/A';
+              const daysStr = item.status === 'Disposed'
+                ? 'Disposed'
+                : isExpired
+                ? '0d (Expired)'
+                : isCritical
+                ? `${days}d left (Critical)`
+                : isNear
+                ? `${days}d left (Near)`
+                : `${days}d left`;
+
+              let expiryColor = { fillColor: [220, 252, 231], textColor: [22, 101, 52] };
+              if (isExpired || isCritical) {
+                expiryColor = { fillColor: [254, 226, 226], textColor: [185, 28, 28] };
+              } else if (isNear) {
+                expiryColor = { fillColor: [254, 249, 195], textColor: [161, 98, 7] };
+              }
+
+              return [
+                item.code || item.itemCode || 'N/A',
+                item.batchNo || 'N/A',
+                item.itemName || item.itemDescription || 'N/A',
+                `${Number(item.quantity ?? item.stockVolume ?? 0).toLocaleString()} ${item.uom || (activeTab === 'finished-goods' ? 'pcs' : 'kg')}`,
+                mfgStr,
+                expStr,
+                {
+                  content: daysStr,
+                  styles: {
+                    fillColor: expiryColor.fillColor,
+                    textColor: expiryColor.textColor,
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    overflow: 'ellipsize',
+                  },
+                },
+              ];
+            });
+          } else if (activeTab === 'finished-goods') {
+            catBody = catItems.map((p) => {
+              const qty = Number(p.quantity ?? 0);
+              const resolved = getResolvedThreshold(p);
+              const condition = getStockCondition(qty, resolved);
+              const colors = getConditionColor(condition.key);
+              const specUom = `${p.specification ? p.specification : '-'} • ${p.uom || 'PCS'}`;
+
+              return [
+                p.code || p.sku || 'N/A',
+                p.itemName || p.name || p.itemDescription || 'Finished Good',
+                {
+                  content: qty.toLocaleString(),
+                  styles: {
+                    fillColor: colors.fillColor,
+                    textColor: colors.textColor,
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    overflow: 'ellipsize',
+                  },
+                },
+                specUom,
+              ];
+            });
+          } else {
+            catBody = catItems.map((r) => {
+              const qty = Number(r.quantity ?? r.qty ?? 0);
+              const resolved = getResolvedThreshold(r);
+              const condition = getStockCondition(qty, resolved);
+              const colors = getConditionColor(condition.key);
+
+              return [
+                r.code || r.itemCode || 'N/A',
+                r.itemName || r.itemDescription || 'Raw Material',
+                {
+                  content: qty.toLocaleString(),
+                  styles: {
+                    fillColor: colors.fillColor,
+                    textColor: colors.textColor,
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    overflow: 'ellipsize',
+                  },
+                },
+                (r.uom || r.unit || 'pcs').toUpperCase(),
+              ];
+            });
+          }
+
+          // Intelligent page-break between categories
+          if (catIdx > 0) {
+            currentTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+            if (currentTableStartY > pageHeight - 32) {
+              doc.addPage();
+              currentTableStartY = 19;
             }
           }
-        },
-        didDrawPage: (data) => {
-          // Thumbnail Logo & Running Header on Page 2+
-          if (data.pageNumber > 1) {
-            // Mhira Thumbnail on Page 2+ (unboxed natural aspect ratio)
-            const thumbH = 7;
-            const thumbW = thumbH * logoRatio; // ~8.68mm
-            if (logoBase64) {
-              try {
-                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
-              } catch (e) {}
-            }
 
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.2);
-            doc.setTextColor(21, 62, 151);
-            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  •  ${reportTitle.toUpperCase()}`, 14 + thumbW + 4, 11.5);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.2);
-            doc.setTextColor(100, 116, 139);
-            doc.text(`Period: ${formattedPeriod}`, pageWidth - 14, 11.5, { align: 'right' });
-
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.2);
-            doc.line(14, 16, pageWidth - 14, 16);
-          }
-
-          // Running Footer on Every Page
-          const footerY = pageHeight - 7;
-          doc.setDrawColor(226, 232, 240);
-          doc.setLineWidth(0.2);
-          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
-
-          // Left-aligned Confidentiality (Hindi magpapatong sa page number)
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(5.8);
-          doc.setTextColor(100, 116, 139);
-          doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
-        },
-      });
+          autoTable(doc, {
+            startY: currentTableStartY,
+            margin: { left: 14, right: 14, top: 19, bottom: 12 },
+            head: [
+              [
+                {
+                  content: `CATEGORY: ${catName.toUpperCase()}   •   ${catItems.length} ${catItems.length === 1 ? 'ITEM' : 'ITEMS'}`,
+                  colSpan: colHeaders.length,
+                  styles: {
+                    fillColor: [241, 245, 249],
+                    textColor: [21, 62, 151],
+                    fontStyle: 'bold',
+                    fontSize: 7.2,
+                    halign: 'left',
+                    valign: 'middle',
+                    cellPadding: { top: 2.2, bottom: 2.2, left: 3, right: 3 },
+                    lineColor: [203, 213, 225],
+                    lineWidth: 0.15,
+                    overflow: 'ellipsize',
+                  },
+                },
+              ],
+              colHeaders,
+            ],
+            body: catBody,
+            theme: 'grid',
+            styles: {
+              font: 'helvetica',
+              fontSize: 6.8,
+              textColor: [51, 65, 85],
+              cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+              lineColor: [226, 232, 240],
+              lineWidth: 0.15,
+              valign: 'middle',
+              overflow: 'ellipsize',
+            },
+            headStyles: {
+              fillColor: [21, 62, 151], // Royal Blue #153E97
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              fontSize: 7,
+              halign: 'center',
+              valign: 'middle',
+              lineColor: [21, 62, 151],
+              lineWidth: 0.2,
+              overflow: 'ellipsize',
+            },
+            bodyStyles: {
+              overflow: 'ellipsize',
+              valign: 'middle',
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 255],
+            },
+            columnStyles: columnStyles,
+            didParseCell: (data) => {
+              if (data.section === 'body' && data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.styles) {
+                if (data.cell.raw.styles.fillColor) {
+                  data.cell.styles.fillColor = data.cell.raw.styles.fillColor;
+                }
+                if (data.cell.raw.styles.textColor) {
+                  data.cell.styles.textColor = data.cell.raw.styles.textColor;
+                }
+              }
+            },
+          });
+        });
+      }
 
       // ========================================================
       // 5. EXECUTIVE AUDIT SIGN-OFF SECTION (Single Signatory: Inventory Staff)
@@ -968,24 +1053,61 @@ function InventoryReports() {
       doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
 
       // ========================================================
-      // 6. FINAL PASS: CENTER WATERMARK & DYNAMIC PAGE NUMBERING (EVERY PAGE)
+      // 6. FINAL PASS: CENTER WATERMARK, RUNNING HEADER & DYNAMIC PAGE NUMBERING (EVERY PAGE)
       // ========================================================
       const totalPages = doc.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
 
-        // Center Mhira Watermark Logo on EVERY page (kahit may table, visible pa din)
+        // Center Mhira Watermark Logo on EVERY page
         if (watermarkBase64) {
           try {
             doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
           } catch (e) {}
         }
 
-        // Running Page Numbering
+        // Running Header on Page 2+
+        if (i > 1) {
+          const thumbH = 7;
+          const thumbW = thumbH * logoRatio;
+          if (logoBase64) {
+            try {
+              doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+            } catch (e) {}
+          }
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.2);
+          doc.setTextColor(21, 62, 151);
+          doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  •  ${reportTitle.toUpperCase()}`, 14 + thumbW + 4, 11.5);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.2);
+          doc.setTextColor(100, 116, 139);
+          doc.text(`Period: ${formattedPeriod}`, pageWidth - 14, 11.5, { align: 'right' });
+
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, 16, pageWidth - 14, 16);
+        }
+
+        // Running Footer on Every Page
+        const footerY = pageHeight - 7;
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+        // Left-aligned Confidentiality
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+
+        // Right-aligned Dynamic Page Number
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.2);
         doc.setTextColor(71, 85, 105);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, footerY + 1.2, { align: 'right' });
       }
 
       // Download PDF

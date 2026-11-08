@@ -98,12 +98,17 @@ function CustomerProductDetail() {
   const [product, setProduct] = useState(() => {
     try {
       const cached = localStorage.getItem("mhira_db_products");
-      const list = cached ? JSON.parse(cached) : DEFAULT_CATALOG;
+      const cachedPackages = localStorage.getItem("cached_package_sets");
+      const list = [
+        ...(cachedPackages ? JSON.parse(cachedPackages) : []),
+        ...(cached ? JSON.parse(cached) : DEFAULT_CATALOG)
+      ];
       const found = list.find(p =>
         String(p._id) === String(id) ||
         String(p.id) === String(id) ||
         String(p.code).toLowerCase() === String(id).toLowerCase() ||
-        (p.itemDescription && p.itemDescription.toLowerCase() === decodeURIComponent(id).toLowerCase())
+        (p.itemDescription && p.itemDescription.toLowerCase() === decodeURIComponent(id).toLowerCase()) ||
+        (p.itemName && p.itemName.toLowerCase() === decodeURIComponent(id).toLowerCase())
       );
       if (found) return found;
     } catch (e) { }
@@ -120,7 +125,11 @@ function CustomerProductDetail() {
   const [activeImage, setActiveImage] = useState(() => {
     try {
       const cached = localStorage.getItem("mhira_db_products");
-      const list = cached ? JSON.parse(cached) : DEFAULT_CATALOG;
+      const cachedPackages = localStorage.getItem("cached_package_sets");
+      const list = [
+        ...(cachedPackages ? JSON.parse(cachedPackages) : []),
+        ...(cached ? JSON.parse(cached) : DEFAULT_CATALOG)
+      ];
       const item = list.find(p =>
         String(p._id) === String(id) ||
         String(p.id) === String(id) ||
@@ -209,16 +218,24 @@ function CustomerProductDetail() {
     const fetchProductData = async () => {
       // 0ms instant cache lookup
       try {
-        const cached = localStorage.getItem("mhira_db_products");
-        if (cached) {
-          const list = JSON.parse(cached);
-          const localItem = list.find(p => String(p._id) === String(id) || String(p.id) === String(id) || p.code === id || String(p._id).toLowerCase() === String(id).toLowerCase());
-          if (localItem) {
-            setProduct(localItem);
-            const imgs = (localItem.images && localItem.images.length > 0) ? localItem.images : (localItem.image ? [localItem.image] : []);
-            setActiveImage(imgs[0] || "");
-            setLoading(false);
-          }
+        const cachedProducts = localStorage.getItem("mhira_db_products");
+        const cachedPackages = localStorage.getItem("cached_package_sets");
+        const list = [
+          ...(cachedPackages ? JSON.parse(cachedPackages) : []),
+          ...(cachedProducts ? JSON.parse(cachedProducts) : [])
+        ];
+        const localItem = list.find(p =>
+          String(p._id) === String(id) ||
+          String(p.id) === String(id) ||
+          p.code === id ||
+          String(p._id).toLowerCase() === String(id).toLowerCase() ||
+          String(p.code).toLowerCase() === String(id).toLowerCase()
+        );
+        if (localItem) {
+          setProduct(localItem);
+          const imgs = (localItem.images && localItem.images.length > 0) ? localItem.images : (localItem.image ? [localItem.image] : []);
+          setActiveImage(imgs[0] || "");
+          setLoading(false);
         }
       } catch (e) { }
 
@@ -636,16 +653,22 @@ function CustomerProductDetail() {
             <div className="text-xs text-slate-500 tracking-normal flex flex-wrap items-center gap-1.5">
               <Link to="/" className="hover:underline">Home</Link>
               <span>/</span>
-              <Link to={`/collection?category=${encodeURIComponent(displayCategory)}`} className="hover:underline">
-                {displayCategory}
-              </Link>
+              {product.isBundle || product.category === 'Package Sets' || product.navbarTag === 'Package Sets' ? (
+                <Link to="/packages" className="hover:underline">
+                  Package Sets
+                </Link>
+              ) : (
+                <Link to={`/collection?category=${encodeURIComponent(displayCategory)}`} className="hover:underline">
+                  {displayCategory}
+                </Link>
+              )}
               <span>/</span>
-              <span className="text-[#243746]">{product.itemDescription}</span>
+              <span className="text-[#243746]">{product.itemName || product.itemDescription}</span>
             </div>
 
             {/* PRODUCT TITLE */}
             <h1 className="text-xl sm:text-2xl md:text-3xl font-normal text-[#243746] leading-tight">
-              {product.itemDescription}
+              {product.itemName || product.itemDescription}
             </h1>
 
             {/* PRICING (ON TOP) */}
@@ -800,6 +823,38 @@ function CustomerProductDetail() {
               )}
             </div>
 
+            {/* INCLUDED BUNDLE ITEMS (MINIMALIST UNBOXED STYLE) */}
+            {Array.isArray(product.bundleItems) && product.bundleItems.length > 0 && (
+              <div className="pt-4 border-t border-[#E1E9EF] space-y-3">
+                <span className="text-xs font-semibold text-[#243746] uppercase tracking-wider block">
+                  Package Set Includes ({product.bundleItems.length} Products):
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {product.bundleItems.map((bi, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2.5 p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-xs"
+                    >
+                      <div className="w-10 h-10 bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center rounded">
+                        {getImageUrl(bi.image) ? (
+                          <img src={getImageUrl(bi.image)} alt={bi.itemName} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-400">FG</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium text-slate-800 block truncate">{bi.itemName}</span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
+                          <span className="font-bold text-[#01390f] bg-[#EDF7EE] px-1 py-0.2 rounded">{bi.quantity}x</span>
+                          {bi.specification && <span>{bi.specification} {bi.uom || ''}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* TABS / SECTIONS (ACTIVE TEXT COLOR IS #01390f) */}
             <div ref={reviewsTabRef} id="product-reviews-section" className="pt-6 border-t border-[#E1E9EF] text-xs sm:text-sm text-slate-600 leading-relaxed scroll-mt-24">
               <div className="flex gap-6 border-b border-[#E1E9EF] text-xs font-semibold overflow-x-auto no-scrollbar scrollbar-none">
@@ -837,7 +892,25 @@ function CustomerProductDetail() {
 
               <div className="pt-4 text-xs text-slate-600 leading-relaxed">
                 {activeTab === "description" && (
-                  <div className="space-y-2 whitespace-pre-line">
+                  <div className="space-y-3 whitespace-pre-line">
+                    {Array.isArray(product.bundleItems) && product.bundleItems.length > 0 && (
+                      <div className="mb-3 p-3.5 bg-emerald-50/70 border border-emerald-200/90 rounded-xl space-y-2">
+                        <span className="text-xs font-bold text-[#01390f] uppercase tracking-wider block">
+                          Included in this Package Set ({product.bundleItems.length} Products):
+                        </span>
+                        <div className="space-y-2">
+                          {product.bundleItems.map((bi, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-emerald-100 last:border-b-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-[#01390f] bg-emerald-100/80 px-1.5 py-0.2 rounded">{bi.quantity}x</span>
+                                <span className="font-medium text-slate-800">{bi.itemName}</span>
+                                {bi.specification && <span className="text-[11px] text-slate-400 font-mono">({bi.specification} {bi.uom || ''})</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {product.marketingDescription ? (
                       <p>{product.marketingDescription}</p>
                     ) : (

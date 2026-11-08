@@ -114,6 +114,7 @@ function Dashboard() {
       // Marketing
       "marketing-dashboard",
       "product-catalog",
+      "package-sets",
       "announcement",
       "customer-feedback",
       "coupons",
@@ -150,6 +151,7 @@ function Dashboard() {
     Marketing: [
       "marketing-dashboard",
       "product-catalog",
+      "package-sets",
       "announcement",
       "customer-feedback",
       "coupons",
@@ -358,6 +360,7 @@ function Dashboard() {
 
       // Marketing
       case "product-catalog":
+      case "package-sets":
         return <MarketingAllProductsCatalog />; 
       case "announcement":
         return <MarketingEventsManagement />;

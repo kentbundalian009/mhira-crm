@@ -323,7 +323,16 @@ function MarketingReports() {
 
       if (selectedAudience !== 'All') {
         const seg = (c.targetSegment || c.target || '').toLowerCase();
-        if (!seg.includes(selectedAudience.toLowerCase())) return false;
+        const aud = selectedAudience.toLowerCase();
+        if (aud === 'gold' || aud === 'loyal') {
+          if (!seg.includes('gold') && !seg.includes('loyal') && !seg.includes('vip') && seg !== 'all') return false;
+        } else if (aud === 'silver') {
+          if (!seg.includes('silver') && !seg.includes('regular') && seg !== 'all') return false;
+        } else if (aud === 'bronze') {
+          if (!seg.includes('bronze') && !seg.includes('new') && seg !== 'all') return false;
+        } else if (!seg.includes(aud) && seg !== 'all') {
+          return false;
+        }
       }
 
       const isExpired = checkIsCouponExpired(c.expiry || c.validUntil);
@@ -625,7 +634,7 @@ function MarketingReports() {
           lineWidth: 0.15,
           halign: 'center',
           valign: 'middle',
-          overflow: 'linebreak',
+          overflow: 'ellipsize',
         },
         headStyles: {
           fillColor: [239, 246, 255], // Soft blue tint #eff6ff
@@ -635,6 +644,7 @@ function MarketingReports() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         bodyStyles: {
           fillColor: [255, 255, 255],
@@ -644,6 +654,7 @@ function MarketingReports() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         columnStyles: {
           0: { cellWidth: 45.5 },
@@ -762,7 +773,7 @@ function MarketingReports() {
           lineColor: [226, 232, 240],
           lineWidth: 0.15,
           valign: 'middle',
-          overflow: 'linebreak',
+          overflow: 'ellipsize', // whitespace nowrap: prevents table td from wrapping
         },
         headStyles: {
           fillColor: [21, 62, 151], // Royal Blue #153E97
@@ -773,6 +784,11 @@ function MarketingReports() {
           valign: 'middle',
           lineColor: [21, 62, 151],
           lineWidth: 0.2,
+          overflow: 'ellipsize',
+        },
+        bodyStyles: {
+          overflow: 'ellipsize',
+          valign: 'middle',
         },
         alternateRowStyles: {
           fillColor: [248, 250, 255], // Subtle cool blue tint
@@ -1094,9 +1110,9 @@ function MarketingReports() {
                           title="Filter by Target Audience"
                         >
                           <option value="All">All Audiences</option>
-                          <option value="VIP">VIP Customers</option>
-                          <option value="Regular">Regular Shoppers</option>
-                          <option value="New">New Shoppers</option>
+                          <option value="Gold">Gold Tier</option>
+                          <option value="Silver">Silver Tier</option>
+                          <option value="Bronze">Bronze Tier</option>
                         </select>
                       </>
                     ) : (
@@ -1182,14 +1198,14 @@ function MarketingReports() {
 
                       <button
                         type="button"
-                        onClick={() => setSelectedAudience(selectedAudience === 'VIP' ? 'All' : 'VIP')}
-                        className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${selectedAudience === 'VIP'
-                          ? 'bg-emerald-50 text-[#01390f] border border-emerald-300 shadow-2xs font-bold'
+                        onClick={() => setSelectedAudience(selectedAudience === 'Gold' ? 'All' : 'Gold')}
+                        className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${selectedAudience === 'Gold'
+                          ? 'bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs font-bold'
                           : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                           }`}
-                        title="VIP Exclusive Coupons"
+                        title="Gold Tier Exclusive Coupons"
                       >
-                        <span>VIP Only</span>
+                        <span>Gold Tier</span>
                       </button>
 
                       <div className="relative inline-flex items-center w-full min-w-0">
@@ -1290,7 +1306,7 @@ function MarketingReports() {
                 <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
                   {activeTab === 'products-catalog' ? (
                     <>
-                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white min-w-[200px]">ITEM PROFILE</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white min-w-[200px]">ITEM NAME</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">IMAGE</th>
                       <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
                       <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>

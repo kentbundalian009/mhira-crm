@@ -87,9 +87,9 @@ export const DEFAULT_RM_UOMS = [
 ];
 
 export const DEFAULT_RM_THRESHOLDS = {
-  criticalLevel: 0,
-  restockWarningPoint: 10,
-  overstockLimitPoint: 1000,
+  criticalLevel: 1000,
+  restockWarningPoint: 5000,
+  overstockLimitPoint: 200000,
 };
 
 // Combined legacy exports for backward compatibility
@@ -136,7 +136,7 @@ export const getStoredCategories = (fallbackList = [], moduleType = 'finished_go
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return Array.from(new Set([...parsed, ...fallbackList]))
+        return Array.from(new Set(parsed))
           .filter(Boolean)
           .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
       }
@@ -144,7 +144,8 @@ export const getStoredCategories = (fallbackList = [], moduleType = 'finished_go
   } catch (e) {
     console.error('Failed to load stored categories:', e);
   }
-  return Array.from(new Set([...defaultList, ...fallbackList]))
+  const fallback = Array.isArray(fallbackList) && fallbackList.length > 0 ? fallbackList : defaultList;
+  return Array.from(new Set(fallback))
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
 };
@@ -159,7 +160,7 @@ export const getStoredUOMs = (fallbackList = [], moduleType = 'finished_goods') 
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return Array.from(new Set([...parsed, ...fallbackList]))
+        return Array.from(new Set(parsed))
           .filter(Boolean)
           .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
       }
@@ -167,7 +168,8 @@ export const getStoredUOMs = (fallbackList = [], moduleType = 'finished_goods') 
   } catch (e) {
     console.error('Failed to load stored UOMs:', e);
   }
-  return Array.from(new Set([...defaultList, ...fallbackList]))
+  const fallback = Array.isArray(fallbackList) && fallbackList.length > 0 ? fallbackList : defaultList;
+  return Array.from(new Set(fallback))
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
 };

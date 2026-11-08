@@ -97,7 +97,28 @@ const collectionSchema = new mongoose.Schema(
     navbarTag: {
       type: String,
       default: 'Skin Care'
-    }
+    },
+    isBundle: {
+      type: Boolean,
+      default: false
+    },
+    bundleItems: [
+      {
+        productRef: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Product'
+        },
+        code: { type: String, default: '' },
+        itemName: { type: String, default: '' },
+        itemDescription: { type: String, default: '' },
+        category: { type: String, default: '' },
+        uom: { type: String, default: 'PCS' },
+        specification: { type: String, default: '' },
+        quantity: { type: Number, default: 1 },
+        originalPrice: { type: Number, default: 0 },
+        image: { type: String, default: '' }
+      }
+    ]
   },
   { timestamps: true }
 );

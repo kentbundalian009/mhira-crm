@@ -1,5 +1,6 @@
 import SalesReport from '../models/LogisticSalesReport.js';
 import { User } from '../models/AdminUser.js';
+import Order from '../models/LogisticOrder.js';
 
 const sampleSalesData = [
   { orderId: "ORD-9081", customer: "Maria Santos", username: "mariasantos", date: "2026-08-07", items: "Gluta Soap (x3), Face Serum (x1)", amount: 1250, status: "Delivered", tier: "Silver" },
@@ -7,10 +8,29 @@ const sampleSalesData = [
   { orderId: "ORD-9083", customer: "Elena Reyes", username: "elenareyes", date: "2026-08-06", items: "Organic Body Lotion (x2)", amount: 980, status: "In Transit", tier: "Bronze" },
   { orderId: "ORD-9084", customer: "Mark Tan", username: "marktan99", date: "2026-08-06", items: "Herbal Shampoo (x2)", amount: 640, status: "Delivered", tier: "Bronze" },
   { orderId: "ORD-9085", customer: "Sarah Geronimo", username: "sarahg", date: "2026-08-05", items: "Glow Set Supreme (x2)", amount: 5400, status: "Delivered", tier: "Gold" },
-  { orderId: "ORD-9086", customer: "Kent Bundalian", username: "kentbundalian009", date: "2026-08-05", items: "Face Serum Collagen (x4), Gluta Soap (x2)", amount: 11200, status: "Delivered", tier: "Platinum" },
-  { orderId: "ORD-9087", customer: "Bea Alonzo", username: "beaalonzo", date: "2026-08-04", items: "Complete Skin Care Package (x3)", amount: 15800, status: "Delivered", tier: "Platinum" },
+  { orderId: "ORD-9086", customer: "Kent Bundalian", username: "kentbundalian009", date: "2026-08-05", items: "Face Serum Collagen (x4), Gluta Soap (x2)", amount: 11200, status: "Delivered", tier: "Gold" },
+  { orderId: "ORD-9087", customer: "Bea Alonzo", username: "beaalonzo", date: "2026-08-04", items: "Complete Skin Care Package (x3)", amount: 15800, status: "Delivered", tier: "Gold" },
   { orderId: "ORD-9088", customer: "Maria Santos", username: "mariasantos", date: "2026-08-03", items: "Face Serum (x2)", amount: 2400, status: "Delivered", tier: "Silver" },
 ];
+
+// Helper: Calculate Mhira Shoppers Tier
+// Bronze Tier: New customer with 0 orders / 0 spend
+// Silver Tier: Customers with 1+ orders or >= ₱1,000 spend
+// Gold Tier: Customers with 3+ orders or >= ₱5,000 spend
+export const calculateMhiraTier = (totalSpent, orderCount = 0) => {
+  const spent = Number(totalSpent || 0);
+  const count = Number(orderCount || 0);
+  if (spent >= 5000 || count >= 3) return "Gold";
+  if (count >= 1 || spent >= 1000) return "Silver";
+  return "Bronze";
+};
+
+export const getMhiraBadgeLabel = (tier) => {
+  const t = (tier || "Bronze").toLowerCase();
+  if (t === "gold" || t === "loyal" || t === "platinum") return "Gold Tier";
+  if (t === "silver") return "Silver Tier";
+  return "Bronze Tier";
+};
 
 export const getSalesReport = async (req, res) => {
   try {
@@ -20,11 +40,27 @@ export const getSalesReport = async (req, res) => {
       sales = sales.map((s) => (s.toObject ? s.toObject() : s));
     }
 
-    // Fetch registered customer accounts to map real usernames & tiers
-    const customerUsers = await User.find({ role: "Customer" })
-      .select("fullName username email totalSpent tier rewardPoints profileImage customerNo")
+    // 1. Fetch ALL registered customer accounts
+    const customerUsers = await User.find({ role: { $in: ["Customer", "customer"] } })
+      .select("fullName username email totalSpent tier rewardPoints profileImage customerNo customerCode empNo createdAt updatedAt")
       .lean()
       .catch(() => []);
+
+    // 2. Fetch all non-cancelled orders to get real-time order counts & discounts availed
+    const realOrders = await Order.find({ status: { $ne: "Cancelled" } })
+      .select("userId totalAmount voucherDiscount voucherCode createdAt status")
+      .lean()
+      .catch(() => []);
+
+    // Build user order map indexed by various user identifiers
+    const userOrdersMap = new Map();
+    realOrders.forEach((o) => {
+      const uid = String(o.userId || "").trim().toLowerCase();
+      if (uid) {
+        if (!userOrdersMap.has(uid)) userOrdersMap.set(uid, []);
+        userOrdersMap.get(uid).push(o);
+      }
+    });
 
     const userMapByName = new Map();
     const userMapByUsername = new Map();
@@ -32,14 +68,6 @@ export const getSalesReport = async (req, res) => {
       if (u.fullName) userMapByName.set(u.fullName.toLowerCase().trim(), u);
       if (u.username) userMapByUsername.set(u.username.toLowerCase().trim(), u);
     });
-
-    const getTier = (total) => {
-      const num = Number(total || 0);
-      if (num >= 10000) return "Platinum";
-      if (num >= 5000) return "Gold";
-      if (num >= 1000) return "Silver";
-      return "Bronze";
-    };
 
     // Enrich sales entries with username & tier
     const enrichedSales = (sales || []).map((sale) => {
@@ -59,7 +87,11 @@ export const getSalesReport = async (req, res) => {
         username = (sale.customer || "customer").toLowerCase().replace(/[^a-z0-9]/g, "");
       }
 
-      const tier = sale.tier || (matchedUser ? matchedUser.tier : getTier(sale.amount || 0));
+      let tier = sale.tier;
+      if (!tier || tier === "Gold" || tier === "Platinum") {
+        tier = matchedUser ? matchedUser.tier : calculateMhiraTier(sale.amount || 0, 1);
+      }
+      if (tier === "Platinum" || tier === "Loyal") tier = "Gold";
 
       return {
         ...sale,
@@ -69,76 +101,127 @@ export const getSalesReport = async (req, res) => {
       };
     });
 
-    // Customer Leaderboard / Rankings aggregation
+    // 3. Customer Leaderboard / Rankings aggregation - INCLUDE ALL CUSTOMERS
     const customerMap = new Map();
+    const uniqueCustomers = [];
 
-    // 1. Registered customer accounts with activity
-    const uniqueCustomers = new Set();
     customerUsers.forEach((u) => {
+      const uidKeys = [
+        u._id ? String(u._id).toLowerCase() : null,
+        u.username ? u.username.toLowerCase().trim() : null,
+        u.email ? u.email.toLowerCase().trim() : null,
+        u.customerNo ? u.customerNo.toLowerCase().trim() : null,
+        u.customerCode ? u.customerCode.toLowerCase().trim() : null,
+        u.empNo ? u.empNo.toLowerCase().trim() : null,
+      ].filter(Boolean);
+
+      // Collect orders belonging to this customer
+      const seenOrderIds = new Set();
+      const customerOrders = [];
+      uidKeys.forEach((k) => {
+        const ords = userOrdersMap.get(k);
+        if (ords) {
+          ords.forEach((o) => {
+            const ordKey = String(o._id || o.createdAt);
+            if (!seenOrderIds.has(ordKey)) {
+              seenOrderIds.add(ordKey);
+              customerOrders.push(o);
+            }
+          });
+        }
+      });
+
+      const orderCount = customerOrders.length;
+      const orderSpendSum = customerOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+      const totalSpent = Math.max(Number(u.totalSpent || 0), orderSpendSum);
+      const totalDiscounts = customerOrders.reduce((sum, o) => sum + Number(o.voucherDiscount || 0), 0);
+      const discountCount = customerOrders.filter((o) => Number(o.voucherDiscount || 0) > 0).length;
+
+      // Find latest order date
+      let lastOrderDate = "";
+      customerOrders.forEach((o) => {
+        const dStr = o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : "";
+        if (dStr && (!lastOrderDate || dStr > lastOrderDate)) {
+          lastOrderDate = dStr;
+        }
+      });
+
+      const tier = calculateMhiraTier(totalSpent, orderCount);
+
       const profileData = {
         name: u.fullName || u.username,
         username: u.username || (u.fullName ? u.fullName.toLowerCase().replace(/[^a-z0-9]/g, "") : "customer"),
-        totalSpent: Number(u.totalSpent || 0),
-        orderCount: 0,
-        tier: u.tier || getTier(u.totalSpent || 0),
+        email: u.email || "",
+        totalSpent,
+        orderCount,
+        totalDiscounts,
+        discountCount,
+        rewardPoints: u.rewardPoints != null ? u.rewardPoints : Math.floor(totalSpent / 50 || orderCount * 25),
+        tier,
+        badgeLabel: getMhiraBadgeLabel(tier),
         profileImage: u.profileImage || "",
-        lastOrderDate: u.updatedAt ? new Date(u.updatedAt).toISOString().split("T")[0] : "",
+        lastOrderDate: lastOrderDate || (orderCount > 0 ? "Recent" : "No orders yet"),
+        createdAt: u.createdAt,
       };
-      uniqueCustomers.add(profileData);
+
+      uniqueCustomers.push(profileData);
       if (u.username) customerMap.set(u.username.toLowerCase().trim(), profileData);
       if (u.fullName) customerMap.set(u.fullName.toLowerCase().trim(), profileData);
     });
 
-    // 2. Aggregate sales report entries
+    // 4. Also incorporate any sales report entries that belong to unregistered shoppers or guests
     enrichedSales.forEach((s) => {
       const unameKey = (s.username || "").toLowerCase().trim();
       const nameKey = (s.customer || "").toLowerCase().trim();
       let existing = (unameKey && customerMap.get(unameKey)) || (nameKey && customerMap.get(nameKey));
 
       if (!existing) {
+        const spent = Number(s.amount || 0);
+        const tier = calculateMhiraTier(spent, 1);
         existing = {
           name: s.customer || s.username || "Customer",
           username: s.username || (s.customer ? s.customer.toLowerCase().replace(/[^a-z0-9]/g, "") : "customer"),
-          totalSpent: 0,
-          orderCount: 0,
-          tier: "Bronze",
+          email: "",
+          totalSpent: spent,
+          orderCount: 1,
+          totalDiscounts: 0,
+          discountCount: 0,
+          rewardPoints: Math.floor(spent / 50),
+          tier,
+          badgeLabel: getMhiraBadgeLabel(tier),
           profileImage: "",
-          lastOrderDate: s.date || "",
+          lastOrderDate: s.date || "Recent",
+          createdAt: new Date(),
         };
-        uniqueCustomers.add(existing);
+        uniqueCustomers.push(existing);
         if (unameKey) customerMap.set(unameKey, existing);
         if (nameKey) customerMap.set(nameKey, existing);
       }
-
-      existing.totalSpent += Number(s.amount || 0);
-      existing.orderCount += 1;
-      if (!existing.lastOrderDate || (s.date && s.date > existing.lastOrderDate)) {
-        existing.lastOrderDate = s.date;
-      }
-      existing.tier = getTier(existing.totalSpent);
     });
 
-    // Generate ranked list
-    const customerRankings = Array.from(uniqueCustomers)
-      .filter((c) => c.totalSpent > 0 || c.orderCount > 0)
-      .sort((a, b) => b.totalSpent - a.totalSpent)
-      .map((c, index) => {
-        const rank = index + 1;
-        const badgeLabel = "Mhira Badge";
-
-        return {
-          rank,
-          name: c.name,
-          username: c.username,
-          totalSpent: c.totalSpent,
-          rewardPoints: c.rewardPoints != null ? c.rewardPoints : Math.floor(c.totalSpent / 50 || c.orderCount * 25),
-          orderCount: c.orderCount,
-          tier: c.tier,
-          badgeLabel,
-          lastOrderDate: c.lastOrderDate,
-          profileImage: c.profileImage,
-        };
-      });
+    // 5. Generate ranked list (DO NOT FILTER OUT 0 ORDERS - ALL ACCOUNTS ARE DISPLAYED!)
+    const customerRankings = uniqueCustomers
+      .sort((a, b) => {
+        if (b.totalSpent !== a.totalSpent) return b.totalSpent - a.totalSpent;
+        if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      })
+      .map((c, index) => ({
+        rank: index + 1,
+        name: c.name,
+        username: c.username,
+        email: c.email,
+        totalSpent: c.totalSpent,
+        orderCount: c.orderCount,
+        totalDiscounts: c.totalDiscounts || 0,
+        discountCount: c.discountCount || 0,
+        rewardPoints: c.rewardPoints,
+        tier: c.tier,
+        badgeLabel: getMhiraBadgeLabel(c.tier),
+        lastOrderDate: c.lastOrderDate,
+        profileImage: c.profileImage,
+        createdAt: c.createdAt,
+      }));
 
     // Calculate aggregated metrics
     const totalRevenue = enrichedSales.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -194,87 +277,84 @@ export const deleteSalesTransaction = async (req, res) => {
 // Customer-facing / Public Leaderboard & Hall of Fame endpoint
 export const getPublicCustomerLeaderboard = async (req, res) => {
   try {
-    let sales = await SalesReport.find().sort({ createdAt: -1 }).lean().catch(() => []);
-    if (!sales || sales.length === 0) {
-      sales = sampleSalesData;
-    }
-
     const customerUsers = await User.find({ role: { $in: ["Customer", "customer"] } })
-      .select("fullName username tier totalSpent rewardPoints profileImage")
+      .select("fullName username tier totalSpent rewardPoints profileImage customerNo customerCode createdAt")
       .lean()
       .catch(() => []);
 
-    const getTier = (total) => {
-      const num = Number(total || 0);
-      if (num >= 10000) return "Platinum";
-      if (num >= 5000) return "Gold";
-      if (num >= 1000) return "Silver";
-      return "Bronze";
-    };
+    const realOrders = await Order.find({ status: { $ne: "Cancelled" } })
+      .select("userId totalAmount voucherDiscount createdAt")
+      .lean()
+      .catch(() => []);
 
-    const customerMap = new Map();
-    const uniqueCustomers = new Set();
+    const userOrdersMap = new Map();
+    realOrders.forEach((o) => {
+      const uid = String(o.userId || "").trim().toLowerCase();
+      if (uid) {
+        if (!userOrdersMap.has(uid)) userOrdersMap.set(uid, []);
+        userOrdersMap.get(uid).push(o);
+      }
+    });
+
+    const uniqueCustomers = [];
 
     customerUsers.forEach((u) => {
-      const profileData = {
+      const uidKeys = [
+        u._id ? String(u._id).toLowerCase() : null,
+        u.username ? u.username.toLowerCase().trim() : null,
+        u.email ? u.email.toLowerCase().trim() : null,
+        u.customerNo ? u.customerNo.toLowerCase().trim() : null,
+      ].filter(Boolean);
+
+      const seenOrderIds = new Set();
+      const customerOrders = [];
+      uidKeys.forEach((k) => {
+        const ords = userOrdersMap.get(k);
+        if (ords) {
+          ords.forEach((o) => {
+            const ordKey = String(o._id || o.createdAt);
+            if (!seenOrderIds.has(ordKey)) {
+              seenOrderIds.add(ordKey);
+              customerOrders.push(o);
+            }
+          });
+        }
+      });
+
+      const orderCount = customerOrders.length;
+      const orderSpendSum = customerOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+      const totalSpent = Math.max(Number(u.totalSpent || 0), orderSpendSum);
+      const tier = calculateMhiraTier(totalSpent, orderCount);
+
+      uniqueCustomers.push({
         name: u.fullName || u.username,
         username: u.username || (u.fullName ? u.fullName.toLowerCase().replace(/[^a-z0-9]/g, "") : "customer"),
-        totalSpent: Number(u.totalSpent || 0),
-        rewardPoints: u.rewardPoints != null ? u.rewardPoints : Math.floor(Number(u.totalSpent || 0) / 50),
-        orderCount: 0,
-        tier: u.tier || getTier(u.totalSpent || 0),
+        totalSpent,
+        orderCount,
+        rewardPoints: u.rewardPoints != null ? u.rewardPoints : Math.floor(totalSpent / 50 || orderCount * 25),
+        tier,
+        badgeLabel: getMhiraBadgeLabel(tier),
         profileImage: u.profileImage || "",
-      };
-      uniqueCustomers.add(profileData);
-      if (u.username) customerMap.set(u.username.toLowerCase().trim(), profileData);
-      if (u.fullName) customerMap.set(u.fullName.toLowerCase().trim(), profileData);
-    });
-
-    sales.forEach((s) => {
-      const unameKey = (s.username || "").toLowerCase().trim();
-      const nameKey = (s.customer || "").toLowerCase().trim();
-      let existing = (unameKey && customerMap.get(unameKey)) || (nameKey && customerMap.get(nameKey));
-
-      if (!existing) {
-        existing = {
-          name: s.customer || s.username || "Customer",
-          username: s.username || (s.customer ? s.customer.toLowerCase().replace(/[^a-z0-9]/g, "") : "customer"),
-          totalSpent: 0,
-          rewardPoints: 0,
-          orderCount: 0,
-          tier: "Bronze",
-          profileImage: "",
-        };
-        uniqueCustomers.add(existing);
-        if (unameKey) customerMap.set(unameKey, existing);
-        if (nameKey) customerMap.set(nameKey, existing);
-      }
-
-      existing.totalSpent += Number(s.amount || 0);
-      existing.orderCount += 1;
-      if (!existing.rewardPoints) {
-        existing.rewardPoints = Math.floor(existing.totalSpent / 50);
-      }
-      existing.tier = getTier(existing.totalSpent);
-    });
-
-    const rankings = Array.from(uniqueCustomers)
-      .filter((c) => c.totalSpent > 0 || c.orderCount > 0)
-      .sort((a, b) => b.totalSpent - a.totalSpent)
-      .map((c, index) => {
-        const badgeLabel = "Mhira Badge";
-
-        return {
-          rank: index + 1,
-          name: c.name,
-          username: c.username,
-          orderCount: c.orderCount,
-          rewardPoints: c.rewardPoints != null ? c.rewardPoints : Math.floor(c.totalSpent / 50 || c.orderCount * 25),
-          tier: c.tier,
-          badgeLabel,
-          profileImage: c.profileImage,
-        };
+        createdAt: u.createdAt,
       });
+    });
+
+    const rankings = uniqueCustomers
+      .sort((a, b) => {
+        if (b.totalSpent !== a.totalSpent) return b.totalSpent - a.totalSpent;
+        if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      })
+      .map((c, index) => ({
+        rank: index + 1,
+        name: c.name,
+        username: c.username,
+        orderCount: c.orderCount,
+        rewardPoints: c.rewardPoints,
+        tier: c.tier,
+        badgeLabel: c.badgeLabel,
+        profileImage: c.profileImage,
+      }));
 
     return res.status(200).json({
       leaderboard: rankings,

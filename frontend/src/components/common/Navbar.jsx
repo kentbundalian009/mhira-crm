@@ -31,7 +31,6 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
-  const [packageSetsCount, setPackageSetsCount] = useState(0);
 
   const isLinkActive = (path) => {
     if (path === "/collection") {
@@ -94,11 +93,6 @@ function Navbar() {
           try {
             localStorage.setItem("mhira_db_products", JSON.stringify(resPublic.data));
           } catch (e) {}
-
-          const packages = resPublic.data.filter(i =>
-            i.navbarTag === 'Package Sets' || i.category === 'Package Sets'
-          );
-          setPackageSetsCount(packages.length);
         }
       } catch (e) {
         console.error("Error fetching navbar data:", e);
@@ -164,17 +158,6 @@ function Navbar() {
             }`}
           >
             <span>PACKAGE SETS</span>
-            {packageSetsCount > 0 && (
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold border transition-colors ${
-                  isLinkActive("/packages")
-                    ? "bg-[#79A94B] text-white border-[#79A94B]"
-                    : "bg-[#EAF3E4] text-[#79A94B] border-[#79A94B]/30"
-                }`}
-              >
-                {packageSetsCount}
-              </span>
-            )}
           </Link>
 
           <Link

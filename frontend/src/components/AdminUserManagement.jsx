@@ -20,7 +20,9 @@ import {
   FileText,
   RotateCcw,
   RefreshCw,
-  ArrowUpDown
+  ArrowUpDown,
+  Archive,
+  AlertTriangle
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -46,9 +48,30 @@ function AdminUserManagement() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [sortBy, setSortBy] = useState('default');
+  const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
+  const [archiveTargetUser, setArchiveTargetUser] = useState(null);
+  const [deleteTargetUser, setDeleteTargetUser] = useState(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+
+  const activeCount = useMemo(
+    () => (Array.isArray(users) ? users.filter((u) => !u.isArchived).length : 0),
+    [users]
+  );
+  const archivedCount = useMemo(
+    () => (Array.isArray(users) ? users.filter((u) => Boolean(u.isArchived)).length : 0),
+    [users]
+  );
 
   const filteredUsers = useMemo(() => {
     let list = Array.isArray(users) ? [...users] : [];
+
+    // Filter by viewMode: Active vs Archive Vault
+    if (viewMode === 'archived') {
+      list = list.filter((u) => Boolean(u.isArchived));
+    } else {
+      list = list.filter((u) => !u.isArchived);
+    }
+
     if (roleFilter === 'Staff') {
       list = list.filter((u) => u.role !== 'Customer');
     } else if (roleFilter !== 'All') {
@@ -71,7 +94,7 @@ function AdminUserManagement() {
       list.sort((a, b) => (a.role || '').localeCompare(b.role || ''));
     }
     return list;
-  }, [users, roleFilter, searchQuery, sortBy]);
+  }, [users, viewMode, roleFilter, searchQuery, sortBy]);
 
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -273,20 +296,55 @@ function AdminUserManagement() {
     }
   };
 
-  const handleDeleteUser = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete user account "${name || 'this user'}"?`))
-      return;
+  const executeToggleArchive = async () => {
+    if (!archiveTargetUser) return;
     try {
+      setIsProcessingAction(true);
       const token = localStorage.getItem('token');
+      const id = archiveTargetUser._id || archiveTargetUser.id;
+      const isCurrentlyArchived = Boolean(archiveTargetUser.isArchived);
+
+      await axios.put(`${API_BASE_URL}/api/users/${id}/archive`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      showSuccessToast(
+        isCurrentlyArchived
+          ? `User "${archiveTargetUser.fullName || archiveTargetUser.username}" restored to active accounts!`
+          : `User "${archiveTargetUser.fullName || archiveTargetUser.username}" moved to Archive Vault.`
+      );
+
+      setArchiveTargetUser(null);
+      fetchUsers();
+      notifyLiveSync('users');
+    } catch (error) {
+      console.error('Error toggling user archive:', error);
+      showErrorToast(error.response?.data?.message || 'Failed to update user archive status.');
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const executePermanentDelete = async () => {
+    if (!deleteTargetUser) return;
+    try {
+      setIsProcessingAction(true);
+      const token = localStorage.getItem('token');
+      const id = deleteTargetUser._id || deleteTargetUser.id;
+
       await axios.delete(`${API_BASE_URL}/api/users/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      showSuccessToast('User account removed successfully.');
+
+      showSuccessToast(`User "${deleteTargetUser.fullName || deleteTargetUser.username}" permanently deleted.`);
+      setDeleteTargetUser(null);
       fetchUsers();
       notifyLiveSync('users');
     } catch (error) {
       console.error('Error deleting user:', error);
       showErrorToast(error.response?.data?.message || 'Failed to delete user.');
+    } finally {
+      setIsProcessingAction(false);
     }
   };
 
@@ -339,18 +397,29 @@ function AdminUserManagement() {
     }
   };
 
-  // Metrics
+  const statusModules = useMemo(() => [
+    { id: 'active', label: 'Active Users' },
+    { id: 'archived', label: 'Archive Vault' },
+  ], []);
+
+  const currentModeUsers = useMemo(() => {
+    return Array.isArray(users)
+      ? users.filter((u) => (viewMode === 'archived' ? Boolean(u.isArchived) : !u.isArchived))
+      : [];
+  }, [users, viewMode]);
+
+  // Metrics (Live counts based on current mode)
   const adminCount = useMemo(
-    () => users.filter((u) => u.role === 'Admin').length,
-    [users]
+    () => currentModeUsers.filter((u) => u.role === 'Admin').length,
+    [currentModeUsers]
   );
   const deptCount = useMemo(
-    () => users.filter((u) => u.role !== 'Admin' && u.role !== 'Customer').length,
-    [users]
+    () => currentModeUsers.filter((u) => u.role !== 'Admin' && u.role !== 'Customer').length,
+    [currentModeUsers]
   );
   const customerCount = useMemo(
-    () => users.filter((u) => u.role === 'Customer').length,
-    [users]
+    () => currentModeUsers.filter((u) => u.role === 'Customer').length,
+    [currentModeUsers]
   );
 
   const getRoleBadgeStyle = (role) => {
@@ -373,39 +442,32 @@ function AdminUserManagement() {
 
   return (
     <div className="w-full flex flex-col gap-6 font-sans antialiased text-slate-700">
-      <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
+      <div className="w-full bg-white border border-slate-100 text-slate-600 rounded-2xl p-3 sm:p-6 shadow-sm flex flex-col gap-4 sm:gap-6 transition-colors duration-200">
         
-        {/* COMPACT EXCEL RIBBON TOOLBAR (SEAMLESS WHITE DESIGN) */}
+        {/* COMPACT EXCEL RIBBON TOOLBAR (RESPONSIVE SEAMLESS DESIGN) */}
         <div className="w-full bg-white flex flex-col">
           {/* TOP BAR: EXCEL SHEET TABS */}
-          <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
+          <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 overflow-x-auto no-scrollbar border-b border-slate-100 sm:border-b-0">
             <div className="flex items-center gap-1 -mb-px">
-              {[
-                { id: 'All', label: 'All Accounts' },
-                { id: 'Staff', label: 'Staff Accounts' },
-                { id: 'Customer', label: 'Customer Accounts' },
-              ].map((mod) => {
-                const isActive = (roleFilter === 'All' && mod.id === 'All') || (roleFilter === 'Staff' && mod.id === 'Staff') || (roleFilter === 'Customer' && mod.id === 'Customer');
+              {statusModules.map((mod) => {
+                const isActive = viewMode === mod.id;
                 return (
                   <button
                     key={mod.id}
                     type="button"
                     onClick={() => {
-                      setRoleFilter(mod.id);
+                      setViewMode(mod.id);
                       setCurrentPage(1);
                     }}
-                    className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 ${
-                      isActive
-                        ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
-                    }`}
+                    className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${isActive
+                      ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
+                      }`}
                   >
-                    {mod.id === 'Customer' ? (
-                      <User className="w-3.5 h-3.5 text-slate-500" />
-                    ) : mod.id === 'Staff' ? (
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#01390f]" />
+                    {mod.id === 'active' ? (
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
                     ) : (
-                      <Users className="w-3.5 h-3.5 text-[#01390f]" />
+                      <Archive className="w-3.5 h-3.5 text-slate-500" />
                     )}
                     <span>{mod.label}</span>
                   </button>
@@ -414,47 +476,56 @@ function AdminUserManagement() {
             </div>
           </div>
 
-          {/* MS EXCEL-STYLE RIBBON TOOLBAR (CLEAN WHITE BACKGROUND - 1 ROW NO WRAPPING) */}
-          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+          {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+          <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
             
-            {/* GROUP 1: ACTIONS (Fixed Width: Tall Full-Height + Stacked Layers) */}
-            <div className="w-[256px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex items-stretch gap-1.5 flex-1">
+            {/* GROUP 1: ACTIONS (Responsive: Full-width on mobile, fixed width on desktop) */}
+            <div className={`w-full ${viewMode === 'archived' ? 'lg:w-[140px]' : 'lg:w-[256px]'} shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]`}>
+              <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
                 {/* 1 COLUMN NA 1 LAYER: Tall Full-Height Action Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
-                  title="Create User Account"
-                >
-                  <Plus className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
-                  <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
-                    Add User<br />Account
-                  </span>
-                </button>
+                {viewMode !== 'archived' ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(true)}
+                    className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                    title="Create User Account"
+                  >
+                    <Plus className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                    <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
+                      Add User<br />Account
+                    </span>
+                  </button>
+                ) : (
+                  <div className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-amber-50/70 border border-amber-200/80 text-amber-800 select-none">
+                    <Archive className="w-5.5 h-5.5 text-amber-700 mb-0.5" strokeWidth={2} />
+                    <span className="text-[10px] font-bold text-center leading-tight">
+                      Archive<br />Vault
+                    </span>
+                  </div>
+                )}
 
                 {/* Stacked Compact Rows */}
-                <div className="flex-1 min-w-[145px] flex flex-col justify-between py-0.5 space-y-0.5">
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
                   {/* Layer 1: Refresh Directory */}
                   <button
                     type="button"
                     onClick={fetchUsers}
-                    className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                     title="Refresh user records"
                   >
                     <RefreshCw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="truncate">Refresh List</span>
+                    <span className="whitespace-nowrap">Refresh List</span>
                   </button>
 
                   {/* Layer 2: Export PDF */}
                   <button
                     type="button"
                     onClick={handleExportPDF}
-                    className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-rose-50 text-slate-700 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-slate-700 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                     title="Export User Directory to PDF"
                   >
                     <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                    <span className="truncate">Export PDF</span>
+                    <span className="whitespace-nowrap">Export PDF</span>
                   </button>
 
                   {/* Layer 3: Reset Filters */}
@@ -462,7 +533,7 @@ function AdminUserManagement() {
                     type="button"
                     onClick={handleClearAllFilters}
                     disabled={activeFiltersCount === 0}
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
                     title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -474,15 +545,15 @@ function AdminUserManagement() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
                 Actions
               </div>
             </div>
 
-            {/* GROUP 2: SEARCH & FILTERS (Equal 3-Column Grid) */}
-            <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-1">
-                {/* Layer 1: Search Bar */}
+            {/* GROUP 2: SEARCH & FILTERS (Responsive Multi-Column Grid) */}
+            <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
+                {/* Layer 1: Search Bar (Enhanced Height) */}
                 <div className="relative flex items-center w-full">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
                   <input
@@ -497,7 +568,7 @@ function AdminUserManagement() {
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-1.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
                       title="Clear search"
                     >
                       <X className="w-3 h-3" />
@@ -505,18 +576,18 @@ function AdminUserManagement() {
                   )}
                 </div>
 
-                {/* Layer 2: Filter Dropdowns (Equal 3 Columns) */}
-                <div className="grid grid-cols-3 gap-2 w-full">
+                {/* Layer 2: Filter Dropdowns (Responsive: 1 col on mobile, 3 cols on sm+) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                   {/* Role Dropdown */}
                   <div className="relative inline-flex items-center w-full min-w-0">
-                    <Shield className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <Shield className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={roleFilter}
                       onChange={(e) => setRoleFilter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Filter by Role"
                     >
-                      <option value="All">All User Roles ({users.length})</option>
+                      <option value="All">All User Roles ({currentModeUsers.length})</option>
                       <option value="Staff">All Staff Roles ({deptCount + adminCount})</option>
                       <option value="Customer">Customer Accounts ({customerCount})</option>
                       <option value="Admin">Admin Department ({adminCount})</option>
@@ -528,11 +599,11 @@ function AdminUserManagement() {
 
                   {/* Account Type Filter */}
                   <div className="relative inline-flex items-center w-full min-w-0">
-                    <Users className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <Users className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={roleFilter === 'Staff' ? 'Staff' : roleFilter === 'Customer' ? 'Customer' : 'All'}
                       onChange={(e) => setRoleFilter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Filter Account Type"
                     >
                       <option value="All">All Account Types</option>
@@ -542,57 +613,59 @@ function AdminUserManagement() {
                   </div>
 
                   {/* Sort Select */}
-                  <div className="relative inline-flex items-center w-full min-w-0">
-                    <ArrowUpDown className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                  <div className="relative inline-flex items-center w-full min-w-0 sm:col-span-2 md:col-span-1">
+                    <ArrowUpDown className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Sort users"
                     >
                       <option value="default">Sort: Default</option>
                       <option value="name_asc">Name (A → Z)</option>
                       <option value="name_desc">Name (Z → A)</option>
                       <option value="role_asc">Role (A → Z)</option>
+                      <option value="newest">Newest First</option>
+                      <option value="oldest">Oldest First</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Layer 3: Quick Filter Toggles (Equal 3 Columns) */}
-                <div className="grid grid-cols-3 gap-2 w-full">
+                {/* Layer 3: Quick Filter Toggles & Sort (Responsive: 1 col on mobile, 3 cols on sm+) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                   {/* Staff Only Toggle */}
                   <button
                     type="button"
                     onClick={() => setRoleFilter(roleFilter === 'Staff' ? 'All' : 'Staff')}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${
                       roleFilter === 'Staff'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                     }`}
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Staff Only</span>
+                    <span>Staff Only {deptCount + adminCount > 0 ? `(${deptCount + adminCount})` : ''}</span>
                   </button>
 
                   {/* Customer Only Toggle */}
                   <button
                     type="button"
                     onClick={() => setRoleFilter(roleFilter === 'Customer' ? 'All' : 'Customer')}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${
                       roleFilter === 'Customer'
                         ? 'bg-sky-50 text-sky-800 border border-sky-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                     }`}
                   >
                     <User className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Customers Only</span>
+                    <span>Customers Only {customerCount > 0 ? `(${customerCount})` : ''}</span>
                   </button>
 
                   {/* Admin Only Toggle */}
                   <button
                     type="button"
                     onClick={() => setRoleFilter(roleFilter === 'Admin' ? 'All' : 'Admin')}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${
                       roleFilter === 'Admin'
                         ? 'bg-purple-50 text-purple-800 border border-purple-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
@@ -605,7 +678,7 @@ function AdminUserManagement() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none hidden lg:block">
                 Search & Filter
               </div>
             </div>
@@ -634,13 +707,13 @@ function AdminUserManagement() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">NAME & USERNAME</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">EMP NO / CUSTOMER NO</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">EMAIL ADDRESS</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">ROLE / DEPARTMENT</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">ACCESS STATUS</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">REGISTERED DATE</th>
-                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px]">ACTION</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px] font-semibold text-white">NAME & USERNAME</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">EMP NO / CUSTOMER NO</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">EMAIL ADDRESS</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">ROLE / DEPARTMENT</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">ACCESS STATUS</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">REGISTERED DATE</th>
+                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
                 </tr>
               </thead>
 
@@ -657,20 +730,22 @@ function AdminUserManagement() {
                       </div>
                     </td>
                   </tr>
-                ) : users.length === 0 ? (
+                ) : filteredUsers.length === 0 ? (
                   <tr>
                     <td
                       colSpan="7"
                       className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
                     >
-                      No user accounts found matching your filter criteria.
+                      {viewMode === 'archived'
+                        ? 'No archived user accounts in the vault.'
+                        : 'No user accounts found matching your filter criteria.'}
                     </td>
                   </tr>
                 ) : (
                   paginatedUsers.map((user) => (
                     <tr
                       key={user._id || user.id}
-                      className="hover:bg-slate-50/80 transition-colors group"
+                      className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                     >
                       {/* FULL NAME & USERNAME */}
                       <td className="py-3.5 px-4 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
@@ -708,17 +783,17 @@ function AdminUserManagement() {
                       </td>
 
                       {/* EMP NO / CUSTOMER NO */}
-                      <td className="py-3.5 px-4 whitespace-nowrap font-mono font-bold text-slate-900">
+                      <td className="py-3.5 px-4 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {user.customerNo || user.empNo || user.emp_no || 'N/A'}
                       </td>
 
                       {/* EMAIL */}
-                      <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {user.email || 'N/A'}
                       </td>
 
                       {/* ROLE */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${
                             user.role === 'Admin'
@@ -739,12 +814,19 @@ function AdminUserManagement() {
                       </td>
 
                       {/* ACCESS STATUS & EMAIL SECURITY */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         <div className="flex flex-col items-center gap-1">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-emerald-50 text-emerald-700 border-emerald-200/80">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <span>Active</span>
-                          </span>
+                          {user.isArchived ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-700 border-amber-200/80">
+                              <Archive className="w-3 h-3 text-amber-600" />
+                              <span>Archived</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-emerald-50 text-emerald-700 border-emerald-200/80">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>Active</span>
+                            </span>
+                          )}
 
                           {user.isEmailVerified ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
@@ -783,7 +865,7 @@ function AdminUserManagement() {
                       </td>
 
                       {/* REGISTERED DATE */}
-                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs text-slate-500">
+                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs text-slate-500 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {new Date(
                           user.createdAt || user.dateAdded || Date.now()
                         ).toLocaleDateString([], {
@@ -794,29 +876,47 @@ function AdminUserManagement() {
                       </td>
 
                       {/* ACTION (STICKY RIGHT) */}
-                      <td className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px]">
+                      <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(user)}
-                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            title="Edit Account"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteUser(
-                                user._id || user.id,
-                                user.fullName || user.username
-                              )
-                            }
-                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            title="Delete Account"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {viewMode !== 'archived' ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(user)}
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                title="Edit User Account"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setArchiveTargetUser(user)}
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-amber-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                title="Move to Archive Vault"
+                              >
+                                <Archive className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setArchiveTargetUser(user)}
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-[#01390f] hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                title="Restore User to Active"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTargetUser(user)}
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                title="Permanently Delete Account"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1103,6 +1203,199 @@ function AdminUserManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ARCHIVE / RESTORE USER CONFIRMATION */}
+      {archiveTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200/80 flex flex-col my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                {archiveTargetUser.isArchived ? (
+                  <RotateCcw className="w-4 h-4 text-[#01390f]" />
+                ) : (
+                  <Archive className="w-4 h-4 text-amber-600" />
+                )}
+                <span>
+                  {archiveTargetUser.isArchived ? 'Restore User Account' : 'Move User to Archive Vault'}
+                </span>
+              </h3>
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={() => setArchiveTargetUser(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* MODAL BODY */}
+            <div className="p-6 flex flex-col gap-4">
+              <div
+                className={`p-3.5 rounded-2xl border text-xs flex items-start gap-3 ${
+                  archiveTargetUser.isArchived
+                    ? 'bg-[#EDF7EE] border-[#D5EAD7] text-[#01390f]'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`}
+              >
+                <div>
+                  <span className="block text-xs font-bold uppercase tracking-wider mb-0.5">
+                    {archiveTargetUser.isArchived ? 'Active Directory Restoration' : 'Archive Vault Safety'}
+                  </span>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    {archiveTargetUser.isArchived
+                      ? 'Restoring this user will return their account to active directory and permit login access again.'
+                      : 'Archiving hides this user from the active directory and revokes login access, while safely preserving their order history, audit trails, and data.'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                  Are you sure you want to{' '}
+                  {archiveTargetUser.isArchived
+                    ? 'restore this user account'
+                    : 'move this user account to the archive vault'}
+                  ?
+                </p>
+                <div className="mt-2.5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-sm">
+                      {archiveTargetUser.fullName || archiveTargetUser.fullname || archiveTargetUser.username}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 uppercase">
+                      {archiveTargetUser.role || 'Staff'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col text-[11px] text-slate-500 font-mono gap-0.5">
+                    <span>Username: @{archiveTargetUser.username}</span>
+                    <span>Email: {archiveTargetUser.email}</span>
+                    <span>ID: {archiveTargetUser.customerNo || archiveTargetUser.empNo || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={() => setArchiveTargetUser(null)}
+                className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer text-center border border-[#d5ead7] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={executeToggleArchive}
+                className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isProcessingAction ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : archiveTargetUser.isArchived ? (
+                  <RotateCcw className="w-4 h-4" />
+                ) : (
+                  <Archive className="w-4 h-4" />
+                )}
+                <span>
+                  {isProcessingAction
+                    ? 'Processing...'
+                    : archiveTargetUser.isArchived
+                    ? 'Confirm Restore'
+                    : 'Confirm Archive'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PERMANENT DELETE USER CONFIRMATION (IN ARCHIVE VAULT) */}
+      {deleteTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-rose-200 flex flex-col my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-rose-100 bg-rose-50/70 shrink-0">
+              <h3 className="text-sm font-bold text-rose-800 flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-rose-600" />
+                <span>Permanently Delete User</span>
+              </h3>
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={() => setDeleteTargetUser(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* MODAL BODY */}
+            <div className="p-6 flex flex-col gap-4">
+              <div className="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-rose-900 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="block text-xs font-bold text-rose-800 uppercase tracking-wider mb-0.5">
+                    Permanent Irreversible Deletion
+                  </span>
+                  <p className="text-[11px] text-rose-700 leading-relaxed">
+                    This user account will be permanently erased from the system database. This action CANNOT be undone.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                  Are you absolutely sure you want to delete this account forever?
+                </p>
+                <div className="mt-2.5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-sm">
+                      {deleteTargetUser.fullName || deleteTargetUser.fullname || deleteTargetUser.username}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 uppercase">
+                      {deleteTargetUser.role || 'User'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col text-[11px] text-slate-500 font-mono gap-0.5">
+                    <span>Username: @{deleteTargetUser.username}</span>
+                    <span>Email: {deleteTargetUser.email}</span>
+                    <span>ID: {deleteTargetUser.customerNo || deleteTargetUser.empNo || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={() => setDeleteTargetUser(null)}
+                className="px-5 py-2.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer text-center disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingAction}
+                onClick={executePermanentDelete}
+                className="px-6 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isProcessingAction ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                <span>{isProcessingAction ? 'Deleting...' : 'Delete Permanently'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

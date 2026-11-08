@@ -387,11 +387,11 @@ function InventoryExpiryMonitoring() {
         startY: 72,
         head: tableHead,
         body: tableBody,
-        headStyles: { fillColor: [1, 57, 15], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
-        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [1, 57, 15], textColor: 255, fontStyle: 'bold', fontSize: 8.5, overflow: 'ellipsize' },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59], overflow: 'ellipsize' },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         theme: 'grid',
-        styles: { cellPadding: 2.8 }
+        styles: { cellPadding: 2.8, overflow: 'ellipsize' }
       });
       const finalY = doc.lastAutoTable.finalY + 8;
       doc.setFillColor(241, 245, 249);
@@ -444,11 +444,11 @@ function InventoryExpiryMonitoring() {
         startY: 30,
         head: tableHead,
         body: tableBody,
-        headStyles: { fillColor: [1, 57, 15], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-        bodyStyles: { fontSize: 7.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [1, 57, 15], textColor: 255, fontStyle: 'bold', fontSize: 8, overflow: 'ellipsize' },
+        bodyStyles: { fontSize: 7.5, textColor: [30, 41, 59], overflow: 'ellipsize' },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         theme: 'grid',
-        styles: { cellPadding: 2.2 }
+        styles: { cellPadding: 2.2, overflow: 'ellipsize' }
       });
       doc.save(`Expiry_Audit_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
@@ -542,18 +542,18 @@ function InventoryExpiryMonitoring() {
             </div>
           </div>
 
-          {/* MS EXCEL-STYLE RIBBON TOOLBAR (CLEAN WHITE BACKGROUND - 1 ROW NO WRAPPING) */}
-          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+          {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+          <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
 
-            {/* GROUP 1: ACTIONS (Reset Filters) */}
-            <div className="w-[140px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
+            {/* GROUP 1: ACTIONS (Reset Filters - Responsive: Full-width on mobile, fixed width on desktop) */}
+            <div className="w-full lg:w-[140px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
               <div className="flex items-center flex-1 py-1">
                 {/* Reset Filters */}
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
                   disabled={activeFiltersCount === 0}
-                  className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-white transition-colors text-xs font-semibold cursor-pointer w-full disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer w-full h-[32px] lg:h-auto disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap shadow-2xs lg:shadow-none"
                   title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -564,14 +564,14 @@ function InventoryExpiryMonitoring() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
                 Actions
               </div>
             </div>
 
-            {/* GROUP 2: SEARCH & FILTERS (Equal 3-Column Grid) */}
-            <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-1">
+            {/* GROUP 2: SEARCH & FILTERS (Responsive Multi-Column Grid) */}
+            <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
 
                 {/* Layer 1: Search Bar */}
                 <div className="relative flex items-center w-full">
@@ -596,15 +596,15 @@ function InventoryExpiryMonitoring() {
                   )}
                 </div>
 
-                {/* Layer 2: Filter Dropdowns (Equal 3 Columns) */}
-                <div className="grid grid-cols-3 gap-2 w-full">
+                {/* Layer 2: Filter Dropdowns (Responsive: 1 col on mobile, 2 cols on sm, 3 cols on md+) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                   {/* Category Dropdown */}
                   <div className="relative inline-flex items-center w-full min-w-0">
-                    <Package className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <Package className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={categoryFilter}
                       onChange={(e) => setCategoryFilter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Filter by Category"
                     >
                       <option value="All">All Categories ({existingCategories.length})</option>
@@ -616,11 +616,11 @@ function InventoryExpiryMonitoring() {
 
                   {/* Status Dropdown */}
                   <div className="relative inline-flex items-center w-full min-w-0">
-                    <Clock className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <Clock className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Filter by Expiry Status"
                     >
                       <option value="All">All Expiry Status</option>
@@ -633,12 +633,12 @@ function InventoryExpiryMonitoring() {
                   </div>
 
                   {/* Batch Dropdown */}
-                  <div className="relative inline-flex items-center w-full min-w-0">
-                    <Layers className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                  <div className="relative inline-flex items-center w-full min-w-0 sm:col-span-2 md:col-span-1">
+                    <Layers className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={batchFilter}
                       onChange={(e) => setBatchFilter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Filter by Batch / DR"
                     >
                       <option value="All">All Batches / DRs ({existingBatches.length})</option>
@@ -649,8 +649,8 @@ function InventoryExpiryMonitoring() {
                   </div>
                 </div>
 
-                {/* Layer 3: Quick Filter Toggles & Sort (Exact Same 3 Columns) */}
-                <div className="grid grid-cols-3 gap-2 w-full">
+                {/* Layer 3: Quick Filter Toggles & Sort (Responsive: 1 col on mobile, 2 cols on sm, 3 cols on md+) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                   {/* Critical Alert */}
                   <button
                     type="button"
@@ -658,13 +658,13 @@ function InventoryExpiryMonitoring() {
                       setShowCriticalOnly(!showCriticalOnly);
                       if (!showCriticalOnly) setShowExpiredOnly(false);
                     }}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${showCriticalOnly
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs whitespace-nowrap ${showCriticalOnly
                         ? 'bg-rose-50 text-rose-700 border border-rose-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title="Filter Critical Batches (<= 30 days left)"
                   >
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                     <span>Critical (≤ 30d)</span>
                     <span className="font-mono text-[11px]">({expiryStats.criticalCount})</span>
                   </button>
@@ -676,7 +676,7 @@ function InventoryExpiryMonitoring() {
                       setShowExpiredOnly(!showExpiredOnly);
                       if (!showExpiredOnly) setShowCriticalOnly(false);
                     }}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${showExpiredOnly
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs whitespace-nowrap ${showExpiredOnly
                         ? 'bg-red-50 text-red-700 border border-red-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
@@ -687,12 +687,12 @@ function InventoryExpiryMonitoring() {
                   </button>
 
                   {/* Sort Select */}
-                  <div className="relative inline-flex items-center w-full min-w-0">
-                    <ArrowUpDown className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                  <div className="relative inline-flex items-center w-full min-w-0 sm:col-span-2 md:col-span-1">
+                    <ArrowUpDown className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Sort items"
                     >
                       <option value="default">Sort: FEFO (Earliest)</option>
@@ -706,7 +706,7 @@ function InventoryExpiryMonitoring() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none hidden lg:block">
                 Search & Filter
               </div>
             </div>

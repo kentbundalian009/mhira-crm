@@ -1,4 +1,6 @@
 import Product from '../models/InventoryProduct.js';
+import Collection from '../models/MarketingCollection.js';
+import { invalidateProductsCache } from './MarketingCollectionController.js';
 
 // Get all products
 export const getProducts = async (req, res) => {
@@ -134,6 +136,35 @@ export const updateProduct = async (req, res) => {
 
     if (!updatedProduct) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+
+    try {
+      const nameToSync = updatedProduct.itemName || updatedProduct.itemDescription;
+      const updateFields = {
+        itemName: nameToSync,
+        itemDescription: nameToSync,
+        name: nameToSync,
+        category: updatedProduct.category,
+        specification: updatedProduct.specification || '',
+        uom: updatedProduct.uom || 'PCS',
+      };
+      if (updatedProduct.image) {
+        updateFields.image = updatedProduct.image;
+      }
+
+      await Collection.updateMany(
+        {
+          $or: [
+            { productRef: updatedProduct._id },
+            { code: updatedProduct.code },
+            { code: (updatedProduct.code || '').toLowerCase() },
+          ],
+        },
+        { $set: updateFields }
+      );
+      invalidateProductsCache();
+    } catch (syncErr) {
+      console.error('Error syncing updated product with marketing collection:', syncErr);
     }
 
     res.status(200).json(updatedProduct);

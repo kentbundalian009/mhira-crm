@@ -58,12 +58,12 @@ function CustomerMhiraShoppers() {
   // Fallback data if backend is starting up or offline
   const DEFAULT_LEADERBOARD = [
     { rank: 1, name: "Bea Alonzo", username: "beaalonzo", tier: "Gold", rewardPoints: 240, orderCount: 5 },
-    { rank: 2, name: "Kent Bundalian", username: "kentbundalian009", tier: "Silver", rewardPoints: 180, orderCount: 4 },
-    { rank: 3, name: "Sarah Geronimo", username: "sarahg", tier: "Bronze", rewardPoints: 95, orderCount: 3 },
+    { rank: 2, name: "Kent Bundalian", username: "kentbundalian009", tier: "Gold", rewardPoints: 180, orderCount: 4 },
+    { rank: 3, name: "Sarah Geronimo", username: "sarahg", tier: "Gold", rewardPoints: 95, orderCount: 3 },
     { rank: 4, name: "Maria Santos", username: "mariasantos", tier: "Silver", rewardPoints: 80, orderCount: 2 },
-    { rank: 5, name: "Elena Reyes", username: "elenareyes", tier: "Bronze", rewardPoints: 45, orderCount: 1 },
-    { rank: 6, name: "Juan Dela Cruz", username: "juandc", tier: "Bronze", rewardPoints: 30, orderCount: 1 },
-    { rank: 7, name: "Mark Tan", username: "marktan99", tier: "Bronze", rewardPoints: 20, orderCount: 1 },
+    { rank: 5, name: "Elena Reyes", username: "elenareyes", tier: "Silver", rewardPoints: 45, orderCount: 1 },
+    { rank: 6, name: "Juan Dela Cruz", username: "juandc", tier: "Bronze", rewardPoints: 0, orderCount: 0 },
+    { rank: 7, name: "Mark Tan", username: "marktan99", tier: "Bronze", rewardPoints: 0, orderCount: 0 },
   ];
 
   // Fetch Shoppers function (silent option for real-time updates)
@@ -131,9 +131,14 @@ function CustomerMhiraShoppers() {
 
     // Filter by Tier
     if (selectedTier !== 'All') {
-      list = list.filter((item) =>
-        (item.tier || '').toLowerCase().includes(selectedTier.toLowerCase())
-      );
+      const sel = selectedTier.toLowerCase();
+      list = list.filter((item) => {
+        const itemTier = (item.tier || '').toLowerCase();
+        if (sel === 'gold' || sel === 'loyal') {
+          return itemTier.includes('gold') || itemTier.includes('loyal') || itemTier.includes('platinum');
+        }
+        return itemTier.includes(sel);
+      });
     }
 
     // Sort
@@ -158,7 +163,7 @@ function CustomerMhiraShoppers() {
 
   const renderBadge = (tier, isDark = false) => {
     const t = (tier || '').toLowerCase();
-    if (t.includes('gold') || t.includes('platinum')) {
+    if (t.includes('gold') || t.includes('loyal') || t.includes('platinum')) {
       return (
         <span
           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold shadow-2xs whitespace-nowrap ${
@@ -167,7 +172,7 @@ function CustomerMhiraShoppers() {
               : 'bg-amber-50 text-amber-800 border border-amber-300'
           }`}
         >
-          Gold VIP
+          Gold Tier
         </span>
       );
     }
@@ -180,7 +185,7 @@ function CustomerMhiraShoppers() {
               : 'bg-slate-100 text-slate-700 border border-slate-300'
           }`}
         >
-          Silver Loyal
+          Silver Tier
         </span>
       );
     }
@@ -192,7 +197,7 @@ function CustomerMhiraShoppers() {
             : 'bg-orange-50 text-orange-800 border border-orange-200'
         }`}
       >
-        Bronze Member
+        Bronze Tier
       </span>
     );
   };
@@ -200,9 +205,9 @@ function CustomerMhiraShoppers() {
   const userTier =
     activeUser?.tier && !activeUser.tier.toLowerCase().includes('platinum')
       ? activeUser.tier
-      : Number(activeUser?.totalSpent || 0) >= 5000
+      : Number(activeUser?.totalSpent || 0) >= 5000 || Number(activeUser?.orderCount || 0) >= 3
         ? 'Gold'
-        : Number(activeUser?.totalSpent || 0) >= 1000
+        : Number(activeUser?.totalSpent || 0) >= 1000 || Number(activeUser?.orderCount || 0) >= 1
           ? 'Silver'
           : 'Bronze';
 
@@ -210,9 +215,9 @@ function CustomerMhiraShoppers() {
 
   const tierTabs = [
     { id: 'All', label: 'All Shoppers' },
-    { id: 'Gold', label: 'Gold VIP' },
-    { id: 'Silver', label: 'Silver Loyal' },
-    { id: 'Bronze', label: 'Bronze Members' },
+    { id: 'Gold', label: 'Gold Tier' },
+    { id: 'Silver', label: 'Silver Tier' },
+    { id: 'Bronze', label: 'Bronze Tier' },
   ];
 
   const sortOptions = [
@@ -393,89 +398,6 @@ function CustomerMhiraShoppers() {
                 </button>
               )}
             </div>
-
-            {/* ================= LOGGED-IN CUSTOMER'S VIP STATUS CARD ================= */}
-            {activeUser && (
-              <div className="bg-[#FAFBF9] border border-[#D5EAD7] rounded-2xl p-5 sm:p-6 shadow-2xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-full bg-[#EDF7EE] border border-[#01390f]/20 text-[#01390f] font-bold text-lg flex items-center justify-center shrink-0">
-                      {activeUser.profileImage ? (
-                        <img src={activeUser.profileImage} alt="" className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        (activeUser.fullName || activeUser.username || 'U').charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-sm sm:text-base font-medium text-slate-900">
-                          {activeUser.fullName || activeUser.username}
-                        </h2>
-                        {renderBadge(userTier)}
-                      </div>
-                      <p className="text-xs font-mono text-[#01390f] font-medium mt-0.5">
-                        @{activeUser.username || (activeUser.fullName ? activeUser.fullName.toLowerCase().replace(/[^a-z0-9]/g, '') : 'customer')}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
-                    <Link
-                      to="/collection"
-                      className="py-2.5 px-5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer text-center inline-flex items-center gap-2"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>Shop & Earn Points</span>
-                    </Link>
-                    <Link
-                      to="/account"
-                      className="py-2.5 px-5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] inline-flex items-center gap-1.5"
-                    >
-                      My Account
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Points & Membership Metrics Bar */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
-                  <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Reward Points</span>
-                      <span className="text-base font-bold text-[#01390f] font-mono">
-                        <span className="text-amber-500 drop-shadow-xs font-black">{userPoints}</span> Points
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-medium text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
-                      ₱{userPoints}.00 OFF
-                    </span>
-                  </div>
-
-                  <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Membership Tier</span>
-                      <span className="text-base font-bold text-slate-800">
-                        {userTier} Member
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-medium text-emerald-800 bg-[#EDF7EE] px-2.5 py-0.5 rounded-full border border-[#D5EAD7]">
-                      Active VIP
-                    </span>
-                  </div>
-
-                  <div className="bg-white border border-[#D5EAD7] rounded-xl p-3.5 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-semibold uppercase text-slate-400 block tracking-wider">Loyalty Rate</span>
-                      <span className="text-xs font-medium text-slate-700 block mt-0.5">
-                        1 pt per ₱50.00 spent
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
-                      Automatic
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* ================= UNIFIED MHIRA SHOPPERS HALL OF FAME & LEADERBOARD CONTAINER ================= */}
             <div className="bg-white border border-[#D5EAD7] rounded-2xl sm:rounded-3xl p-5 sm:p-8 space-y-8">
@@ -785,9 +707,9 @@ function CustomerMhiraShoppers() {
                   <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold">
                     <Star className="w-4 h-4" />
                   </div>
-                  <h3 className="font-medium text-slate-900 text-sm">Bronze Member</h3>
+                  <h3 className="font-medium text-slate-900 text-sm">Bronze Tier</h3>
                   <p className="text-xs text-slate-500 leading-relaxed font-normal">
-                    Default tier for all shoppers. Earn 1 point per ₱50 spent on all natural care items.
+                    Default tier for new shoppers (0 orders). Earn 1 point per ₱50 spent on all natural skincare and beauty products.
                   </p>
                 </div>
 
@@ -795,9 +717,9 @@ function CustomerMhiraShoppers() {
                   <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
-                  <h3 className="font-medium text-slate-900 text-sm">Silver Loyal (₱1,000+)</h3>
+                  <h3 className="font-medium text-slate-900 text-sm">Silver Tier (1+ Orders / ₱1k+)</h3>
                   <p className="text-xs text-slate-500 leading-relaxed font-normal">
-                    Unlocked after ₱1,000 lifetime spend. Silver badge shown on reviews and early access to promotions.
+                    Unlocked automatically after placing your first order. Silver badge shown on reviews and early access to promotions.
                   </p>
                 </div>
 
@@ -805,9 +727,9 @@ function CustomerMhiraShoppers() {
                   <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
                     <Award className="w-4 h-4" />
                   </div>
-                  <h3 className="font-medium text-slate-900 text-sm">Gold VIP (₱5,000+)</h3>
+                  <h3 className="font-medium text-slate-900 text-sm">Gold Tier (3+ Orders / ₱5k+)</h3>
                   <p className="text-xs text-slate-500 leading-relaxed font-normal">
-                    The highest tier of Mhira loyalty. Gold badge on community reviews, priority packing, and special vouchers.
+                    The highest tier of Mhira loyalty. Gold badge on community reviews, priority packing, and exclusive member discounts.
                   </p>
                 </div>
               </div>

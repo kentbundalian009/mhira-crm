@@ -95,9 +95,9 @@ const loadWatermarkImage = (url, opacity = 0.095) => {
 };
 
 const DEFAULT_GLOBAL_THRESHOLDS = {
-  criticalLevel: 0,
-  restockWarningPoint: 30,
-  overstockLimitPoint: 9999999,
+  criticalLevel: 1000,
+  restockWarningPoint: 5000,
+  overstockLimitPoint: 200000,
 };
 
 const DEFAULT_UOM_THRESHOLDS = {
@@ -224,13 +224,6 @@ function InventoryRawMaterials() {
     return {};
   });
 
-  // Modal Threshold Configuration States
-  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
-  const [thresholdTab, setThresholdTab] = useState('global'); // 'global' | 'uom' | 'specific'
-  const [tempGlobalThresholds, setTempGlobalThresholds] = useState(DEFAULT_GLOBAL_THRESHOLDS);
-  const [tempUomThresholds, setTempUomThresholds] = useState(DEFAULT_UOM_THRESHOLDS);
-  const [tempSpecificLimits, setTempSpecificLimits] = useState({});
-
   // UOM Modal Form Inputs
   const [newUomName, setNewUomName] = useState('');
   const [newUomCritical, setNewUomCritical] = useState('0');
@@ -244,14 +237,14 @@ function InventoryRawMaterials() {
   // Add / Edit Modal States
   const initialFormState = {
     code: '',
-    category: 'Active Ingredients',
+    category: '',
     itemName: '',
     itemDescription: '-',
     specification: '',
     uom: 'g',
-    criticalLevel: defaultThresholds.criticalLevel ?? 0,
-    restockWarningPoint: defaultThresholds.restockWarningPoint ?? 10,
-    overstockLimitPoint: defaultThresholds.overstockLimitPoint ?? 1000,
+    criticalLevel: defaultThresholds.criticalLevel ?? 1000,
+    restockWarningPoint: defaultThresholds.restockWarningPoint ?? 5000,
+    overstockLimitPoint: defaultThresholds.overstockLimitPoint ?? 200000,
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -263,9 +256,9 @@ function InventoryRawMaterials() {
   // Helper: Find effective threshold for an item directly from its specific attributes or dynamic defaults
   const getResolvedThreshold = useCallback((item) => {
     return {
-      criticalLevel: Number(item?.criticalLevel !== undefined && item?.criticalLevel !== '' ? item.criticalLevel : (defaultThresholds.criticalLevel ?? 0)),
-      restockWarningPoint: Number(item?.restockWarningPoint !== undefined && item?.restockWarningPoint !== '' ? item.restockWarningPoint : (defaultThresholds.restockWarningPoint ?? 10)),
-      overstockLimitPoint: Number(item?.overstockLimitPoint !== undefined && item?.overstockLimitPoint !== '' ? item.overstockLimitPoint : (defaultThresholds.overstockLimitPoint ?? 1000)),
+      criticalLevel: Number(item?.criticalLevel !== undefined && item?.criticalLevel !== '' ? item.criticalLevel : (defaultThresholds.criticalLevel ?? 1000)),
+      restockWarningPoint: Number(item?.restockWarningPoint !== undefined && item?.restockWarningPoint !== '' ? item.restockWarningPoint : (defaultThresholds.restockWarningPoint ?? 5000)),
+      overstockLimitPoint: Number(item?.overstockLimitPoint !== undefined && item?.overstockLimitPoint !== '' ? item.overstockLimitPoint : (defaultThresholds.overstockLimitPoint ?? 200000)),
     };
   }, [defaultThresholds]);
 
@@ -276,9 +269,9 @@ function InventoryRawMaterials() {
         ? itemOrThreshold
         : getResolvedThreshold(itemOrThreshold);
     const val = Number(qty) || 0;
-    const critical = Number(resolvedThreshold?.criticalLevel ?? 0);
-    const restock = Number(resolvedThreshold?.restockWarningPoint ?? 10);
-    const overstock = Number(resolvedThreshold?.overstockLimitPoint ?? 1000);
+    const critical = Number(resolvedThreshold?.criticalLevel ?? 1000);
+    const restock = Number(resolvedThreshold?.restockWarningPoint ?? 5000);
+    const overstock = Number(resolvedThreshold?.overstockLimitPoint ?? 200000);
 
     if (val <= critical) {
       return {
@@ -366,6 +359,10 @@ function InventoryRawMaterials() {
         if (res.data?.success) {
           localStorage.setItem('inventory_rm_custom_categories', JSON.stringify(res.data.categories || []));
           localStorage.setItem('inventory_rm_custom_uoms', JSON.stringify(res.data.uoms || []));
+          if (res.data.defaultThresholds) {
+            localStorage.setItem('inventory_rm_custom_thresholds', JSON.stringify(res.data.defaultThresholds));
+            setDefaultThresholds(res.data.defaultThresholds);
+          }
           setCategoriesVersion((v) => v + 1);
         }
       })
@@ -377,14 +374,13 @@ function InventoryRawMaterials() {
     fetchRawMaterials();
   });
 
-  // Stored master categories for Add/Edit Raw Material modal
+  // Stored master categories for Add/Edit Raw Material modal (strictly active configured categories)
   const modalCategories = useMemo(() => {
-    const fromMaterials = rawMaterials.map((item) => item.category).filter((v) => v && v.trim() !== '');
-    const cats = getStoredCategories(fromMaterials, 'raw_materials');
+    const cats = getStoredCategories([], 'raw_materials');
     return Array.from(new Set(cats.map((c) => String(c).trim()))).filter(Boolean).sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true })
     );
-  }, [rawMaterials, categoriesVersion]);
+  }, [categoriesVersion]);
 
   // Categories strictly from existing Raw Materials (only existing in data)
   const filterCategories = useMemo(() => {
@@ -516,9 +512,11 @@ function InventoryRawMaterials() {
   }, [rawMaterials]);
 
   const existingUOMs = useMemo(() => {
-    const fromMaterials = rawMaterials.map((item) => item.uom).filter((v) => v && v.trim() !== '');
-    return getStoredUOMs(fromMaterials, 'raw_materials');
-  }, [rawMaterials, categoriesVersion]);
+    const units = getStoredUOMs([], 'raw_materials');
+    return Array.from(new Set(units.map((u) => String(u).trim()))).filter(Boolean).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true })
+    );
+  }, [categoriesVersion]);
 
   const existingManufacturers = useMemo(() => {
     return Array.from(
@@ -729,6 +727,7 @@ function InventoryRawMaterials() {
       showSuccessToast(
         isCurrentlyArchived ? 'Material restored to active inventory!' : 'Material moved to archive vault!'
       );
+      notifyLiveSync('rawMaterials');
       fetchRawMaterials();
     } catch (error) {
       console.error('Error toggling archive status:', error);
@@ -743,14 +742,14 @@ function InventoryRawMaterials() {
     setFormData({
       ...initialFormState,
       code: autoCode,
-      category: 'Raw Materials',
+      category: modalCategories[0] || '',
       itemName: '',
       itemDescription: '-',
       specification: '',
-      uom: 'g',
-      criticalLevel: 0,
-      restockWarningPoint: 10,
-      overstockLimitPoint: 1000,
+      uom: existingUOMs[0] || 'g',
+      criticalLevel: defaultThresholds.criticalLevel ?? 1000,
+      restockWarningPoint: defaultThresholds.restockWarningPoint ?? 5000,
+      overstockLimitPoint: defaultThresholds.overstockLimitPoint ?? 200000,
     });
     setIsModalOpen(true);
   };
@@ -758,16 +757,25 @@ function InventoryRawMaterials() {
   const handleOpenEditModal = (item) => {
     setIsEditing(true);
     setSelectedId(item._id || item.id);
+    const itemCat = (item.category || '').trim();
+    const matchedCategory = modalCategories.find(
+      (c) => c.toLowerCase() === itemCat.toLowerCase()
+    );
+    const itemUom = (item.uom || item.unit || '').trim();
+    const matchedUom = existingUOMs.find(
+      (u) => u.toLowerCase() === itemUom.toLowerCase()
+    );
+
     setFormData({
       code: item.code || item.itemCode || '',
-      category: item.category || '',
+      category: matchedCategory || '',
       itemName: item.itemName || '',
       itemDescription: item.itemDescription || item.description || '',
       specification: item.specification || '',
-      uom: item.uom || item.unit || 'pcs',
-      criticalLevel: item.criticalLevel !== undefined ? Number(item.criticalLevel) : 0,
-      restockWarningPoint: item.restockWarningPoint !== undefined ? Number(item.restockWarningPoint) : 10,
-      overstockLimitPoint: item.overstockLimitPoint !== undefined ? Number(item.overstockLimitPoint) : 1000,
+      uom: matchedUom || existingUOMs[0] || 'g',
+      criticalLevel: item.criticalLevel !== undefined ? Number(item.criticalLevel) : (defaultThresholds.criticalLevel ?? 1000),
+      restockWarningPoint: item.restockWarningPoint !== undefined ? Number(item.restockWarningPoint) : (defaultThresholds.restockWarningPoint ?? 5000),
+      overstockLimitPoint: item.overstockLimitPoint !== undefined ? Number(item.overstockLimitPoint) : (defaultThresholds.overstockLimitPoint ?? 200000),
     });
 
     setIsModalOpen(true);
@@ -796,9 +804,9 @@ function InventoryRawMaterials() {
         itemDescription: formData.itemDescription,
         specification: formData.specification || '',
         uom: formData.uom,
-        criticalLevel: formData.criticalLevel !== undefined ? formData.criticalLevel : 0,
-        restockWarningPoint: formData.restockWarningPoint !== undefined ? formData.restockWarningPoint : 10,
-        overstockLimitPoint: formData.overstockLimitPoint !== undefined ? formData.overstockLimitPoint : 1000,
+        criticalLevel: formData.criticalLevel !== undefined && formData.criticalLevel !== '' ? Number(formData.criticalLevel) : (defaultThresholds.criticalLevel ?? 1000),
+        restockWarningPoint: formData.restockWarningPoint !== undefined && formData.restockWarningPoint !== '' ? Number(formData.restockWarningPoint) : (defaultThresholds.restockWarningPoint ?? 5000),
+        overstockLimitPoint: formData.overstockLimitPoint !== undefined && formData.overstockLimitPoint !== '' ? Number(formData.overstockLimitPoint) : (defaultThresholds.overstockLimitPoint ?? 200000),
       };
 
       if (isEditing && selectedId) {
@@ -820,6 +828,7 @@ function InventoryRawMaterials() {
       }
 
       setIsModalOpen(false);
+      notifyLiveSync('rawMaterials');
       fetchRawMaterials();
     } catch (error) {
       console.error('Error saving raw material:', error);
@@ -837,6 +846,7 @@ function InventoryRawMaterials() {
         headers: { Authorization: `Bearer ${token}` },
       });
       showSuccessToast('Raw Material deleted successfully!');
+      notifyLiveSync('rawMaterials');
       fetchRawMaterials();
     } catch (error) {
       console.error('Failed to delete material:', error);
@@ -1006,7 +1016,7 @@ function InventoryRawMaterials() {
           lineWidth: 0.15,
           halign: 'center',
           valign: 'middle',
-          overflow: 'linebreak',
+          overflow: 'ellipsize',
         },
         headStyles: {
           fillColor: [239, 246, 255],
@@ -1016,6 +1026,7 @@ function InventoryRawMaterials() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         bodyStyles: {
           fillColor: [255, 255, 255],
@@ -1025,6 +1036,7 @@ function InventoryRawMaterials() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         columnStyles: {
           0: { cellWidth: 45.5 },
@@ -1034,93 +1046,144 @@ function InventoryRawMaterials() {
         },
       });
 
-      // 3. Main Data Table
-      const tableHead = [['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'UOM']];
-      const tableBody = filteredMaterials.map((r) => {
-        const qty = Number(r.quantity ?? r.qty ?? 0);
-        const resolved = getResolvedThreshold(r);
-        const condition = getStockCondition(qty, resolved);
-        return [
-          r.code || r.itemCode || 'N/A',
-          r.category || 'Raw Materials',
-          r.itemName || r.itemDescription || 'Raw Material',
-          `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
-          (r.uom || r.unit || 'pcs').toUpperCase(),
-        ];
+      // 3. Main Data Table (Grouped by Category with Title Row & Condition-Colored Quantity)
+      const getConditionColor = (condKey) => {
+        if (condKey === 'Critical Alert') return { fillColor: [254, 226, 226], textColor: [185, 28, 28] };
+        if (condKey === 'Restock Warning') return { fillColor: [254, 249, 195], textColor: [161, 98, 7] };
+        if (condKey === 'Overstock') return { fillColor: [224, 242, 254], textColor: [29, 78, 216] };
+        return { fillColor: [220, 252, 231], textColor: [22, 101, 52] };
+      };
+
+      const categoryMap = new Map();
+      filteredMaterials.forEach((r) => {
+        const cat = (r.category || 'Raw Materials').trim() || 'General';
+        if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+        categoryMap.get(cat).push(r);
       });
+      const sortedCategoryNames = Array.from(categoryMap.keys()).sort((a, b) => a.localeCompare(b));
 
-      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
-      autoTable(doc, {
-        startY: mainTableStartY,
-        margin: { left: 14, right: 14, top: 19, bottom: 12 },
-        head: tableHead,
-        body: tableBody,
-        theme: 'grid',
-        styles: {
-          font: 'helvetica',
-          fontSize: 6.8,
-          textColor: [51, 65, 85],
-          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
-          lineColor: [226, 232, 240],
-          lineWidth: 0.15,
-          valign: 'middle',
-          overflow: 'linebreak',
-        },
-        headStyles: {
-          fillColor: [21, 62, 151],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 7,
-          halign: 'center',
-          valign: 'middle',
-          lineColor: [21, 62, 151],
-          lineWidth: 0.2,
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 255],
-        },
-        columnStyles: {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
-          1: { halign: 'left', cellWidth: 44 },
-          2: { fontStyle: 'bold', halign: 'left', cellWidth: 49 },
-          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
-          4: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
-        },
-        didDrawPage: (data) => {
-          if (data.pageNumber > 1) {
-            const thumbH = 7;
-            const thumbW = thumbH * logoRatio;
-            if (logoBase64) {
-              try {
-                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
-              } catch (e) { }
+      const colHeaders = ['CODE', 'ITEM NAME', 'QUANTITY', 'UOM'];
+      const columnStyles = {
+        0: { fontStyle: 'bold', halign: 'left', cellWidth: 28 },
+        1: { fontStyle: 'bold', halign: 'left', cellWidth: 86 },
+        2: { fontStyle: 'bold', halign: 'center', cellWidth: 44 },
+        3: { fontStyle: 'bold', halign: 'center', cellWidth: 24 },
+      };
+
+      let currentTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+
+      if (sortedCategoryNames.length === 0) {
+        autoTable(doc, {
+          startY: currentTableStartY,
+          margin: { left: 14, right: 14, top: 19, bottom: 12 },
+          head: [colHeaders],
+          body: [['-', 'No raw materials found for the selected criteria.', '-', '-']],
+          theme: 'grid',
+          styles: { font: 'helvetica', fontSize: 6.8, halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+          headStyles: { fillColor: [21, 62, 151], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7, halign: 'center', overflow: 'ellipsize' },
+        });
+      } else {
+        sortedCategoryNames.forEach((catName, catIdx) => {
+          const catItems = categoryMap.get(catName);
+          const catBody = catItems.map((r) => {
+            const qty = Number(r.quantity ?? r.qty ?? 0);
+            const resolved = getResolvedThreshold(r);
+            const condition = getStockCondition(qty, resolved);
+            const colors = getConditionColor(condition.key);
+
+            return [
+              r.code || r.itemCode || 'N/A',
+              r.itemName || r.itemDescription || 'Raw Material',
+              {
+                content: qty.toLocaleString(),
+                styles: {
+                  fillColor: colors.fillColor,
+                  textColor: colors.textColor,
+                  fontStyle: 'bold',
+                  halign: 'center',
+                  overflow: 'ellipsize',
+                },
+              },
+              (r.uom || r.unit || 'pcs').toUpperCase(),
+            ];
+          });
+
+          if (catIdx > 0) {
+            currentTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+            if (currentTableStartY > pageHeight - 32) {
+              doc.addPage();
+              currentTableStartY = 19;
             }
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.2);
-            doc.setTextColor(21, 62, 151);
-            doc.text('MHIRA NATURAL BEAUTY PRODUCTS  |  RAW MATERIALS AUDIT', 14 + thumbW + 4, 11.5);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.2);
-            doc.setTextColor(100, 116, 139);
-            doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
-
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.2);
-            doc.line(14, 16, pageWidth - 14, 16);
           }
 
-          const footerY = pageHeight - 7;
-          doc.setDrawColor(226, 232, 240);
-          doc.setLineWidth(0.2);
-          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
-
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(5.8);
-          doc.setTextColor(100, 116, 139);
-          doc.text('INTERNAL CONFIDENTIAL | CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
-        },
-      });
+          autoTable(doc, {
+            startY: currentTableStartY,
+            margin: { left: 14, right: 14, top: 19, bottom: 12 },
+            head: [
+              [
+                {
+                  content: `CATEGORY: ${catName.toUpperCase()}   •   ${catItems.length} ${catItems.length === 1 ? 'ITEM' : 'ITEMS'}`,
+                  colSpan: colHeaders.length,
+                  styles: {
+                    fillColor: [241, 245, 249],
+                    textColor: [21, 62, 151],
+                    fontStyle: 'bold',
+                    fontSize: 7.2,
+                    halign: 'left',
+                    valign: 'middle',
+                    cellPadding: { top: 2.2, bottom: 2.2, left: 3, right: 3 },
+                    lineColor: [203, 213, 225],
+                    lineWidth: 0.15,
+                    overflow: 'ellipsize',
+                  },
+                },
+              ],
+              colHeaders,
+            ],
+            body: catBody,
+            theme: 'grid',
+            styles: {
+              font: 'helvetica',
+              fontSize: 6.8,
+              textColor: [51, 65, 85],
+              cellPadding: { top: 2.2, bottom: 2.2, left: 2, right: 2 },
+              lineColor: [226, 232, 240],
+              lineWidth: 0.15,
+              valign: 'middle',
+              overflow: 'ellipsize',
+            },
+            headStyles: {
+              fillColor: [21, 62, 151],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              fontSize: 7,
+              halign: 'center',
+              valign: 'middle',
+              lineColor: [21, 62, 151],
+              lineWidth: 0.2,
+              overflow: 'ellipsize',
+            },
+            bodyStyles: {
+              overflow: 'ellipsize',
+              valign: 'middle',
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 255],
+            },
+            columnStyles: columnStyles,
+            didParseCell: (data) => {
+              if (data.section === 'body' && data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.styles) {
+                if (data.cell.raw.styles.fillColor) {
+                  data.cell.styles.fillColor = data.cell.raw.styles.fillColor;
+                }
+                if (data.cell.raw.styles.textColor) {
+                  data.cell.styles.textColor = data.cell.raw.styles.textColor;
+                }
+              }
+            },
+          });
+        });
+      }
 
       // 4. Executive Sign-Off Section
       let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
@@ -1166,7 +1229,7 @@ function InventoryRawMaterials() {
       doc.setTextColor(100, 116, 139);
       doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
 
-      // 5. Final Pass: Center Watermark Logo & Page Numbers
+      // 5. Final Pass: Center Watermark Logo, Running Header & Footer
       const totalPages = doc.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
@@ -1175,10 +1238,44 @@ function InventoryRawMaterials() {
             doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
           } catch (e) { }
         }
+
+        if (i > 1) {
+          const thumbH = 7;
+          const thumbW = thumbH * logoRatio;
+          if (logoBase64) {
+            try {
+              doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+            } catch (e) { }
+          }
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.2);
+          doc.setTextColor(21, 62, 151);
+          doc.text('MHIRA NATURAL BEAUTY PRODUCTS  |  RAW MATERIALS AUDIT', 14 + thumbW + 4, 11.5);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.2);
+          doc.setTextColor(100, 116, 139);
+          doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
+
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, 16, pageWidth - 14, 16);
+        }
+
+        const footerY = pageHeight - 7;
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text('INTERNAL CONFIDENTIAL | CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.2);
         doc.setTextColor(71, 85, 105);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, footerY + 1.2, { align: 'right' });
       }
 
       const dateStr = new Date().toISOString().split('T')[0];
@@ -1774,7 +1871,7 @@ function InventoryRawMaterials() {
                       </p>
                     </div>
                     <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-bold">
-                      Healthy: {Math.max(0, (Number(formData.restockWarningPoint) || 0) + 1)} - {Number(formData.overstockLimitPoint) || 1000} {formData.uom ? formData.uom.toUpperCase() : ''}
+                      Healthy: {Math.max(0, (Number(formData.restockWarningPoint) || (defaultThresholds.restockWarningPoint ?? 5000)) + 1)} - {Number(formData.overstockLimitPoint) || (defaultThresholds.overstockLimitPoint ?? 200000)} {formData.uom ? formData.uom.toUpperCase() : ''}
                     </span>
                   </div>
 
@@ -1788,12 +1885,14 @@ function InventoryRawMaterials() {
                         type="number"
                         name="criticalLevel"
                         min="0"
-                        value={formData.criticalLevel !== undefined ? formData.criticalLevel : 0}
+                        value={formData.criticalLevel !== undefined ? formData.criticalLevel : (defaultThresholds.criticalLevel ?? 1000)}
                         onChange={handleInputChange}
                         className="w-full bg-slate-50 border border-rose-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-800 focus:outline-none focus:border-rose-500"
-                        placeholder="0"
+                        placeholder={String(defaultThresholds.criticalLevel ?? 1000)}
                       />
-                      <span className="text-[10px] text-slate-400 mt-0.5 block">Default: 0 (Emergency)</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">
+                        Default: {defaultThresholds.criticalLevel ?? 1000} (Emergency)
+                      </span>
                     </div>
 
                     {/* RESTOCK WARNING */}
@@ -1805,12 +1904,14 @@ function InventoryRawMaterials() {
                         type="number"
                         name="restockWarningPoint"
                         min="0"
-                        value={formData.restockWarningPoint !== undefined ? formData.restockWarningPoint : 10}
+                        value={formData.restockWarningPoint !== undefined ? formData.restockWarningPoint : (defaultThresholds.restockWarningPoint ?? 5000)}
                         onChange={handleInputChange}
                         className="w-full bg-slate-50 border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-800 focus:outline-none focus:border-amber-500"
-                        placeholder="10"
+                        placeholder={String(defaultThresholds.restockWarningPoint ?? 5000)}
                       />
-                      <span className="text-[10px] text-slate-400 mt-0.5 block">Default: 10 (Reorder)</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">
+                        Default: {defaultThresholds.restockWarningPoint ?? 5000} (Reorder)
+                      </span>
                     </div>
 
                     {/* OVERSTOCK */}
@@ -1822,12 +1923,14 @@ function InventoryRawMaterials() {
                         type="number"
                         name="overstockLimitPoint"
                         min="1"
-                        value={formData.overstockLimitPoint !== undefined ? formData.overstockLimitPoint : 1000}
+                        value={formData.overstockLimitPoint !== undefined ? formData.overstockLimitPoint : (defaultThresholds.overstockLimitPoint ?? 200000)}
                         onChange={handleInputChange}
                         className="w-full bg-slate-50 border border-blue-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-800 focus:outline-none focus:border-blue-500"
-                        placeholder="1000"
+                        placeholder={String(defaultThresholds.overstockLimitPoint ?? 200000)}
                       />
-                      <span className="text-[10px] text-slate-400 mt-0.5 block">Default: 1000 (Overstock Limit)</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">
+                        Default: {defaultThresholds.overstockLimitPoint ?? 200000} (Overstock Limit)
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1906,41 +2009,6 @@ function InventoryRawMaterials() {
                       </select>
                     </div>
                   </div>
-
-
-                  {/* SPECIFICATION (NUMBERS ONLY) */}
-                  <div>
-                    <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">
-                      Specification <span className="text-[10px] text-slate-500 font-bold">(Numbers only)</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      name="specification"
-                      value={formData.specification}
-                      onChange={handleInputChange}
-                      onKeyDown={(e) => {
-                        if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-                        if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
-                        if (e.key === '.' && !e.currentTarget.value.includes('.')) return;
-                        if (!/^[0-9]$/.test(e.key)) {
-                          e.preventDefault();
-                        }
-                      }}
-                      onPaste={(e) => {
-                        e.preventDefault();
-                        const paste = (e.clipboardData || window.clipboardData).getData('text');
-                        const sanitized = paste.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
-                        if (sanitized) {
-                          setFormData((prev) => ({ ...prev, specification: sanitized }));
-                        }
-                      }}
-                      placeholder="Enter Specification"
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#01390f] transition-all"
-                    />
-                  </div>
-
-
                 </div>
               </div>
 

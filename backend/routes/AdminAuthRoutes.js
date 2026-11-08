@@ -7,6 +7,7 @@ import {
   getUsers,
   createUser,
   updateUser,
+  toggleArchiveUser,
   deleteUser,
   getUserProfile,
   updateUserProfile,
@@ -72,6 +73,7 @@ router.delete("/:userId/addresses/:addressId", protect, deleteCustomerAddress);
 // User Management Routes (Admin Access Only)
 router.get("/", protect, authorize("Admin"), getUsers);
 router.post("/", protect, authorize("Admin"), createUser);
+router.put("/:id/archive", protect, authorize("Admin"), toggleArchiveUser);
 router.put("/:id", protect, authorize("Admin"), updateUser);
 router.delete("/:id", protect, (req, res, next) => {
   const role = String(req.user?.role || "").toLowerCase();

@@ -155,7 +155,7 @@ function AdminSystemMaintenance() {
 
 
       {/* 2. MAIN CARD CONTAINER (MATCHES INVENTORY RAW MAT & DATA BACKUP) */}
-      <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-4 sm:p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
+      <div className="w-full bg-white border border-slate-100 text-slate-600 rounded-2xl p-3 sm:p-6 shadow-sm flex flex-col gap-4 sm:gap-6 transition-colors duration-200">
 
         {/* TOP RIBBON BAR: ACTIONS & CONTROLS */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">

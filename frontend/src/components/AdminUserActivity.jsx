@@ -214,12 +214,12 @@ function AdminUserActivity() {
 
   return (
     <div className="w-full flex flex-col gap-6 font-sans antialiased text-slate-700">
-      <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
+      <div className="w-full bg-white border border-slate-100 text-slate-600 rounded-2xl p-3 sm:p-6 shadow-sm flex flex-col gap-4 sm:gap-6 transition-colors duration-200">
         
-        {/* COMPACT EXCEL RIBBON TOOLBAR (SEAMLESS WHITE DESIGN) */}
+        {/* COMPACT EXCEL RIBBON TOOLBAR (RESPONSIVE SEAMLESS DESIGN) */}
         <div className="w-full bg-white flex flex-col">
           {/* TOP BAR: EXCEL SHEET TABS */}
-          <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
+          <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 overflow-x-auto no-scrollbar border-b border-slate-100 sm:border-b-0">
             <div className="flex items-center gap-1 -mb-px">
               {[
                 { id: 'All', label: 'All Activity Logs' },
@@ -235,7 +235,7 @@ function AdminUserActivity() {
                       setRoleFilter(mod.id);
                       setCurrentPage(1);
                     }}
-                    className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 ${
+                    className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
                       isActive
                         ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
                         : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
@@ -255,18 +255,18 @@ function AdminUserActivity() {
             </div>
           </div>
 
-          {/* MS EXCEL-STYLE RIBBON TOOLBAR (CLEAN WHITE BACKGROUND - 1 ROW NO WRAPPING) */}
-          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+          {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
+          <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
             
-            {/* GROUP 1: ACTIONS (Fixed Width: Tall Full-Height + Stacked Layers) */}
-            <div className="w-[256px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex items-stretch gap-1.5 flex-1">
+            {/* GROUP 1: ACTIONS (Responsive: Full-width on mobile, fixed width on desktop) */}
+            <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+              <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
                 {/* 1 COLUMN NA 1 LAYER: Tall Full-Height Action Button */}
                 <button
                   type="button"
                   onClick={fetchLogs}
                   disabled={loading}
-                  className="w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f] disabled:opacity-50"
+                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f] disabled:opacity-50"
                   title="Refresh audit feed"
                 >
                   <RefreshCw className={`w-5.5 h-5.5 text-[#01390f] ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform'} mb-0.5`} strokeWidth={2.5} />
@@ -276,16 +276,16 @@ function AdminUserActivity() {
                 </button>
 
                 {/* Stacked Compact Rows */}
-                <div className="flex-1 min-w-[145px] flex flex-col justify-between py-0.5 space-y-0.5">
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
                   {/* Layer 1: Export PDF */}
                   <button
                     type="button"
                     onClick={handleExportPDF}
-                    className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-rose-50 text-slate-700 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px]"
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-slate-700 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                     title="Export Activity Audit Report to PDF"
                   >
                     <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                    <span className="truncate">Export PDF</span>
+                    <span className="whitespace-nowrap">Export PDF</span>
                   </button>
 
                   {/* Layer 2: Reset Filters */}
@@ -293,7 +293,7 @@ function AdminUserActivity() {
                     type="button"
                     onClick={handleClearAllFilters}
                     disabled={activeFiltersCount === 0}
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
                     title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -305,15 +305,15 @@ function AdminUserActivity() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
                 Actions
               </div>
             </div>
 
-            {/* GROUP 2: SEARCH & FILTERS (Equal 3-Column Grid) */}
-            <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
-              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-1">
-                {/* Layer 1: Search Bar */}
+            {/* GROUP 2: SEARCH & FILTERS (Responsive Multi-Column Grid) */}
+            <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
+                {/* Layer 1: Search Bar (Enhanced Height) */}
                 <div className="relative flex items-center w-full">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
                   <input
@@ -328,7 +328,7 @@ function AdminUserActivity() {
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-1.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
                       title="Clear search"
                     >
                       <X className="w-3 h-3" />
@@ -336,15 +336,15 @@ function AdminUserActivity() {
                   )}
                 </div>
 
-                {/* Layer 2: Filter Dropdowns (Equal 3 Columns) */}
-                <div className="grid grid-cols-3 gap-2 w-full">
+                {/* Layer 2: Filter Dropdowns (Responsive: 1 col on mobile, 3 cols on sm+) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                   {/* Role Dropdown */}
                   <div className="relative inline-flex items-center w-full min-w-0">
-                    <Shield className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <Shield className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={roleFilter}
                       onChange={(e) => setRoleFilter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Filter by Role"
                     >
                       <option value="All">All System Roles</option>
@@ -358,11 +358,11 @@ function AdminUserActivity() {
 
                   {/* Operation Type Dropdown */}
                   <div className="relative inline-flex items-center w-full min-w-0">
-                    <Layers className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <Layers className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={opFilter}
                       onChange={(e) => setOpFilter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Filter Operation Type"
                     >
                       <option value="All">All Operations</option>
@@ -374,12 +374,12 @@ function AdminUserActivity() {
                   </div>
 
                   {/* Sort Select */}
-                  <div className="relative inline-flex items-center w-full min-w-0">
-                    <ArrowUpDown className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                  <div className="relative inline-flex items-center w-full min-w-0 sm:col-span-2 md:col-span-1">
+                    <ArrowUpDown className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                       title="Sort logs"
                     >
                       <option value="newest">Sort: Newest First</option>
@@ -388,13 +388,13 @@ function AdminUserActivity() {
                   </div>
                 </div>
 
-                {/* Layer 3: Quick Filter Toggles (Equal 3 Columns) */}
-                <div className="grid grid-cols-3 gap-2 w-full">
+                {/* Layer 3: Quick Filter Toggles & Sort (Responsive: 1 col on mobile, 3 cols on sm+) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
                   {/* Staff Only Toggle */}
                   <button
                     type="button"
                     onClick={() => setRoleFilter(roleFilter === 'Staff' ? 'All' : 'Staff')}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${
                       roleFilter === 'Staff'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
@@ -408,7 +408,7 @@ function AdminUserActivity() {
                   <button
                     type="button"
                     onClick={() => setRoleFilter(roleFilter === 'Admin' ? 'All' : 'Admin')}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${
                       roleFilter === 'Admin'
                         ? 'bg-purple-50 text-purple-800 border border-purple-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
@@ -422,7 +422,7 @@ function AdminUserActivity() {
                   <button
                     type="button"
                     onClick={() => setOpFilter(opFilter === 'UPDATE' ? 'All' : 'UPDATE')}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${
                       opFilter === 'UPDATE'
                         ? 'bg-amber-50 text-amber-800 border border-amber-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
@@ -435,7 +435,7 @@ function AdminUserActivity() {
               </div>
 
               {/* Group Caption */}
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none hidden lg:block">
                 Search & Filter
               </div>
             </div>
@@ -460,17 +460,17 @@ function AdminUserActivity() {
               setCurrentPage(1);
             }}
           />
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto relative custom-scrollbar">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                  <th className="py-3.5 px-4 whitespace-nowrap">STAFF USERNAME</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">SYSTEM ROLE</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">MODULE</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">OPERATION</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">ACTION LOG DETAIL</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">TIMESTAMP</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">DATE</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">STAFF USERNAME</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">SYSTEM ROLE</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">MODULE</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">OPERATION</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">ACTION LOG DETAIL</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">TIMESTAMP</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">DATE</th>
                 </tr>
               </thead>
 
@@ -512,10 +512,10 @@ function AdminUserActivity() {
                     return (
                       <tr
                         key={log._id || index}
-                        className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                        className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
                         {/* USERNAME */}
-                        <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 rounded-full bg-[#01390f]/10 text-[#01390f] font-bold text-xs flex items-center justify-center shrink-0">
                               <User size={13} />
@@ -525,7 +525,7 @@ function AdminUserActivity() {
                         </td>
 
                         {/* ROLE */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${getRoleBadgeStyle(
                               log.role
@@ -536,14 +536,14 @@ function AdminUserActivity() {
                         </td>
 
                         {/* MODULE */}
-                        <td className="py-3.5 px-4 whitespace-nowrap font-semibold text-slate-800">
+                        <td className="px-4 py-3.5 whitespace-nowrap font-semibold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-md border border-slate-200 text-xs">
                             {log.module || 'General'}
                           </span>
                         </td>
 
                         {/* OPERATION */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${getOperationBadge(
                               log.operation || log.action
@@ -555,19 +555,19 @@ function AdminUserActivity() {
 
                         {/* ACTION LOG DETAIL */}
                         <td
-                          className="py-3.5 px-4 max-w-md truncate text-slate-700 font-normal"
+                          className="px-4 py-3.5 max-w-md truncate text-slate-700 font-normal whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
                           title={log.action || log.description}
                         >
                           {log.action || log.description || 'System operation executed'}
                         </td>
 
                         {/* TIMESTAMP */}
-                        <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-500 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-500 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {logTime}
                         </td>
 
                         {/* DATE */}
-                        <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {logDate}
                         </td>
                       </tr>

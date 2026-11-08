@@ -29,11 +29,15 @@ const eventSchema = new mongoose.Schema({
     isPublished: {
         type: Boolean,
         default: true
+    },
+    isArchived: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 
 // High-performance database query indexes
-eventSchema.index({ isPublished: 1, eventDate: -1 });
+eventSchema.index({ isArchived: 1, isPublished: 1, eventDate: -1 });
 
 const Event = mongoose.models.Event || mongoose.model('Event', eventSchema);
-export default Event;
+export default Event;

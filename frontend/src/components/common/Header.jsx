@@ -158,8 +158,6 @@ function Header() {
     return 0;
   }, [contextFavorites]);
 
-  const [packageSetsCount, setPackageSetsCount] = useState(0);
-
   const isLinkActive = (path) => {
     if (path === "/collection") {
       return pathname === "/collection" || pathname.startsWith("/collection") || pathname.startsWith("/product");
@@ -207,11 +205,6 @@ function Header() {
           try {
             localStorage.setItem("mhira_db_products", JSON.stringify(res.data));
           } catch (e) { }
-
-          const packages = res.data.filter(i =>
-            i.navbarTag === 'Package Sets' || i.category === 'Package Sets'
-          );
-          setPackageSetsCount(packages.length);
         }
       })
       .catch(() => { });
@@ -362,17 +355,6 @@ function Header() {
               }`}
             >
               <span>PACKAGE SETS</span>
-              {packageSetsCount > 0 && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold border transition-colors ${
-                    isLinkActive("/packages")
-                      ? "bg-[#01390f] text-white border-[#01390f]"
-                      : "bg-[#D5EAD7] text-[#01390f] border-[#c0e0c3]"
-                  }`}
-                >
-                  {packageSetsCount}
-                </span>
-              )}
             </Link>
 
             <Link
@@ -788,17 +770,6 @@ function Header() {
                   }`}
                 >
                   <span>PACKAGE SETS</span>
-                  {packageSetsCount > 0 && (
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                        isLinkActive("/packages")
-                          ? "bg-[#01390f] text-white border-[#01390f]"
-                          : "bg-[#EDF7EE] text-[#01390f] border-[#D5EAD7]"
-                      }`}
-                    >
-                      {packageSetsCount}
-                    </span>
-                  )}
                 </Link>
 
                 <Link

@@ -3,7 +3,7 @@ import Event from '../models/MarketingEvent.js';
 // Get All Events (For Admin/Marketing)
 export const getAllEvents = async (req, res) => {
     try {
-        const events = await Event.find().sort({ eventDate: 1 }).lean().maxTimeMS(5000);
+        const events = await Event.find().sort({ eventDate: -1, createdAt: -1 }).lean().maxTimeMS(5000);
         return res.status(200).json(events || []);
     } catch (error) {
         console.error('Error fetching events:', error.message);
@@ -14,7 +14,10 @@ export const getAllEvents = async (req, res) => {
 // Get Only Active/Published Events (For Public Page & Announcements)
 export const getPublicEvents = async (req, res) => {
     try {
-        const events = await Event.find({ isPublished: { $ne: false } }).sort({ eventDate: 1 }).lean().maxTimeMS(5000);
+        const events = await Event.find({
+            isPublished: { $ne: false },
+            isArchived: { $ne: true }
+        }).sort({ eventDate: 1 }).lean().maxTimeMS(5000);
         return res.status(200).json(events || []);
     } catch (error) {
         console.error('Error fetching public events:', error.message);
@@ -50,6 +53,28 @@ export const updateEvent = async (req, res) => {
     } catch (error) {
         console.error('Error updating event:', error.message);
         return res.status(400).json({ message: error.message || 'Error updating event', error: error.message });
+    }
+};
+
+// Toggle Archive Event
+export const toggleArchiveEvent = async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.id);
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+        event.isArchived = !event.isArchived;
+        if (event.isArchived) {
+            event.isPublished = false; // When archived, unpublish from storefront
+        }
+        await event.save();
+        return res.status(200).json({
+            message: event.isArchived ? 'Announcement moved to Archive Vault' : 'Announcement restored to Active Broadcasts',
+            event
+        });
+    } catch (error) {
+        console.error('Error toggling archive status:', error.message);
+        return res.status(500).json({ message: 'Error updating archive status', error: error.message });
     }
 };
 

@@ -51,6 +51,8 @@ export const formatInventoryToStorefront = (p) => {
         quantity: typeof p.quantity === 'number' ? p.quantity : 10,
         uom: p.uom || 'pcs',
         specification: p.specification || '',
+        bundleItems: p.bundleItems || [],
+        isBundle: Boolean(p.isBundle || p.category === 'Package Sets' || (p.bundleItems && p.bundleItems.length > 0)),
         image: mainImage,
         images: imageList,
         price: priceNum,
@@ -108,16 +110,20 @@ export const getPublicProducts = async (req, res) => {
             // 1. Process Marketing Docs first (contains exact prices ₱300, ₱280, ₱250, ₱225)
             for (const mkt of marketingDocs) {
                 const matchedInv = (mkt.code && invMap.get((mkt.code || '').toLowerCase().trim())) || (mkt.productRef && invMap.get(String(mkt.productRef)));
+                const syncedTitle = matchedInv?.itemName || matchedInv?.itemDescription || mkt.itemName || mkt.itemDescription || 'Mhira Natural Product';
                 const item = {
                     ...mkt,
                     id: mkt._id,
-                    name: mkt.itemDescription || mkt.itemName || 'Mhira Natural Product',
-                    itemName: mkt.itemName || mkt.itemDescription || 'Mhira Natural Product',
+                    name: syncedTitle,
+                    itemName: syncedTitle,
+                    itemDescription: syncedTitle,
                     image: mkt.image || (Array.isArray(mkt.images) && mkt.images[0]) || '/mhira_removebg.png',
                     images: Array.isArray(mkt.images) && mkt.images.length > 0 ? mkt.images : [mkt.image || '/mhira_removebg.png'],
                     price: Number(mkt.price) > 0 ? Number(mkt.price) : 200,
                     specification: mkt.specification || matchedInv?.specification || '',
                     uom: mkt.uom || matchedInv?.uom || 'ML',
+                    bundleItems: mkt.bundleItems || [],
+                    isBundle: Boolean(mkt.isBundle || mkt.category === 'Package Sets' || (mkt.bundleItems && mkt.bundleItems.length > 0)),
                 };
                 combined.push(item);
                 if (mkt.code) seenCodes.add((mkt.code || '').toLowerCase().trim());

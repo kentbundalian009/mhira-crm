@@ -25,10 +25,9 @@ const updateProductAverageRating = async (productId) => {
 
 const getBadgeForTier = (tier) => {
   const t = (tier || "Bronze").toLowerCase();
-  if (t === "platinum") return "Platinum VIP";
-  if (t === "gold") return "Gold VIP";
-  if (t === "silver") return "Silver Loyal";
-  return "Bronze Member";
+  if (t === "gold" || t.includes("gold") || t === "loyal" || t.includes("loyal") || t === "platinum") return "Gold Tier";
+  if (t === "silver") return "Silver Tier";
+  return "Bronze Tier";
 };
 
 // 1. Create a Review (Customer Side)

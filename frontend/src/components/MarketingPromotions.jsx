@@ -40,6 +40,9 @@ import TablePagination from './common/TablePagination';
 function MarketingPromotions() {
   const [coupons, setCoupons] = useState([]);
   const [segments, setSegments] = useState({
+    loyal: { count: 0 },
+    silver: { count: 0 },
+    bronze: { count: 0 },
     vip: { count: 0 },
     regular: { count: 0 },
     new: { count: 0 },
@@ -131,8 +134,9 @@ function MarketingPromotions() {
     const cleanLimit = Number(coupon.usageLimit || 0);
     const cleanExpiry = coupon.expiry ? String(coupon.expiry).split('T')[0] : '';
     let normalizedSegment = coupon.targetSegment || 'All';
-    if (normalizedSegment === 'VIP Spenders') normalizedSegment = 'VIP';
-    if (normalizedSegment === 'New Customers') normalizedSegment = 'New';
+    if (normalizedSegment === 'VIP Spenders' || normalizedSegment === 'VIP' || normalizedSegment === 'Loyal' || normalizedSegment === 'Gold') normalizedSegment = 'Gold Tier';
+    if (normalizedSegment === 'Regular' || normalizedSegment === 'Silver') normalizedSegment = 'Silver Tier';
+    if (normalizedSegment === 'New Customers' || normalizedSegment === 'New' || normalizedSegment === 'Bronze') normalizedSegment = 'Bronze Tier';
 
     setNewCoupon({
       code: coupon.code || '',
@@ -242,7 +246,13 @@ function MarketingPromotions() {
       if (selectedSegment !== 'All') {
         const segLower = (c.targetSegment || '').toLowerCase();
         const selLower = selectedSegment.toLowerCase();
-        if (!segLower.includes(selLower)) {
+        if (selLower.includes('gold') || selLower.includes('loyal') || selLower === 'vip') {
+          if (!segLower.includes('gold') && !segLower.includes('loyal') && !segLower.includes('vip') && segLower !== 'all') return false;
+        } else if (selLower.includes('silver') || selLower === 'regular') {
+          if (!segLower.includes('silver') && !segLower.includes('regular') && segLower !== 'all') return false;
+        } else if (selLower.includes('bronze') || selLower === 'new') {
+          if (!segLower.includes('bronze') && !segLower.includes('new') && segLower !== 'all') return false;
+        } else if (!segLower.includes(selLower) && segLower !== 'all') {
           return false;
         }
       }
@@ -421,12 +431,12 @@ function MarketingPromotions() {
                   <select
                     value={selectedSegment}
                     onChange={(e) => setSelectedSegment(e.target.value)}
-                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs font-medium"
                   >
-                    <option value="All">All Target Audiences</option>
-                    <option value="VIP">VIP Shoppers</option>
-                    <option value="Regular">Regular Shoppers</option>
-                    <option value="New">New Shoppers</option>
+                    <option value="All">All Customer Segments</option>
+                    <option value="Gold Tier">Gold Tier</option>
+                    <option value="Silver Tier">Silver Tier</option>
+                    <option value="Bronze Tier">Bronze Tier</option>
                   </select>
                   <ChevronDown className="w-3 h-3 absolute right-1.5 top-1.5 text-slate-400 pointer-events-none" />
                 </div>
@@ -463,8 +473,8 @@ function MarketingPromotions() {
                 </div>
               </div>
 
-              {/* Layer 3: 3-column Quick Toggles */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
+              {/* Layer 3: Quick Toggles for Segments & Status */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
                 <button
                   type="button"
                   onClick={() => setStatusFilter(statusFilter === 'Active' ? 'All' : 'Active')}
@@ -479,26 +489,38 @@ function MarketingPromotions() {
 
                 <button
                   type="button"
-                  onClick={() => setSelectedSegment(selectedSegment === 'VIP' ? 'All' : 'VIP')}
+                  onClick={() => setSelectedSegment(selectedSegment === 'Gold Tier' ? 'All' : 'Gold Tier')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
-                    selectedSegment === 'VIP'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    selectedSegment === 'Gold Tier'
+                      ? 'bg-amber-50 border-amber-500 text-amber-900 font-semibold'
                       : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                   }`}
                 >
-                  VIP Only
+                  Gold Tier
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setSelectedSegment(selectedSegment === 'New' ? 'All' : 'New')}
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${
-                    selectedSegment === 'New'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                  onClick={() => setSelectedSegment(selectedSegment === 'Silver Tier' ? 'All' : 'Silver Tier')}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
+                    selectedSegment === 'Silver Tier'
+                      ? 'bg-slate-100 border-slate-400 text-slate-800 font-semibold'
                       : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                   }`}
                 >
-                  New Shoppers
+                  Silver Tier
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedSegment(selectedSegment === 'Bronze Tier' ? 'All' : 'Bronze Tier')}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
+                    selectedSegment === 'Bronze Tier'
+                      ? 'bg-orange-50 border-orange-400 text-orange-900 font-semibold'
+                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                  }`}
+                >
+                  Bronze Tier
                 </button>
               </div>
             </div>
@@ -614,7 +636,17 @@ function MarketingPromotions() {
 
                         {/* 5. Target Audience */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {c.targetSegment || 'All Shoppers'}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            (c.targetSegment || '').includes('Gold') || (c.targetSegment || '').includes('Loyal') || (c.targetSegment || '') === 'VIP'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : (c.targetSegment || '').includes('Silver') || (c.targetSegment || '') === 'Regular'
+                              ? 'bg-slate-100 text-slate-800 border border-slate-300'
+                              : (c.targetSegment || '').includes('Bronze') || (c.targetSegment || '') === 'New'
+                              ? 'bg-orange-50 text-orange-800 border border-orange-200'
+                              : 'bg-emerald-50 text-[#01390f] border border-emerald-200'
+                          }`}>
+                            {c.targetSegment || 'All Shoppers'}
+                          </span>
                         </td>
 
                         {/* 6. Expiry Date */}
@@ -858,9 +890,9 @@ function MarketingPromotions() {
                         className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
                       >
                         <option value="All">All Shoppers (Public)</option>
-                        <option value="VIP">VIP Tier (High Value)</option>
-                        <option value="Regular">Regular Shoppers</option>
-                        <option value="New">New First-time Shoppers</option>
+                        <option value="Gold Tier">Gold Tier (3+ orders or ₱5k+ spend)</option>
+                        <option value="Silver Tier">Silver Tier (1+ order or ₱1k+ spend)</option>
+                        <option value="Bronze Tier">Bronze Tier (New customer / 0 orders)</option>
                       </select>
                       <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
                     </div>

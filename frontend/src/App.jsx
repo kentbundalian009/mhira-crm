@@ -260,8 +260,11 @@ function App() {
             <Route path="/contact-agent" element={<CustomerContactAgent />} />
             <Route path="/customer/support-chat" element={<CustomerContactAgent />} />
             <Route path="/collection" element={<CustomerOurCollection />} />
+            <Route path="/collections" element={<CustomerOurCollection />} />
             <Route path="/collection/:id" element={<CustomerProductDetail />} />
+            <Route path="/collections/:id" element={<CustomerProductDetail />} />
             <Route path="/collection/:id/reviews" element={<CustomerProductReviews />} />
+            <Route path="/collections/:id/reviews" element={<CustomerProductReviews />} />
             <Route path="/product/:id" element={<CustomerProductDetail />} />
             <Route path="/product/:id/reviews" element={<CustomerProductReviews />} />
             <Route path="/products/:id" element={<CustomerProductDetail />} />

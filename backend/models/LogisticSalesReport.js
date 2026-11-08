@@ -19,8 +19,8 @@ const salesReportSchema = new mongoose.Schema(
     },
     tier: {
       type: String,
-      enum: ['Platinum', 'Gold', 'Silver', 'Bronze', ''],
-      default: '',
+      enum: ['Bronze', 'Silver', 'Loyal', 'Gold', 'Platinum', ''],
+      default: 'Bronze',
     },
     userId: {
       type: String,

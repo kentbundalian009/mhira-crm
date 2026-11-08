@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { User } from "../models/AdminUser.js";
+import Order from "../models/LogisticOrder.js";
 import MarketingSubscriber from "../models/MarketingSubscriber.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -198,12 +199,16 @@ export const login = async (req, res) => {
         { empNo: identifier },
       ],
     })
-      .select("_id customerNo empNo customerCode username fullName email phoneNumber gender role profileImage accountType billingAddress shippingAddress password")
+      .select("_id customerNo empNo customerCode username fullName email phoneNumber gender role profileImage accountType billingAddress shippingAddress password isArchived")
       .lean()
       .maxTimeMS(8000);
 
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials. User not found." });
+    }
+
+    if (user.isArchived) {
+      return res.status(403).json({ message: "This account has been archived. Please contact an administrator." });
     }
 
     // Direct asynchronous password validation
@@ -261,8 +266,12 @@ export const getMe = async (req, res) => {
 // @access  Private (Admin / Staff)
 export const getUsers = async (req, res) => {
   try {
-    const { search, role } = req.query;
+    const { search, role, isArchived } = req.query;
     let query = {};
+
+    if (isArchived !== undefined && isArchived !== "all" && isArchived !== "") {
+      query.isArchived = isArchived === "true" || isArchived === true;
+    }
 
     if (role && role !== "All") {
       query.role = role;
@@ -407,6 +416,11 @@ export const updateUser = async (req, res) => {
     user.phoneNumber = phoneNumber !== undefined ? phoneNumber : user.phoneNumber;
     user.gender = gender !== undefined ? gender : user.gender;
 
+    if (req.body.isArchived !== undefined) {
+      user.isArchived = Boolean(req.body.isArchived);
+      user.archivedAt = user.isArchived ? new Date() : null;
+    }
+
     if (password && password.trim() !== "") {
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
@@ -421,6 +435,44 @@ export const updateUser = async (req, res) => {
   } catch (error) {
     console.error("Error updating user:", error.message);
     return res.status(500).json({ message: "Server error updating user" });
+  }
+};
+
+// @desc    Toggle archive status for user account
+// @route   PUT /api/users/:id/archive
+// @access  Private (Admin)
+export const toggleArchiveUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Guard: Prevent admin from archiving themselves
+    if (String(req.user?._id) === String(user._id)) {
+      return res.status(400).json({ message: "You cannot archive your own active account." });
+    }
+
+    user.isArchived = !user.isArchived;
+    user.archivedAt = user.isArchived ? new Date() : null;
+    await user.save();
+    invalidateUserSession(id);
+
+    return res.status(200).json({
+      message: user.isArchived ? "User account archived successfully" : "User account restored successfully",
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        username: user.username,
+        role: user.role,
+        isArchived: user.isArchived,
+        archivedAt: user.archivedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error toggling user archive status:", error.message);
+    return res.status(500).json({ message: "Server error archiving user" });
   }
 };
 
@@ -442,12 +494,23 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-// Helper to compute tier based on total spent amount
-export const calculateTier = (totalSpent) => {
-  if (totalSpent >= 10000) return "Platinum";
-  if (totalSpent >= 5000) return "Gold";
-  if (totalSpent >= 1000) return "Silver";
+// Helper to compute tier based on total spent amount and order count
+// Bronze Tier: New customers with 0 orders / 0 spend
+// Silver Tier: Customers who have placed at least 1 order (or spend >= ₱1,000)
+// Gold Tier: Customers with 3+ orders or spend >= ₱5,000
+export const calculateTier = (totalSpent, orderCount = 0) => {
+  const spent = Number(totalSpent || 0);
+  const count = Number(orderCount || 0);
+  if (spent >= 5000 || count >= 3) return "Gold";
+  if (count >= 1 || spent >= 1000) return "Silver";
   return "Bronze";
+};
+
+export const getTierLabel = (tier) => {
+  const t = (tier || "Bronze").toLowerCase();
+  if (t === "gold" || t === "loyal" || t === "platinum") return "Gold Tier";
+  if (t === "silver") return "Silver Tier";
+  return "Bronze Tier";
 };
 
 // @desc    Get user profile with points & tier
@@ -670,22 +733,98 @@ export const updateUserProfile = async (req, res) => {
   }
 };
 
-// @desc    Get Customer Segmentation Analytics (For Marketing)
+// @desc    Get Customer Segmentation Analytics (For Marketing Promotions & Tier Segments)
 // @route   GET /api/users/segments
 export const getCustomerSegments = async (req, res) => {
   try {
     const customers = await User.find({ role: "Customer" }).select("-password").lean().maxTimeMS(8000);
 
-    const vip = customers.filter((c) => (c.totalSpent || 0) >= 5000);
-    const regular = customers.filter((c) => (c.totalSpent || 0) >= 1000 && (c.totalSpent || 0) < 5000);
-    const newCustomers = customers.filter((c) => (c.totalSpent || 0) < 1000);
+    // Fetch non-cancelled orders to compute real order counts & discount analytics
+    const orders = await Order.find({ status: { $ne: "Cancelled" } })
+      .select("userId totalAmount voucherDiscount voucherCode createdAt status")
+      .lean()
+      .catch(() => []);
+
+    // Build user orders map indexed by various user identifiers
+    const userOrdersMap = new Map();
+    orders.forEach((o) => {
+      const uid = String(o.userId || "").trim().toLowerCase();
+      if (uid) {
+        if (!userOrdersMap.has(uid)) userOrdersMap.set(uid, []);
+        userOrdersMap.get(uid).push(o);
+      }
+    });
+
+    const gold = [];
+    const silver = [];
+    const bronze = [];
+
+    customers.forEach((c) => {
+      const uidKeys = [
+        c._id ? String(c._id).toLowerCase() : null,
+        c.username ? c.username.toLowerCase().trim() : null,
+        c.email ? c.email.toLowerCase().trim() : null,
+        c.customerNo ? c.customerNo.toLowerCase().trim() : null,
+      ].filter(Boolean);
+
+      // Collect unique orders for this customer
+      const seenOrderIds = new Set();
+      const customerOrders = [];
+      uidKeys.forEach((k) => {
+        const userOrd = userOrdersMap.get(k);
+        if (userOrd) {
+          userOrd.forEach((o) => {
+            const ordKey = String(o._id || o.createdAt);
+            if (!seenOrderIds.has(ordKey)) {
+              seenOrderIds.add(ordKey);
+              customerOrders.push(o);
+            }
+          });
+        }
+      });
+
+      const orderCount = customerOrders.length;
+      const orderSpendSum = customerOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+      const totalSpent = Math.max(Number(c.totalSpent || 0), orderSpendSum);
+      const totalDiscounts = customerOrders.reduce((sum, o) => sum + Number(o.voucherDiscount || 0), 0);
+      const discountCount = customerOrders.filter((o) => Number(o.voucherDiscount || 0) > 0).length;
+
+      // Tier assignment:
+      // Bronze: new customers with 0 orders
+      // Silver: customers with at least 1 order or >= ₱1,000 spend
+      // Gold: customers with 3+ orders or >= ₱5,000 spend
+      const tier = calculateTier(totalSpent, orderCount);
+
+      const customerWithStats = {
+        ...c,
+        orderCount,
+        totalSpent,
+        totalDiscounts,
+        discountCount,
+        tier,
+        badgeLabel: `${tier} Tier`,
+      };
+
+      if (tier === "Gold" || tier === "Loyal") {
+        gold.push(customerWithStats);
+      } else if (tier === "Silver") {
+        silver.push(customerWithStats);
+      } else {
+        bronze.push(customerWithStats);
+      }
+    });
 
     return res.status(200).json({
       totalCustomers: customers.length,
       segments: {
-        vip: { count: vip.length, users: vip },
-        regular: { count: regular.length, users: regular },
-        new: { count: newCustomers.length, users: newCustomers },
+        gold: { count: gold.length, users: gold },
+        silver: { count: silver.length, users: silver },
+        bronze: { count: bronze.length, users: bronze },
+        // Backwards compatibility for existing UI
+        loyal: { count: gold.length, users: gold },
+        vip: { count: gold.length, users: gold },
+        regular: { count: silver.length, users: silver },
+        new: { count: bronze.length, users: bronze },
       },
     });
   } catch (error) {

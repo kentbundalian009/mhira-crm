@@ -1048,37 +1048,52 @@ function InventoryWIP() {
         },
       });
 
-      // Table of Ingredients / Raw Materials BOM
+      // Table of Ingredients / Raw Materials BOM (Consistent UI: Status column removed, Quantity td colored with soft tint)
       const tableHead = [
-        ['#', 'RAW MATERIAL INGREDIENT', 'SPEC / %', 'RECIPE (1 BATCH)', 'DEDUCTED QTY', 'UOM', 'DEDUCTION STATUS']
+        ['#', 'RAW MATERIAL INGREDIENT', 'SPEC / %', 'RECIPE (1 BATCH)', 'DEDUCTED QTY', 'UOM']
       ];
 
-      const tableBody = (log.ingredientsUsed || []).map((ing, idx) => [
-        idx + 1,
-        ing.name || ing.materialCode || 'Raw Material',
-        ing.specification ? `${ing.specification}%` : '-',
-        ing.theoreticalWeight || (ing.unitRequired ? String(ing.unitRequired) : '0'),
-        `-${ing.qtyDeducted || 0}`,
-        (ing.uom || 'pcs').toUpperCase(),
-        isPending && (ing.shortageQty || 0) > 0 ? `Shortage: -${ing.shortageQty}` : 'Deducted from Stock'
-      ]);
+      const tableBody = (log.ingredientsUsed || []).map((ing, idx) => {
+        const hasShortage = isPending && (ing.shortageQty || 0) > 0;
+        const colorStyles = hasShortage
+          ? { fillColor: [254, 226, 226], textColor: [185, 28, 28] } // Soft red tint (red-100) for Shortage
+          : { fillColor: [220, 252, 231], textColor: [22, 101, 52] }; // Soft green tint (emerald-100) for Deducted
+
+        return [
+          idx + 1,
+          ing.name || ing.materialCode || 'Raw Material',
+          ing.specification ? `${ing.specification}%` : '-',
+          ing.theoreticalWeight || (ing.unitRequired ? String(ing.unitRequired) : '0'),
+          {
+            content: `-${ing.qtyDeducted || 0}`,
+            styles: {
+              fillColor: colorStyles.fillColor,
+              textColor: colorStyles.textColor,
+              fontStyle: 'bold',
+              halign: 'center',
+              overflow: 'ellipsize',
+            },
+          },
+          (ing.uom || 'pcs').toUpperCase(),
+        ];
+      });
 
       const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
       autoTable(doc, {
         startY: mainTableStartY,
         margin: { left: 14, right: 14, top: 19, bottom: 12 },
         head: tableHead,
-        body: tableBody.length > 0 ? tableBody : [['-', 'No ingredients recorded for this batch', '-', '-', '-', '-', '-']],
+        body: tableBody.length > 0 ? tableBody : [['-', 'No ingredients recorded for this batch', '-', '-', '-', '-']],
         theme: 'grid',
         styles: {
           font: 'helvetica',
           fontSize: 6.8,
           textColor: [51, 65, 85],
-          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          cellPadding: { top: 2.2, bottom: 2.2, left: 2, right: 2 },
           lineColor: [226, 232, 240],
           lineWidth: 0.15,
           valign: 'middle',
-          overflow: 'linebreak',
+          overflow: 'ellipsize', // whitespace nowrap: prevents table td from wrapping
         },
         headStyles: {
           fillColor: [21, 62, 151],
@@ -1086,30 +1101,33 @@ function InventoryWIP() {
           fontStyle: 'bold',
           fontSize: 7,
           halign: 'center',
+          valign: 'middle',
           lineColor: [21, 62, 151],
           lineWidth: 0.2,
+          overflow: 'ellipsize',
+        },
+        bodyStyles: {
+          overflow: 'ellipsize',
+          valign: 'middle',
         },
         alternateRowStyles: {
           fillColor: [248, 250, 255],
         },
         columnStyles: {
           0: { halign: 'center', cellWidth: 10 },
-          1: { fontStyle: 'bold', halign: 'left', cellWidth: 50 },
-          2: { halign: 'center', cellWidth: 20 },
-          3: { halign: 'center', cellWidth: 24 },
-          4: { fontStyle: 'bold', halign: 'center', textColor: [190, 18, 60], cellWidth: 26 },
-          5: { halign: 'center', cellWidth: 16 },
-          6: { halign: 'center', fontStyle: 'bold', cellWidth: 36 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 70 },
+          2: { halign: 'center', cellWidth: 26 },
+          3: { halign: 'center', cellWidth: 32 },
+          4: { fontStyle: 'bold', halign: 'center', cellWidth: 28 },
+          5: { fontStyle: 'bold', halign: 'center', cellWidth: 16 },
         },
         didParseCell: (data) => {
-          if (data.section === 'body') {
-            const txt = String(data.cell.raw || '');
-            if (txt.includes('Shortage')) {
-              data.cell.styles.textColor = [190, 18, 60];
-              data.cell.styles.fontStyle = 'bold';
-            } else if (txt.includes('Deducted')) {
-              data.cell.styles.textColor = [21, 62, 151];
-              data.cell.styles.fontStyle = 'bold';
+          if (data.section === 'body' && data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.styles) {
+            if (data.cell.raw.styles.fillColor) {
+              data.cell.styles.fillColor = data.cell.raw.styles.fillColor;
+            }
+            if (data.cell.raw.styles.textColor) {
+              data.cell.styles.textColor = data.cell.raw.styles.textColor;
             }
           }
         },

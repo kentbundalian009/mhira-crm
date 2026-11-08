@@ -1029,6 +1029,34 @@ function InventoryFinishedGoods() {
     });
   };
 
+  const handleAutoBalanceWater = () => {
+    setFormData((prev) => {
+      const updated = [...(prev.ingredients || [])];
+      const waterIndex = updated.findIndex((ing) => {
+        const name = (ing.name || '').toLowerCase();
+        return name.includes('water') || name.includes('aqua') || name.includes('purified');
+      });
+      if (waterIndex === -1) return prev;
+
+      const otherSpec = updated.reduce(
+        (sum, ing, idx) => (idx === waterIndex ? sum : sum + (parseFloat(ing.specification) || 0)),
+        0
+      );
+      const newWaterSpec = Math.max(0, Math.round((100 - otherSpec) * 100) / 100);
+      const newWaterWeight = Math.max(0, Math.round(((newWaterSpec / 100) * 5000) * 100) / 100);
+
+      updated[waterIndex] = {
+        ...updated[waterIndex],
+        specification: newWaterSpec.toFixed(2),
+        theoreticalWeight: String(newWaterWeight),
+      };
+
+      setModalError('');
+      showSuccessToast(`Water formulation auto-balanced to ${newWaterSpec.toFixed(2)}% (${newWaterWeight}g) for 100% total!`);
+      return { ...prev, ingredients: updated };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setModalLoading(true);
@@ -1036,15 +1064,16 @@ function InventoryFinishedGoods() {
 
     // Formulation validation: must be 100% and 5000g
     if (!isBOMValid) {
+      let errorMsg = '';
       if (formData.ingredients.length === 0) {
-        setModalError('Formulation requirement: Please add ingredients totaling exactly 100% (5000g) before saving.');
+        errorMsg = 'Formulation requirement: Please add ingredients totaling exactly 100% (5000g) before saving.';
       } else if (formData.ingredients.some((ing) => !ing.rawMaterialId)) {
-        setModalError('Please select a raw material for all ingredient rows.');
+        errorMsg = 'Please select a raw material for all ingredient rows.';
       } else {
-        setModalError(
-          `Cannot save product: Total formulation must be exactly 100% (currently ${totalBOMSpec.toFixed(2)}%) and 5000g (currently ${totalBOMWeight.toFixed(2)}g).`
-        );
+        errorMsg = `Cannot save product: Total formulation must be exactly 100% (currently ${totalBOMSpec.toFixed(2)}%) and 5000g (currently ${totalBOMWeight.toFixed(2)}g).`;
       }
+      setModalError(errorMsg);
+      showErrorToast(errorMsg);
       setModalLoading(false);
       return;
     }
@@ -1256,7 +1285,7 @@ function InventoryFinishedGoods() {
           lineWidth: 0.15,
           halign: 'center',
           valign: 'middle',
-          overflow: 'linebreak',
+          overflow: 'ellipsize',
         },
         headStyles: {
           fillColor: [239, 246, 255],
@@ -1266,6 +1295,7 @@ function InventoryFinishedGoods() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         bodyStyles: {
           fillColor: [255, 255, 255],
@@ -1275,6 +1305,7 @@ function InventoryFinishedGoods() {
           halign: 'center',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
+          overflow: 'ellipsize',
         },
         columnStyles: {
           0: { cellWidth: 45.5 },
@@ -1284,94 +1315,145 @@ function InventoryFinishedGoods() {
         },
       });
 
-      // 3. Main Data Table
-      const tableHead = [['CODE', 'CATEGORY', 'ITEM NAME', 'QUANTITY & CONDITION', 'SPECIFICATION & UOM']];
-      const tableBody = filteredProducts.map((p) => {
-        const qty = Number(p.quantity ?? 0);
-        const resolved = getResolvedThreshold(p);
-        const condition = getStockCondition(qty, resolved);
-        const specUom = `${p.specification ? p.specification : '-'} | ${p.uom || 'PCS'}`;
-        return [
-          p.code || 'N/A',
-          p.category || 'Finished Goods',
-          p.itemName || p.itemDescription || 'Finished Good',
-          `${qty.toLocaleString()} / ${resolved.overstockLimitPoint} max (${condition.label})`,
-          specUom,
-        ];
+      // 3. Main Data Table (Grouped by Category with Title Row & Condition-Colored Quantity)
+      const getConditionColor = (condKey) => {
+        if (condKey === 'Critical Alert') return { fillColor: [254, 226, 226], textColor: [185, 28, 28] };
+        if (condKey === 'Restock Warning') return { fillColor: [254, 249, 195], textColor: [161, 98, 7] };
+        if (condKey === 'Overstock') return { fillColor: [224, 242, 254], textColor: [29, 78, 216] };
+        return { fillColor: [220, 252, 231], textColor: [22, 101, 52] };
+      };
+
+      const categoryMap = new Map();
+      filteredProducts.forEach((p) => {
+        const cat = (p.category || 'Finished Goods').trim() || 'General';
+        if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+        categoryMap.get(cat).push(p);
       });
+      const sortedCategoryNames = Array.from(categoryMap.keys()).sort((a, b) => a.localeCompare(b));
 
-      const mainTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
-      autoTable(doc, {
-        startY: mainTableStartY,
-        margin: { left: 14, right: 14, top: 19, bottom: 12 },
-        head: tableHead,
-        body: tableBody,
-        theme: 'grid',
-        styles: {
-          font: 'helvetica',
-          fontSize: 6.8,
-          textColor: [51, 65, 85],
-          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
-          lineColor: [226, 232, 240],
-          lineWidth: 0.15,
-          valign: 'middle',
-          overflow: 'linebreak',
-        },
-        headStyles: {
-          fillColor: [21, 62, 151],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 7,
-          halign: 'center',
-          valign: 'middle',
-          lineColor: [21, 62, 151],
-          lineWidth: 0.2,
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 255],
-        },
-        columnStyles: {
-          0: { fontStyle: 'bold', halign: 'left', cellWidth: 24 },
-          1: { halign: 'left', cellWidth: 42 },
-          2: { fontStyle: 'bold', halign: 'left', cellWidth: 41 },
-          3: { fontStyle: 'bold', halign: 'center', cellWidth: 45 },
-          4: { halign: 'center', cellWidth: 30 },
-        },
-        didDrawPage: (data) => {
-          if (data.pageNumber > 1) {
-            const thumbH = 7;
-            const thumbW = thumbH * logoRatio;
-            if (logoBase64) {
-              try {
-                doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
-              } catch (e) { }
+      const colHeaders = ['CODE', 'ITEM NAME', 'QUANTITY', 'SPECIFICATION & UOM'];
+      const columnStyles = {
+        0: { fontStyle: 'bold', halign: 'left', cellWidth: 26 },
+        1: { fontStyle: 'bold', halign: 'left', cellWidth: 80 },
+        2: { fontStyle: 'bold', halign: 'center', cellWidth: 42 },
+        3: { halign: 'center', cellWidth: 34 },
+      };
+
+      let currentTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+
+      if (sortedCategoryNames.length === 0) {
+        autoTable(doc, {
+          startY: currentTableStartY,
+          margin: { left: 14, right: 14, top: 19, bottom: 12 },
+          head: [colHeaders],
+          body: [['-', 'No finished goods found for the selected criteria.', '-', '-']],
+          theme: 'grid',
+          styles: { font: 'helvetica', fontSize: 6.8, halign: 'center', valign: 'middle', overflow: 'ellipsize' },
+          headStyles: { fillColor: [21, 62, 151], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7, halign: 'center', overflow: 'ellipsize' },
+        });
+      } else {
+        sortedCategoryNames.forEach((catName, catIdx) => {
+          const catItems = categoryMap.get(catName);
+          const catBody = catItems.map((p) => {
+            const qty = Number(p.quantity ?? 0);
+            const resolved = getResolvedThreshold(p);
+            const condition = getStockCondition(qty, resolved);
+            const colors = getConditionColor(condition.key);
+            const specUom = `${p.specification ? p.specification : '-'} • ${p.uom || 'PCS'}`;
+
+            return [
+              p.code || 'N/A',
+              p.itemName || p.itemDescription || 'Finished Good',
+              {
+                content: qty.toLocaleString(),
+                styles: {
+                  fillColor: colors.fillColor,
+                  textColor: colors.textColor,
+                  fontStyle: 'bold',
+                  halign: 'center',
+                  overflow: 'ellipsize',
+                },
+              },
+              specUom,
+            ];
+          });
+
+          if (catIdx > 0) {
+            currentTableStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
+            if (currentTableStartY > pageHeight - 32) {
+              doc.addPage();
+              currentTableStartY = 19;
             }
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.2);
-            doc.setTextColor(21, 62, 151);
-            doc.text('MHIRA NATURAL BEAUTY PRODUCTS  |  FINISHED GOODS AUDIT', 14 + thumbW + 4, 11.5);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.2);
-            doc.setTextColor(100, 116, 139);
-            doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
-
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.2);
-            doc.line(14, 16, pageWidth - 14, 16);
           }
 
-          const footerY = pageHeight - 7;
-          doc.setDrawColor(226, 232, 240);
-          doc.setLineWidth(0.2);
-          doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
-
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(5.8);
-          doc.setTextColor(100, 116, 139);
-          doc.text('INTERNAL CONFIDENTIAL | CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
-        },
-      });
+          autoTable(doc, {
+            startY: currentTableStartY,
+            margin: { left: 14, right: 14, top: 19, bottom: 12 },
+            head: [
+              [
+                {
+                  content: `CATEGORY: ${catName.toUpperCase()}   •   ${catItems.length} ${catItems.length === 1 ? 'ITEM' : 'ITEMS'}`,
+                  colSpan: colHeaders.length,
+                  styles: {
+                    fillColor: [241, 245, 249],
+                    textColor: [21, 62, 151],
+                    fontStyle: 'bold',
+                    fontSize: 7.2,
+                    halign: 'left',
+                    valign: 'middle',
+                    cellPadding: { top: 2.2, bottom: 2.2, left: 3, right: 3 },
+                    lineColor: [203, 213, 225],
+                    lineWidth: 0.15,
+                    overflow: 'ellipsize',
+                  },
+                },
+              ],
+              colHeaders,
+            ],
+            body: catBody,
+            theme: 'grid',
+            styles: {
+              font: 'helvetica',
+              fontSize: 6.8,
+              textColor: [51, 65, 85],
+              cellPadding: { top: 2.2, bottom: 2.2, left: 2, right: 2 },
+              lineColor: [226, 232, 240],
+              lineWidth: 0.15,
+              valign: 'middle',
+              overflow: 'ellipsize',
+            },
+            headStyles: {
+              fillColor: [21, 62, 151],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              fontSize: 7,
+              halign: 'center',
+              valign: 'middle',
+              lineColor: [21, 62, 151],
+              lineWidth: 0.2,
+              overflow: 'ellipsize',
+            },
+            bodyStyles: {
+              overflow: 'ellipsize',
+              valign: 'middle',
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 255],
+            },
+            columnStyles: columnStyles,
+            didParseCell: (data) => {
+              if (data.section === 'body' && data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.styles) {
+                if (data.cell.raw.styles.fillColor) {
+                  data.cell.styles.fillColor = data.cell.raw.styles.fillColor;
+                }
+                if (data.cell.raw.styles.textColor) {
+                  data.cell.styles.textColor = data.cell.raw.styles.textColor;
+                }
+              }
+            },
+          });
+        });
+      }
 
       // 4. Executive Sign-Off Section
       let finalY = (doc.lastAutoTable?.finalY || 140) + 8;
@@ -1417,7 +1499,7 @@ function InventoryFinishedGoods() {
       doc.setTextColor(100, 116, 139);
       doc.text('Inventory Staff', startX + (colWidth / 2), sigY + 14.8, { align: 'center' });
 
-      // 5. Final Pass: Center Watermark Logo & Page Numbers
+      // 5. Final Pass: Center Watermark Logo, Running Header & Footer
       const totalPages = doc.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
@@ -1426,10 +1508,44 @@ function InventoryFinishedGoods() {
             doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
           } catch (e) { }
         }
+
+        if (i > 1) {
+          const thumbH = 7;
+          const thumbW = thumbH * logoRatio;
+          if (logoBase64) {
+            try {
+              doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
+            } catch (e) { }
+          }
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.2);
+          doc.setTextColor(21, 62, 151);
+          doc.text('MHIRA NATURAL BEAUTY PRODUCTS  |  FINISHED GOODS AUDIT', 14 + thumbW + 4, 11.5);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.2);
+          doc.setTextColor(100, 116, 139);
+          doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 11.5, { align: 'right' });
+
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, 16, pageWidth - 14, 16);
+        }
+
+        const footerY = pageHeight - 7;
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(14, footerY - 2.5, pageWidth - 14, footerY - 2.5);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text('INTERNAL CONFIDENTIAL | CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.2);
         doc.setTextColor(71, 85, 105);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 5.8, { align: 'right' });
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, footerY + 1.2, { align: 'right' });
       }
 
       const dateStr = new Date().toISOString().split('T')[0];
@@ -2506,6 +2622,41 @@ function InventoryFinishedGoods() {
                         {/* EMPTY ACTION COLUMN */}
                         <div className="col-span-1"></div>
                       </div>
+
+                      {/* FORMULATION VALIDATION NOTICE */}
+                      {!isBOMValid && formData.ingredients && formData.ingredients.length > 0 && (
+                        <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold shrink-0">⚠️ Total Formulation:</span>
+                            <span>
+                              Currently <strong className="font-mono">{totalBOMSpec.toFixed(2)}%</strong> ({totalBOMWeight.toFixed(2)}g). Must reach exactly <strong className="font-mono">100.00%</strong> (5000g).
+                              {totalBOMSpec < 100 && (
+                                <span className="font-bold text-amber-800 ml-1">
+                                  (Lacking: {(100 - totalBOMSpec).toFixed(2)}% / {(5000 - totalBOMWeight).toFixed(2)}g)
+                                </span>
+                              )}
+                              {totalBOMSpec > 100 && (
+                                <span className="font-bold text-rose-700 ml-1">
+                                  (Excess: {(totalBOMSpec - 100).toFixed(2)}% / {(totalBOMWeight - 5000).toFixed(2)}g)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          {formData.ingredients.some((ing) => {
+                            const name = (ing.name || '').toLowerCase();
+                            return name.includes('water') || name.includes('aqua') || name.includes('purified');
+                          }) && (
+                            <button
+                              type="button"
+                              onClick={handleAutoBalanceWater}
+                              className="px-3 py-1.5 bg-[#01390f] hover:bg-[#0a5219] text-white font-bold rounded-lg text-[11px] transition-all shadow-xs cursor-pointer shrink-0 self-start sm:self-auto"
+                              title="Automatically adjust Water to reach 100.00% (5000g)"
+                            >
+                              Auto-Balance Water to 100%
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2522,11 +2673,11 @@ function InventoryFinishedGoods() {
                 </button>
                 <button
                   type="submit"
-                  disabled={modalLoading || !isBOMValid}
-                  title={!isBOMValid ? 'Total ingredients must reach 100% and 5000g before saving' : 'Save Product'}
-                  className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap ${isBOMValid
-                    ? 'bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50'
-                    : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-80'
+                  disabled={modalLoading}
+                  title={!isBOMValid ? `Formulation must reach 100% (currently ${totalBOMSpec.toFixed(2)}%)` : 'Save Product'}
+                  className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${isBOMValid
+                    ? 'bg-[#01390f] hover:bg-[#0a5219] text-white disabled:opacity-50'
+                    : 'bg-amber-600 hover:bg-amber-700 text-white'
                     }`}
                 >
                   {modalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

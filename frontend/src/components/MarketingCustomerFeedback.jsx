@@ -580,7 +580,7 @@ function MarketingCustomerFeedback() {
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">
                     CUSTOMER
                   </th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">ITEM PROFILE</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">ITEM NAME</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">SPECIFICATION</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">UOM</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">RATING</th>

@@ -4,6 +4,7 @@ import {
     getPublicEvents,
     createEvent,
     updateEvent,
+    toggleArchiveEvent,
     deleteEvent
 } from '../controllers/MarketingEventsController.js';
 
@@ -16,6 +17,8 @@ router.get('/public', getPublicEvents);
 router.get('/', getAllEvents);
 router.post('/', createEvent);
 router.put('/:id', updateEvent);
+router.patch('/:id/archive', toggleArchiveEvent);
+router.put('/:id/archive', toggleArchiveEvent);
 router.delete('/:id', deleteEvent);
 
 export default router;

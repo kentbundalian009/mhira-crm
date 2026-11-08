@@ -92,7 +92,7 @@ export const getConfig = async (req, res) => {
     const defaultCats = moduleType === 'raw_materials' ? DEFAULT_RM_CATEGORIES : DEFAULT_FG_CATEGORIES;
     const defaultUoms = moduleType === 'raw_materials' ? DEFAULT_RM_UOMS : DEFAULT_FG_UOMS;
     const initialThresholds = moduleType === 'raw_materials'
-      ? { criticalLevel: 0, restockWarningPoint: 10, overstockLimitPoint: 1000 }
+      ? { criticalLevel: 1000, restockWarningPoint: 5000, overstockLimitPoint: 200000 }
       : { criticalLevel: 0, restockWarningPoint: 10, overstockLimitPoint: 1000 };
 
     if (!doc) {

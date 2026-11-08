@@ -2,8 +2,8 @@ import Coupon from '../models/MarketingCoupon.js';
 
 const sampleCoupons = [
   { code: "MHIRA30", discount: "30", minSpend: "500", usageLimit: 100, usedCount: 12, expiry: "2026-12-31", status: "Active", targetSegment: "All", isArchived: false },
-  { code: "VIPEXCLUSIVE", discount: "25", minSpend: "1000", usageLimit: 50, usedCount: 5, expiry: "2026-11-30", status: "Active", targetSegment: "VIP", isArchived: false },
-  { code: "WELCOME10", discount: "10", minSpend: "300", usageLimit: 0, usedCount: 18, expiry: "2026-10-15", status: "Active", targetSegment: "New", isArchived: false },
+  { code: "GOLDEXCLUSIVE", discount: "25", minSpend: "1000", usageLimit: 50, usedCount: 5, expiry: "2026-11-30", status: "Active", targetSegment: "Gold Tier", isArchived: false },
+  { code: "WELCOME10", discount: "10", minSpend: "300", usageLimit: 0, usedCount: 18, expiry: "2026-10-15", status: "Active", targetSegment: "Bronze Tier", isArchived: false },
 ];
 
 export const getCoupons = async (req, res) => {

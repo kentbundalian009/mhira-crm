@@ -17,6 +17,8 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
+  Archive,
+  Layers,
 } from 'lucide-react';
 import axios from '../axios';
 import { jsPDF } from 'jspdf';
@@ -36,6 +38,9 @@ function MarketingEventsManagement() {
   });
   const [loading, setLoading] = useState(false);
 
+  // Tab View Mode: 'active' (All Broadcasts) vs 'archived' (Archive Vault)
+  const [viewMode, setViewMode] = useState('active');
+
   // Multi-Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -46,6 +51,8 @@ function MarketingEventsManagement() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [viewEventModal, setViewEventModal] = useState(null);
   const [modalError, setModalError] = useState('');
+  const [archiveTargetEvent, setArchiveTargetEvent] = useState(null);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [deleteTargetEvent, setDeleteTargetEvent] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -194,6 +201,64 @@ function MarketingEventsManagement() {
     }
   };
 
+  // Toggle Archive / Restore
+  const handleExecuteToggleArchive = async () => {
+    if (!archiveTargetEvent) return;
+    setIsArchiving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const id = archiveTargetEvent._id;
+      const isCurrentlyArchived = Boolean(archiveTargetEvent.isArchived);
+
+      await axios.patch(`${API_BASE_URL}/api/events/${id}/archive`, {}, config).catch(async () => {
+        return await axios.put(
+          `${API_BASE_URL}/api/events/${id}`,
+          {
+            isArchived: !isCurrentlyArchived,
+            isPublished: !isCurrentlyArchived ? false : archiveTargetEvent.isPublished,
+          },
+          config
+        );
+      });
+
+      showSuccessToast(
+        isCurrentlyArchived
+          ? 'Announcement restored to active broadcasts!'
+          : 'Announcement moved to Archive Vault.'
+      );
+
+      setEvents((prev) => {
+        const next = prev.map((item) =>
+          item._id === id
+            ? {
+                ...item,
+                isArchived: !isCurrentlyArchived,
+                isPublished: !isCurrentlyArchived ? false : item.isPublished,
+              }
+            : item
+        );
+        try {
+          localStorage.setItem('cached_marketing_events', JSON.stringify(next));
+        } catch (_e) {}
+        return next;
+      });
+
+      if (viewEventModal?._id === id) {
+        setViewEventModal(null);
+      }
+      setArchiveTargetEvent(null);
+      notifyLiveSync('marketing');
+      fetchEvents();
+    } catch (err) {
+      console.error('Error toggling archive status:', err);
+      showErrorToast(err.response?.data?.message || 'Failed to update archive status.');
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  // Permanent Delete
   const confirmDeleteEvent = (evt, e) => {
     if (e) e.stopPropagation();
     setDeleteTargetEvent(evt);
@@ -207,7 +272,7 @@ function MarketingEventsManagement() {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       await axios.delete(`${API_BASE_URL}/api/events/${deleteTargetEvent._id}`, config);
-      showSuccessToast('Announcement deleted successfully.');
+      showSuccessToast('Announcement permanently deleted.');
 
       setEvents((prev) => {
         const next = prev.filter((item) => item._id !== deleteTargetEvent._id);
@@ -231,9 +296,21 @@ function MarketingEventsManagement() {
     }
   };
 
+  // Tab Counts
+  const activeEventsCount = useMemo(() => events.filter((e) => !e.isArchived).length, [events]);
+  const archivedEventsCount = useMemo(
+    () => events.filter((e) => Boolean(e.isArchived)).length,
+    [events]
+  );
+
   // Filtered Events
   const filteredEvents = useMemo(() => {
     return events.filter((evt) => {
+      // 0. Active vs Archive Vault Check
+      const isArchived = Boolean(evt.isArchived);
+      if (viewMode === 'active' && isArchived) return false;
+      if (viewMode === 'archived' && !isArchived) return false;
+
       // 1. Search Query
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase().trim();
@@ -262,9 +339,9 @@ function MarketingEventsManagement() {
 
       return true;
     });
-  }, [events, searchQuery, selectedCategory, selectedStatus]);
+  }, [events, viewMode, searchQuery, selectedCategory, selectedStatus]);
 
-  // Unique Categories
+  // Unique Categories from relevant scope
   const uniqueCategories = useMemo(() => {
     const set = new Set(['Announcement', 'Promo Event', 'Product Launch', 'Maintenance']);
     events.forEach((e) => {
@@ -300,7 +377,7 @@ function MarketingEventsManagement() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedStatus]);
+  }, [viewMode, searchQuery, selectedCategory, selectedStatus]);
 
   // Export PDF Summary
   const handleExportAnnouncementsPdf = () => {
@@ -313,12 +390,20 @@ function MarketingEventsManagement() {
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      doc.text('MHIRA NATURAL - ANNOUNCEMENTS & EVENTS AUDIT', 14, 11);
+      doc.text(
+        viewMode === 'archived'
+          ? 'MHIRA NATURAL - ARCHIVE VAULT ANNOUNCEMENTS AUDIT'
+          : 'MHIRA NATURAL - ANNOUNCEMENTS & EVENTS AUDIT',
+        14,
+        11
+      );
 
       doc.setFontSize(8.5);
       doc.setFont('helvetica', 'normal');
       doc.text(
-        `Generated on ${new Date().toLocaleDateString()} | Total Announcements: ${filteredEvents.length}`,
+        `Generated on ${new Date().toLocaleDateString()} | Total Items: ${filteredEvents.length} | Scope: ${
+          viewMode === 'archived' ? 'Archive Vault' : 'All Active Broadcasts'
+        }`,
         14,
         18
       );
@@ -332,7 +417,7 @@ function MarketingEventsManagement() {
         evt.eventDate ? new Date(evt.eventDate).toLocaleDateString() : 'Ongoing',
         evt.location || 'Online',
         evt.category || 'General',
-        evt.isPublished ? 'PUBLISHED' : 'DRAFT',
+        evt.isArchived ? 'ARCHIVED' : evt.isPublished ? 'PUBLISHED' : 'DRAFT',
       ]);
 
       autoTable(doc, {
@@ -351,7 +436,9 @@ function MarketingEventsManagement() {
         styles: { cellPadding: 2.8 },
       });
 
-      const fileName = `Announcements_Audit_${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `${
+        viewMode === 'archived' ? 'Announcements_Archive_Vault_' : 'Announcements_Audit_'
+      }${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
       showSuccessToast(`Exported Announcements Audit: ${fileName}`);
     } catch (err) {
@@ -364,25 +451,32 @@ function MarketingEventsManagement() {
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif] antialiased text-slate-700">
       {/* MAIN CARD CONTAINER (HOUSING TOOLBAR, FILTERS & TABLE) */}
       <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-4 sm:p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
-        {/* EXCEL SHEET TABS */}
+        {/* EXCEL SHEET TABS: All Broadcasts & Archive Vault */}
         <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
             {[
-              { id: 'All', label: 'All Broadcasts' },
-              { id: 'published', label: 'Live' },
-              { id: 'draft', label: 'Drafts' },
+              { id: 'active', label: 'All Broadcasts' },
+              { id: 'archived', label: 'Archive Vault' },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setSelectedStatus(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap ${
-                  selectedStatus === tab.id
-                    ? 'border-[#01390f] text-[#01390f] bg-slate-50'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                onClick={() => {
+                  setViewMode(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
+                  viewMode === tab.id
+                    ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
                 }`}
               >
-                {tab.label}
+                {tab.id === 'active' ? (
+                  <Layers className="w-3.5 h-3.5 text-[#01390f]" />
+                ) : (
+                  <Archive className="w-3.5 h-3.5 text-slate-500" />
+                )}
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
@@ -391,25 +485,31 @@ function MarketingEventsManagement() {
         {/* EXCEL RIBBON TOOLBAR */}
         <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
           {/* ACTIONS GROUP */}
-          <div className="w-full lg:w-[210px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+          <div
+            className={`w-full ${
+              viewMode === 'archived' ? 'lg:w-[130px]' : 'lg:w-[210px]'
+            } shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]`}
+          >
             <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
-              {/* 1 COLUMN NA 1 LAYER: Tall Full-Height Action Button */}
-              <button
-                type="button"
-                onClick={openAddModal}
-                className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
-                title="Create a new storefront announcement"
-              >
-                <Plus
-                  className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5"
-                  strokeWidth={2.5}
-                />
-                <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
-                  New
-                  <br />
-                  Broadcast
-                </span>
-              </button>
+              {/* Tall Action Button: New Broadcast (Active view only) */}
+              {viewMode !== 'archived' && (
+                <button
+                  type="button"
+                  onClick={openAddModal}
+                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                  title="Create a new storefront announcement"
+                >
+                  <Plus
+                    className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5"
+                    strokeWidth={2.5}
+                  />
+                  <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
+                    New
+                    <br />
+                    Broadcast
+                  </span>
+                </button>
+              )}
 
               {/* Stacked Compact Rows */}
               <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
@@ -527,7 +627,7 @@ function MarketingEventsManagement() {
                 </div>
               </div>
 
-              {/* Layer 3: 3-column Quick Toggles */}
+              {/* Layer 3: Quick Toggles */}
               <div className="grid grid-cols-3 gap-2 w-full">
                 <button
                   type="button"
@@ -581,7 +681,7 @@ function MarketingEventsManagement() {
         {/* HR DIVIDER ABOVE TABLE */}
         <hr className="border-slate-200 -mt-4 -mb-2" />
 
-        {/* 3. TABLE MASTERLIST (MATCHES INVENTORY / ADMIN DATABASE STANDARD) */}
+        {/* 3. TABLE MASTERLIST */}
         <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden">
           {/* TOP PAGINATION BAR */}
           <TablePagination
@@ -630,7 +730,9 @@ function MarketingEventsManagement() {
                       colSpan="6"
                       className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
                     >
-                      {searchQuery || selectedCategory !== 'All' || selectedStatus !== 'All'
+                      {viewMode === 'archived'
+                        ? 'No archived announcements found in the Archive Vault.'
+                        : searchQuery || selectedCategory !== 'All' || selectedStatus !== 'All'
                         ? 'No announcements match your filter criteria.'
                         : 'No announcements created yet. Click "New Broadcast" to publish your first post.'}
                     </td>
@@ -638,6 +740,7 @@ function MarketingEventsManagement() {
                 ) : (
                   paginatedEvents.map((evt) => {
                     const isLive = Boolean(evt.isPublished);
+                    const isItemArchived = Boolean(evt.isArchived);
 
                     return (
                       <tr
@@ -693,33 +796,42 @@ function MarketingEventsManagement() {
                           </span>
                         </td>
 
-                        {/* 5. STOREFRONT STATUS (Published = Green / Draft = Amber) */}
+                        {/* 5. STOREFRONT STATUS */}
                         <td
                           className={`py-3.5 px-4 text-center whitespace-nowrap text-slate-800 font-semibold text-xs transition-colors select-none ${
-                            isLive
+                            isItemArchived
+                              ? 'bg-slate-100 text-slate-600'
+                              : isLive
                               ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
                               : 'bg-amber-500/20 group-hover:bg-amber-500/30'
                           }`}
                         >
-                          <button
-                            type="button"
-                            onClick={(e) => handleTogglePublish(evt, e)}
-                            className="inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-transform"
-                            title="Click to toggle live publish state"
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-                              }`}
-                            />
-                            <span>{isLive ? 'Published' : 'Draft'}</span>
-                          </button>
+                          {isItemArchived ? (
+                            <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-semibold">
+                              <Archive className="w-3 h-3 text-slate-400" />
+                              <span>Archived</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => handleTogglePublish(evt, e)}
+                              className="inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-transform"
+                              title="Click to toggle live publish state"
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+                                }`}
+                              />
+                              <span>{isLive ? 'Published' : 'Draft'}</span>
+                            </button>
+                          )}
                         </td>
 
-                        {/* 6. ACTION BUTTONS (STICKY RIGHT - Matching Catalog & Coupon Tables) */}
+                        {/* 6. ACTION BUTTONS: EYE, EDIT, ARCHIVE (IN ALL BROADCASTS) */}
                         <td className="py-3.5 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
-                            {/* View */}
+                            {/* Eye (View) */}
                             <button
                               type="button"
                               onClick={() => setViewEventModal(evt)}
@@ -729,25 +841,51 @@ function MarketingEventsManagement() {
                               <Eye className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* Edit */}
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(evt)}
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              title="Edit Announcement"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
+                            {viewMode === 'active' ? (
+                              <>
+                                {/* Edit */}
+                                <button
+                                  type="button"
+                                  onClick={() => openEditModal(evt)}
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  title="Edit Announcement"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
 
-                            {/* Delete */}
-                            <button
-                              type="button"
-                              onClick={(e) => confirmDeleteEvent(evt, e)}
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                              title="Delete Announcement"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                                {/* Archive */}
+                                <button
+                                  type="button"
+                                  onClick={() => setArchiveTargetEvent(evt)}
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-amber-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  title="Move to Archive Vault"
+                                >
+                                  <Archive className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {/* Restore to All Broadcasts */}
+                                <button
+                                  type="button"
+                                  onClick={() => setArchiveTargetEvent(evt)}
+                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  title="Restore to All Broadcasts"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+
+                                {/* Permanent Delete */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => confirmDeleteEvent(evt, e)}
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  title="Permanently Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -760,7 +898,7 @@ function MarketingEventsManagement() {
         </div>
       </div>
 
-      {/* CREATE / EDIT ANNOUNCEMENT MODAL (CONSISTENT WITH CATALOG & VOUCHERS MODAL) */}
+      {/* CREATE / EDIT ANNOUNCEMENT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
@@ -796,7 +934,7 @@ function MarketingEventsManagement() {
                   </div>
                 )}
 
-                {/* 1. BANNER IMAGE UPLOAD (COMPACT ACTION CIRCLE + THUMBNAIL PREVIEW) */}
+                {/* 1. BANNER IMAGE UPLOAD */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
@@ -1052,12 +1190,18 @@ function MarketingEventsManagement() {
                   <span className="text-slate-500 font-medium">Status:</span>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      viewEventModal.isPublished
+                      viewEventModal.isArchived
+                        ? 'bg-slate-100 text-slate-600 border-slate-300'
+                        : viewEventModal.isPublished
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         : 'bg-slate-100 text-slate-600 border-slate-200'
                     }`}
                   >
-                    {viewEventModal.isPublished ? 'Published & Live' : 'Draft'}
+                    {viewEventModal.isArchived
+                      ? 'Archived in Vault'
+                      : viewEventModal.isPublished
+                      ? 'Published & Live'
+                      : 'Draft'}
                   </span>
                 </div>
               </div>
@@ -1075,11 +1219,23 @@ function MarketingEventsManagement() {
             <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => confirmDeleteEvent(viewEventModal)}
-                className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
-                title="Delete Announcement"
+                onClick={() => {
+                  const target = viewEventModal;
+                  setViewEventModal(null);
+                  setArchiveTargetEvent(target);
+                }}
+                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${
+                  viewEventModal.isArchived
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white'
+                    : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white'
+                }`}
+                title={viewEventModal.isArchived ? 'Restore Announcement' : 'Move to Archive Vault'}
               >
-                <Trash2 className="w-4 h-4" />
+                {viewEventModal.isArchived ? (
+                  <RotateCcw className="w-4 h-4" />
+                ) : (
+                  <Archive className="w-4 h-4" />
+                )}
               </button>
 
               <div className="flex items-center gap-2.5">
@@ -1090,25 +1246,128 @@ function MarketingEventsManagement() {
                 >
                   Close
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const toEdit = viewEventModal;
-                    setViewEventModal(null);
-                    openEditModal(toEdit);
-                  }}
-                  className="px-5 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  <span>Edit</span>
-                </button>
+                {!viewEventModal.isArchived && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const toEdit = viewEventModal;
+                      setViewEventModal(null);
+                      openEditModal(toEdit);
+                    }}
+                    className="px-5 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* ARCHIVE / RESTORE CONFIRMATION MODAL */}
+      {archiveTargetEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 overflow-hidden border border-slate-100 flex flex-col gap-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
+                  archiveTargetEvent.isArchived
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                    : 'bg-amber-50 text-amber-600 border border-amber-100'
+                }`}
+              >
+                {archiveTargetEvent.isArchived ? (
+                  <RotateCcw className="w-5 h-5" />
+                ) : (
+                  <Archive className="w-5 h-5" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-slate-900">
+                  {archiveTargetEvent.isArchived ? 'Restore Announcement?' : 'Archive Announcement?'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                  {archiveTargetEvent.isArchived
+                    ? 'This announcement will be restored back to your active broadcasts list.'
+                    : 'This announcement will be moved to the Archive Vault and unpublished from storefront customer displays.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Target Item Snapshot Box */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 flex items-center gap-3">
+              {archiveTargetEvent.bannerImage ? (
+                <img
+                  src={archiveTargetEvent.bannerImage}
+                  alt=""
+                  className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-slate-200/70 border border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-slate-800 truncate">
+                  {archiveTargetEvent.title || 'Untitled Announcement'}
+                </div>
+                <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                  <span className="inline-block px-2 py-0.5 rounded bg-emerald-100/70 text-[#01390f] font-semibold text-[10px]">
+                    {archiveTargetEvent.category || 'Announcement'}
+                  </span>
+                  <span>&bull;</span>
+                  <span className="font-mono">
+                    {archiveTargetEvent.eventDate
+                      ? new Date(archiveTargetEvent.eventDate).toLocaleDateString()
+                      : 'Ongoing'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setArchiveTargetEvent(null)}
+                disabled={isArchiving}
+                className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteToggleArchive}
+                disabled={isArchiving}
+                className={`px-6 py-2.5 sm:py-3 rounded-full text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap ${
+                  archiveTargetEvent.isArchived
+                    ? 'bg-[#01390f] hover:bg-[#0a5219]'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                {isArchiving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : archiveTargetEvent.isArchived ? (
+                  <RotateCcw className="w-4 h-4" />
+                ) : (
+                  <Archive className="w-4 h-4" />
+                )}
+                <span className="whitespace-nowrap">
+                  {isArchiving
+                    ? 'Processing...'
+                    : archiveTargetEvent.isArchived
+                    ? 'Yes, Restore'
+                    : 'Yes, Archive'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PERMANENT DELETE CONFIRMATION MODAL */}
       {deleteTargetEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 overflow-hidden border border-slate-100 flex flex-col gap-4 animate-in zoom-in-95 duration-150">
@@ -1117,10 +1376,10 @@ function MarketingEventsManagement() {
                 <Trash2 className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-slate-900">Delete Announcement?</h3>
+                <h3 className="text-base font-bold text-slate-900">Permanently Delete?</h3>
                 <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                  Are you sure you want to permanently remove this broadcast? It will be unpublished
-                  immediately from the storefront and mobile app.
+                  Are you sure you want to permanently remove this broadcast from the database? This action
+                  cannot be undone.
                 </p>
               </div>
             </div>

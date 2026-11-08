@@ -89,7 +89,7 @@ const userSchema = new mongoose.Schema(
     },
     tier: {
       type: String,
-      enum: ["Bronze", "Silver", "Gold", "Platinum"],
+      enum: ["Bronze", "Silver", "Loyal", "Gold", "Platinum"],
       default: "Bronze",
     },
     customerCode: {
@@ -155,6 +155,14 @@ const userSchema = new mongoose.Schema(
       shareUsageData: { type: Boolean, default: true },
       shareContactForAds: { type: Boolean, default: false },
       useSkincareData: { type: Boolean, default: true },
+    },
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

@@ -425,7 +425,7 @@ function AdminAppearance() {
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif] antialiased text-slate-700">
       
       {/* 1. MAIN CARD CONTAINER (HOUSING EXCEL RIBBON TOOLBAR & STUDIO) */}
-      <div className="w-full bg-white border border-slate-200/70 rounded-2xl p-4 sm:p-6 transition-all duration-300 flex flex-col gap-6 shadow-xs">
+      <div className="w-full bg-white border border-slate-100 text-slate-600 rounded-2xl p-3 sm:p-6 shadow-sm flex flex-col gap-4 sm:gap-6 transition-colors duration-200">
         
         {/* COMPACT EXCEL RIBBON TOOLBAR (SEAMLESS WHITE DESIGN) */}
         <div className="w-full bg-white flex flex-col">
