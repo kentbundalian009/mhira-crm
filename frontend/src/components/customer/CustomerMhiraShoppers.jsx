@@ -55,30 +55,19 @@ function CustomerMhiraShoppers() {
       ? 'https://mhira-crmsystem.onrender.com'
       : 'http://localhost:5000';
 
-  // Fallback data if backend is starting up or offline
-  const DEFAULT_LEADERBOARD = [
-    { rank: 1, name: "Bea Alonzo", username: "beaalonzo", tier: "Gold", rewardPoints: 240, orderCount: 5 },
-    { rank: 2, name: "Kent Bundalian", username: "kentbundalian009", tier: "Gold", rewardPoints: 180, orderCount: 4 },
-    { rank: 3, name: "Sarah Geronimo", username: "sarahg", tier: "Gold", rewardPoints: 95, orderCount: 3 },
-    { rank: 4, name: "Maria Santos", username: "mariasantos", tier: "Silver", rewardPoints: 80, orderCount: 2 },
-    { rank: 5, name: "Elena Reyes", username: "elenareyes", tier: "Silver", rewardPoints: 45, orderCount: 1 },
-    { rank: 6, name: "Juan Dela Cruz", username: "juandc", tier: "Bronze", rewardPoints: 0, orderCount: 0 },
-    { rank: 7, name: "Mark Tan", username: "marktan99", tier: "Bronze", rewardPoints: 0, orderCount: 0 },
-  ];
-
   // Fetch Shoppers function (silent option for real-time updates)
   const fetchLeaderboard = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
       const res = await axios.get(`${API_BASE_URL}/api/logistics/sales-report/leaderboard`);
-      if (res.data?.leaderboard && res.data.leaderboard.length > 0) {
-        setLeaderboard(res.data.leaderboard);
+      if (res.data?.leaderboard) {
+        setLeaderboard(Array.isArray(res.data.leaderboard) ? res.data.leaderboard : []);
       } else {
-        setLeaderboard(DEFAULT_LEADERBOARD);
+        setLeaderboard([]);
       }
     } catch (err) {
-      console.warn('Using default customer shoppers list:', err);
-      setLeaderboard(DEFAULT_LEADERBOARD);
+      console.warn('Error fetching customer shoppers list:', err);
+      setLeaderboard([]);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -155,12 +144,6 @@ function CustomerMhiraShoppers() {
     return list.sort((a, b) => Number(a.rank || 0) - Number(b.rank || 0));
   }, [leaderboard, searchQuery, selectedTier, sortBy]);
 
-  // Top Three derived for Bar-Graph Podium Showcase
-  const topThree = useMemo(() => {
-    const sorted = [...leaderboard].sort((a, b) => Number(a.rank || 0) - Number(b.rank || 0));
-    return sorted.slice(0, 3);
-  }, [leaderboard]);
-
   const renderBadge = (tier, isDark = false) => {
     const t = (tier || '').toLowerCase();
     if (t.includes('gold') || t.includes('loyal') || t.includes('platinum')) {
@@ -226,10 +209,6 @@ function CustomerMhiraShoppers() {
     { label: 'Orders: High-Low', value: 'orders-desc' },
     { label: 'Name: A-Z', value: 'name-asc' },
   ];
-
-  const firstPlace = topThree[0];
-  const secondPlace = topThree[1];
-  const thirdPlace = topThree[2];
 
   return (
     <div className="bg-white min-h-screen flex flex-col font-['Poppins',sans-serif] text-slate-800 antialiased">
@@ -427,267 +406,135 @@ function CustomerMhiraShoppers() {
                 </div>
               </div>
 
-              {/* ================= TOP 3 PODIUM (BANDARITO STYLE CARDS) ================= */}
-              <div className="flex items-end justify-center gap-3 sm:gap-6 md:gap-8 max-w-4xl mx-auto pt-4 pb-2">
-                {/* ================= 2ND PLACE (LEFT) ================= */}
-                {secondPlace && (
-                  <div className="order-1 flex-1 max-w-[140px] sm:max-w-[180px] md:max-w-[220px] flex flex-col items-center group transition-transform duration-300 hover:-translate-y-1">
-                    {/* Card */}
-                    <div className="relative">
-                      <div className="w-24 h-28 sm:w-36 sm:h-40 md:w-44 md:h-48 rounded-2xl sm:rounded-3xl bg-[#FAFBF9] border border-[#D5EAD7] flex items-center justify-center overflow-hidden">
-                        {secondPlace.profileImage ? (
-                          <img
-                            src={secondPlace.profileImage}
-                            alt={secondPlace.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-slate-200 via-slate-100 to-white text-slate-700 font-black text-2xl sm:text-3xl md:text-4xl tracking-tight">
-                            {getInitials(secondPlace.name)}
+              {/* ================= FULL LEADERBOARD TABLE (SHOPPERS HALL OF FAME) ================= */}
+              <div className="overflow-x-auto border border-[#D5EAD7] rounded-2xl bg-white shadow-2xs">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
+                      <th className="py-3.5 px-4 text-center w-20">Rank</th>
+                      <th className="py-3.5 px-4 min-w-[200px]">Shopper</th>
+                      <th className="py-3.5 px-4 text-center">Loyalty Tier</th>
+                      <th className="py-3.5 px-4 text-center">Reward Points</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 font-normal bg-white">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="4" className="text-center py-12 text-[#01390f]">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-5 h-5 animate-spin text-[#01390f]" />
+                            <span className="font-medium text-sm text-slate-700">Loading Mhira Shoppers rankings...</span>
                           </div>
-                        )}
-                      </div>
-
-                      {/* Rank 2 Circular Badge Overlapping Bottom Center */}
-                      <div className="absolute -bottom-3 sm:-bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-100 border-2 border-white text-slate-700 font-black text-xs sm:text-sm flex items-center justify-center shadow-xs z-10">
-                        2
-                      </div>
-                    </div>
-
-                    {/* Info Below Card */}
-                    <div className="mt-4 sm:mt-5 text-center flex flex-col items-center max-w-full px-1">
-                      <h3 className="font-bold text-slate-900 text-xs sm:text-sm md:text-base line-clamp-1">
-                        {secondPlace.name}
-                      </h3>
-                      <p className="text-[10px] sm:text-xs text-slate-500 line-clamp-1 mt-0.5">
-                        {secondPlace.orderCount || 1} orders · {Number(secondPlace.rewardPoints != null ? secondPlace.rewardPoints : (secondPlace.orderCount || 1) * 25).toLocaleString()} pts
-                      </p>
-                      <div className="mt-1.5">
-                        {renderBadge(secondPlace.tier, false)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ================= 1ST PLACE - CENTER CHAMPION (TALLER & GLOWING) ================= */}
-                {firstPlace && (
-                  <div className="order-2 flex-1 max-w-[160px] sm:max-w-[210px] md:max-w-[260px] flex flex-col items-center group transition-transform duration-300 hover:-translate-y-1 relative z-20">
-                    {/* Card */}
-                    <div className="relative">
-                      <div className="w-28 h-36 sm:w-44 sm:h-52 md:w-52 md:h-60 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] border-2 border-amber-400 flex items-center justify-center overflow-hidden">
-                        {firstPlace.profileImage ? (
-                          <img
-                            src={firstPlace.profileImage}
-                            alt={firstPlace.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-white font-black text-4xl sm:text-5xl md:text-6xl tracking-tight drop-shadow-md">
-                            {getInitials(firstPlace.name)}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Rank 1 Circular Gold Badge Overlapping Bottom Center */}
-                      <div className="absolute -bottom-3.5 sm:-bottom-4 left-1/2 -translate-x-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-400 border-2 border-white text-amber-950 font-black text-sm sm:text-base flex items-center justify-center shadow-xs z-10">
-                        1
-                      </div>
-                    </div>
-
-                    {/* Info Below Card */}
-                    <div className="mt-5 sm:mt-6 text-center flex flex-col items-center max-w-full px-1">
-                      <h3 className="font-extrabold text-slate-900 text-sm sm:text-base md:text-lg line-clamp-1">
-                        {firstPlace.name}
-                      </h3>
-                      <p className="text-[11px] sm:text-xs text-[#01390f] font-semibold line-clamp-1 mt-0.5">
-                        {firstPlace.orderCount || 1} orders · {Number(firstPlace.rewardPoints != null ? firstPlace.rewardPoints : (firstPlace.orderCount || 1) * 25).toLocaleString()} pts
-                      </p>
-                      <div className="mt-1.5">
-                        {renderBadge(firstPlace.tier, false)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ================= 3RD PLACE (RIGHT) ================= */}
-                {thirdPlace && (
-                  <div className="order-3 flex-1 max-w-[140px] sm:max-w-[180px] md:max-w-[220px] flex flex-col items-center group transition-transform duration-300 hover:-translate-y-1">
-                    {/* Card */}
-                    <div className="relative">
-                      <div className="w-24 h-28 sm:w-36 sm:h-40 md:w-44 md:h-48 rounded-2xl sm:rounded-3xl bg-[#FAFBF9] border border-[#D5EAD7] flex items-center justify-center overflow-hidden">
-                        {thirdPlace.profileImage ? (
-                          <img
-                            src={thirdPlace.profileImage}
-                            alt={thirdPlace.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-amber-100 via-orange-50 to-white text-amber-900 font-black text-2xl sm:text-3xl md:text-4xl tracking-tight">
-                            {getInitials(thirdPlace.name)}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Rank 3 Circular Bronze Badge Overlapping Bottom Center */}
-                      <div className="absolute -bottom-3 sm:-bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-orange-100 border-2 border-white text-amber-900 font-black text-xs sm:text-sm flex items-center justify-center shadow-xs z-10">
-                        3
-                      </div>
-                    </div>
-
-                    {/* Info Below Card */}
-                    <div className="mt-4 sm:mt-5 text-center flex flex-col items-center max-w-full px-1">
-                      <h3 className="font-bold text-slate-900 text-xs sm:text-sm md:text-base line-clamp-1">
-                        {thirdPlace.name}
-                      </h3>
-                      <p className="text-[10px] sm:text-xs text-slate-500 line-clamp-1 mt-0.5">
-                        {thirdPlace.orderCount || 1} orders · {Number(thirdPlace.rewardPoints != null ? thirdPlace.rewardPoints : (thirdPlace.orderCount || 1) * 25).toLocaleString()} pts
-                      </p>
-                      <div className="mt-1.5">
-                        {renderBadge(thirdPlace.tier, false)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* ================= FULL LEADERBOARD TABLE (INSIDE SAME CONTAINER DIRECTLY BELOW) ================= */}
-              <div className="pt-6 sm:pt-8 border-t border-gray-100 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                      <Users className="w-4 h-4 text-[#01390f]" />
-                      <span>Full Leaderboard Standings</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 font-normal">
-                      Complete community rankings by verified customer reward points and lifetime purchase activity.
-                    </p>
-                  </div>
-                  <div className="text-xs text-slate-600 font-medium bg-slate-50 px-3 py-1 rounded-full border border-slate-200 self-start sm:self-auto">
-                    Showing {filteredAndSortedLeaderboard.length} ranked {filteredAndSortedLeaderboard.length === 1 ? 'member' : 'members'}
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto border border-[#D5EAD7] rounded-2xl bg-white">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
-                        <th className="py-3.5 px-4 text-center w-16">Rank</th>
-                        <th className="py-3.5 px-4 min-w-[200px]">Shopper</th>
-                        <th className="py-3.5 px-4 text-center">Loyalty Tier</th>
-                        <th className="py-3.5 px-4 text-center">Reward Points</th>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 font-normal bg-white">
-                      {loading ? (
-                        <tr>
-                          <td colSpan="4" className="text-center py-12 text-[#01390f]">
-                            <div className="flex items-center justify-center gap-2">
-                              <Loader2 className="w-5 h-5 animate-spin text-[#01390f]" />
-                              <span className="font-medium text-sm text-slate-700">Loading Mhira Shoppers rankings...</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : filteredAndSortedLeaderboard.length === 0 ? (
-                        <tr>
-                          <td colSpan="4" className="text-center py-10 text-slate-400 italic">
-                            No shoppers match your search or tier filter.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredAndSortedLeaderboard.map((c) => {
-                          const isCurrentActiveUser =
-                            activeUser &&
-                            (c.username === activeUser.username ||
-                              (activeUser._id && c.id === activeUser._id) ||
-                              (c.name && activeUser.fullName && c.name.toLowerCase() === activeUser.fullName.toLowerCase()));
+                    ) : filteredAndSortedLeaderboard.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="text-center py-10 text-slate-400 italic">
+                          No shoppers match your search or tier filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAndSortedLeaderboard.map((c) => {
+                        const isCurrentActiveUser =
+                          activeUser &&
+                          (c.username === activeUser.username ||
+                            (activeUser._id && c.id === activeUser._id) ||
+                            (c.name && activeUser.fullName && c.name.toLowerCase() === activeUser.fullName.toLowerCase()));
 
-                          return (
-                            <tr
-                              key={c.username || c.name}
-                              className={`transition-colors ${
-                                isCurrentActiveUser
-                                  ? 'bg-emerald-50/80 font-medium hover:bg-emerald-100/60'
-                                  : 'hover:bg-[#EDF7EE]/50'
-                              }`}
-                            >
-                              <td className="py-3.5 px-4 text-center">
-                                {c.rank === 1 ? (
-                                  <div className="inline-flex items-center justify-center" title="1st Place - Gold">
-                                    <GoldMedal className="w-5 h-5" size={22} />
-                                  </div>
-                                ) : c.rank === 2 ? (
-                                  <div className="inline-flex items-center justify-center" title="2nd Place - Silver">
-                                    <SilverMedal className="w-5 h-5" size={22} />
-                                  </div>
-                                ) : c.rank === 3 ? (
-                                  <div className="inline-flex items-center justify-center" title="3rd Place - Bronze">
-                                    <BronzeMedal className="w-5 h-5" size={22} />
-                                  </div>
-                                ) : (
-                                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-mono text-xs font-bold">
-                                    #{c.rank}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 overflow-hidden ${
-                                      c.rank === 1
-                                        ? 'bg-amber-100 border-2 border-amber-400 text-amber-900'
-                                        : c.rank === 2
-                                        ? 'bg-slate-100 border-2 border-slate-300 text-slate-700'
-                                        : c.rank === 3
-                                        ? 'bg-orange-100 border-2 border-amber-600/70 text-amber-900'
-                                        : 'bg-[#FAFBF9] border border-[#D5EAD7] text-[#01390f]'
-                                    }`}
-                                  >
-                                    {c.profileImage ? (
-                                      <img
-                                        src={c.profileImage}
-                                        alt=""
-                                        className="w-full h-full object-cover rounded-full"
-                                        onError={(e) => {
-                                          e.target.style.display = 'none';
-                                        }}
-                                      />
-                                    ) : (
-                                      getInitials(c.name)
+                        // Dynamic background styling based on rank (1 = Gold, 2 = Silver, 3 = Bronze)
+                        let rowBgClasses = 'hover:bg-[#EDF7EE]/50 border-l-4 border-l-transparent';
+                        if (c.rank === 1) {
+                          rowBgClasses = 'bg-gradient-to-r from-amber-100/90 via-amber-50/70 to-white hover:from-amber-200/80 hover:to-amber-100/60 border-l-4 border-l-amber-500 font-medium';
+                        } else if (c.rank === 2) {
+                          rowBgClasses = 'bg-gradient-to-r from-slate-200/80 via-slate-100/60 to-white hover:from-slate-200 hover:to-slate-100 border-l-4 border-l-slate-400 font-medium';
+                        } else if (c.rank === 3) {
+                          rowBgClasses = 'bg-gradient-to-r from-amber-100/70 via-orange-50/60 to-white hover:from-orange-100 hover:to-orange-50 border-l-4 border-l-amber-700/60 font-medium';
+                        } else if (isCurrentActiveUser) {
+                          rowBgClasses = 'bg-emerald-50/80 hover:bg-emerald-100/60 border-l-4 border-l-[#01390f] font-medium';
+                        }
+
+                        return (
+                          <tr
+                            key={c.username || c.name}
+                            className={`transition-colors ${rowBgClasses}`}
+                          >
+                            <td className="py-3.5 px-4 text-center">
+                              {c.rank === 1 ? (
+                                <div className="inline-flex items-center gap-1.5 justify-center px-2 py-0.5 rounded-full bg-amber-100/80 border border-amber-300 text-amber-900 font-bold text-xs" title="1st Place - Gold Champion">
+                                  <GoldMedal className="w-5 h-5 drop-shadow-2xs" size={20} />
+                                  <span>#1</span>
+                                </div>
+                              ) : c.rank === 2 ? (
+                                <div className="inline-flex items-center gap-1.5 justify-center px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-bold text-xs" title="2nd Place - Silver">
+                                  <SilverMedal className="w-5 h-5 drop-shadow-2xs" size={20} />
+                                  <span>#2</span>
+                                </div>
+                              ) : c.rank === 3 ? (
+                                <div className="inline-flex items-center gap-1.5 justify-center px-2 py-0.5 rounded-full bg-orange-100 border border-orange-200 text-orange-900 font-bold text-xs" title="3rd Place - Bronze">
+                                  <BronzeMedal className="w-5 h-5 drop-shadow-2xs" size={20} />
+                                  <span>#3</span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-mono text-xs font-bold">
+                                  #{c.rank}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 overflow-hidden ${
+                                    c.rank === 1
+                                      ? 'bg-amber-100 border-2 border-amber-400 text-amber-900 ring-2 ring-amber-300/40'
+                                      : c.rank === 2
+                                      ? 'bg-slate-100 border-2 border-slate-300 text-slate-700 ring-2 ring-slate-200/40'
+                                      : c.rank === 3
+                                      ? 'bg-orange-100 border-2 border-amber-600/70 text-amber-900 ring-2 ring-orange-200/40'
+                                      : 'bg-[#FAFBF9] border border-[#D5EAD7] text-[#01390f]'
+                                  }`}
+                                >
+                                  {c.profileImage ? (
+                                    <img
+                                      src={c.profileImage}
+                                      alt=""
+                                      className="w-full h-full object-cover rounded-full"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    getInitials(c.name)
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-slate-900 block text-xs sm:text-sm">{c.name}</span>
+                                    {isCurrentActiveUser && (
+                                      <span className="bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider">
+                                        You
+                                      </span>
                                     )}
                                   </div>
-                                  <div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-semibold text-slate-900 block text-xs sm:text-sm">{c.name}</span>
-                                      {isCurrentActiveUser && (
-                                        <span className="bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider">
-                                          You
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="font-mono text-[11px] text-[#01390f] font-medium block">
-                                      @{c.username} · {c.orderCount || 1} {c.orderCount === 1 ? 'order' : 'orders'}
-                                    </span>
-                                  </div>
+                                  <span className="font-mono text-[11px] text-[#01390f] font-medium block">
+                                    @{c.username} · {c.orderCount || 1} {c.orderCount === 1 ? 'order' : 'orders'}
+                                  </span>
                                 </div>
-                              </td>
-                              <td className="py-3.5 px-4 text-center">
-                                {renderBadge(c.tier, false)}
-                              </td>
-                              <td className="py-3.5 px-4 text-center font-mono">
-                                <span className="inline-block font-mono font-black text-xs text-amber-500 drop-shadow-xs bg-amber-50/80 px-2.5 py-0.5 rounded-full border border-amber-200/80">
-                                  {Number(c.rewardPoints != null ? c.rewardPoints : (Number(c.orderCount || 1) * 25)).toLocaleString()} pts
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              {renderBadge(c.tier, false)}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono">
+                              <span className="inline-block font-mono font-black text-xs text-amber-600 drop-shadow-2xs bg-amber-50/90 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                {Number(c.rewardPoints != null ? c.rewardPoints : (Number(c.orderCount || 1) * 25)).toLocaleString()} pts
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 

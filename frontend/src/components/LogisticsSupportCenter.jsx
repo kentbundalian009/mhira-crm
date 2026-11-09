@@ -35,7 +35,9 @@ import {
   SlidersHorizontal,
   Eye,
   RotateCcw,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ArrowUpDown,
+  Activity
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -335,8 +337,9 @@ function LogisticsSupportCenter() {
     if (selectedDate) count++;
     if (selectedTopic !== "All") count++;
     if (selectedSort !== "newest") count++;
+    if (activeTab !== "all") count++;
     return count;
-  }, [searchTerm, selectedDate, selectedTopic, selectedSort]);
+  }, [searchTerm, selectedDate, selectedTopic, selectedSort, activeTab]);
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -356,6 +359,7 @@ function LogisticsSupportCenter() {
     setSelectedDate("");
     setSelectedTopic("All");
     setSelectedSort("newest");
+    setActiveTab("all");
     setCurrentPage(1);
   };
 
