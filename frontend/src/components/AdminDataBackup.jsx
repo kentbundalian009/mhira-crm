@@ -1008,7 +1008,7 @@ function AdminDataBackup() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
                     <td colSpan="7" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
@@ -1036,19 +1036,19 @@ function AdminDataBackup() {
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
                         {/* 1. BACKUP FILENAME */}
-                        <td className="py-3.5 px-4 whitespace-nowrap min-w-[220px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[220px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#01390f] shrink-0">
                               <FileJson className="w-4 h-4" />
                             </div>
-                            <span className="font-mono font-bold text-slate-900 text-xs">
+                            <span className="font-mono font-bold text-slate-900 text-xs tracking-wide">
                               {backup.filename}
                             </span>
                           </div>
                         </td>
 
                         {/* 2. DATE */}
-                        <td className="py-3.5 px-4 font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors text-center">
                           {new Date(backup.createdAt).toLocaleString([], {
                             month: "short",
                             day: "numeric",
@@ -1059,9 +1059,9 @@ function AdminDataBackup() {
                         </td>
 
                         {/* 3. TYPE BADGE */}
-                        <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span
-                            className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-md font-semibold border ${isAuto
+                            className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border ${isAuto
                               ? "text-amber-800 bg-amber-50 border-amber-200/80"
                               : "text-cyan-800 bg-cyan-50 border-cyan-200/80"
                               }`}
@@ -1071,13 +1071,20 @@ function AdminDataBackup() {
                           </span>
                         </td>
 
-                        {/* 4. FILE SIZE */}
-                        <td className="py-3.5 px-4 font-mono text-xs text-slate-700 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {backup.sizeFormatted || "Calculating..."}
+                        {/* 4. FILE SIZE (Signature Blue Accent Cell matching Raw Materials Volume/Qty) */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="font-mono font-bold text-slate-900 text-xs">
+                              {backup.sizeFormatted || "Calculating..."}
+                            </span>
+                            <span className="text-[10px] text-slate-600 font-normal font-sans">
+                              Snapshot Size
+                            </span>
+                          </div>
                         </td>
 
                         {/* 5. DATA SCOPE */}
-                        <td className="py-3.5 px-4 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex items-center gap-1.5 text-xs text-slate-700">
                             <Layers className="w-3.5 h-3.5 text-slate-400" />
                             <span>
@@ -1089,8 +1096,8 @@ function AdminDataBackup() {
                         </td>
 
                         {/* 6. INTEGRITY STATUS */}
-                        <td className="py-3.5 px-4 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-md">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-full">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                             <span>Verified Valid</span>
                           </span>

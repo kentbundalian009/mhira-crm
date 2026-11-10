@@ -1187,7 +1187,10 @@ function LogisticsPerformanceAnalytics() {
                   <tbody className="divide-y divide-slate-100 font-medium">
                     {loading ? (
                       <tr>
-                        <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                        <td
+                          colSpan="9"
+                          className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                        >
                           <div className="flex items-center justify-center gap-2">
                             <Loader2 className="w-5 h-5 animate-spin" />
                             <span>Computing customer leaderboard & badges...</span>
@@ -1196,7 +1199,10 @@ function LogisticsPerformanceAnalytics() {
                       </tr>
                     ) : filteredCustomerRankings.length === 0 ? (
                       <tr>
-                        <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                        <td
+                          colSpan="9"
+                          className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                        >
                           No customer rankings found matching your search.
                         </td>
                       </tr>
@@ -1206,24 +1212,24 @@ function LogisticsPerformanceAnalytics() {
                         return (
                           <tr
                             key={c.username || c.name}
-                            className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap group"
+                            className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                           >
-                            {/* Rank Column */}
-                            <td className="py-3 px-4 text-center font-bold">
-                              <div className="flex justify-center">
+                            {/* 1. RANK */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex justify-center items-center">
                                 {renderRankMedal(c.rank)}
                               </div>
                             </td>
 
-                            {/* Customer Profile (Name & Username) */}
-                            <td className="py-3 px-4 min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {/* 2. CUSTOMER PROFILE */}
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 group-hover:border-[#01390f] transition-colors overflow-hidden">
+                                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 group-hover:border-[#01390f] transition-colors overflow-hidden">
                                   {c.profileImage ? (
                                     <img
                                       src={c.profileImage}
                                       alt={c.name}
-                                      className="w-full h-full object-cover rounded-xl"
+                                      className="w-full h-full object-cover rounded-lg"
                                       onError={(e) => {
                                         e.target.style.display = 'none';
                                       }}
@@ -1233,69 +1239,69 @@ function LogisticsPerformanceAnalytics() {
                                   )}
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="font-bold text-slate-800 text-xs truncate" title={c.name}>
+                                  <span className="font-semibold text-xs text-slate-900 truncate" title={c.name}>
                                     {c.name}
                                   </span>
-                                  <span className="font-mono text-[11px] text-[#01390f] font-semibold truncate">
+                                  <span className="font-mono text-[11px] text-slate-500 font-semibold truncate mt-0.5">
                                     @{c.username}
                                   </span>
                                 </div>
                               </div>
                             </td>
 
-                            {/* Mhira Shoppers Tier Badge */}
-                            <td className="py-3 px-4 text-center">
+                            {/* 3. TIER BADGE */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {renderCustomerBadge(c.tier, c.badgeLabel)}
                             </td>
 
-                            {/* Total Spent */}
-                            <td className="py-3 px-4 font-mono font-bold text-[#01390f] text-right text-xs">
+                            {/* 4. TOTAL SPENT */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               ₱{Number(c.totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
 
-                            {/* Orders Placed */}
-                            <td className="py-3 px-4 text-center font-mono font-semibold text-slate-700">
-                              <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 text-[11px] font-bold">
-                                {c.orderCount} {c.orderCount === 1 ? 'order' : 'orders'}
-                              </span>
+                            {/* 5. ORDERS PLACED (Blue Accent Column) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                              {c.orderCount} {c.orderCount === 1 ? 'order' : 'orders'}
                             </td>
 
-                            {/* Discounts Availed */}
-                            <td className="py-3 px-4 text-center font-mono text-slate-700">
+                            {/* 6. DISCOUNTS AVAILED */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {Number(c.totalDiscounts || 0) > 0 ? (
                                 <div className="flex flex-col items-center">
-                                  <span className="font-bold text-emerald-700 text-xs">
+                                  <span className="font-bold text-emerald-800 text-xs">
                                     -₱{Number(c.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                   </span>
-                                  <span className="text-[10px] text-slate-400">
+                                  <span className="text-[10px] text-slate-500 font-sans mt-0.5">
                                     {c.discountCount || 1} {c.discountCount === 1 ? 'voucher' : 'vouchers'}
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-slate-400 text-xs italic">₱0.00 (0)</span>
+                                <span className="text-slate-400 italic">₱0.00 (0)</span>
                               )}
                             </td>
 
-                            {/* Avg / Order */}
-                            <td className="py-3 px-4 font-mono text-right text-slate-600 text-xs">
+                            {/* 7. AVG / ORDER */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-semibold text-slate-700 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               ₱{Number(avg || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
 
-                            {/* Last Purchase */}
-                            <td className="py-3 px-4 font-mono text-center text-slate-500 text-xs">
+                            {/* 8. LAST PURCHASE */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {c.lastOrderDate || 'Recent'}
                             </td>
 
-                            {/* Action: Filter Transactions */}
-                            <td className="py-3 px-4 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-32">
-                              <button
-                                type="button"
-                                onClick={() => handleFilterByCustomer(c)}
-                                className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-[#01390f] hover:border-[#01390f] hover:bg-slate-50 font-semibold text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
-                                title={`View all transaction logs for ${c.name}`}
-                              >
-                                View Orders
-                              </button>
+                            {/* 9. ACTION: FILTER TRANSACTIONS (Sticky Right) */}
+                            <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[100px] transition-colors">
+                              <div className="flex items-center justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleFilterByCustomer(c)}
+                                  className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-white hover:bg-[#01390f] hover:border-[#01390f] font-semibold text-[11px] transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  title={`View all transaction logs for ${c.name}`}
+                                >
+                                  View Orders
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );

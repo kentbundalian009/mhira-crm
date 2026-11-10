@@ -893,11 +893,10 @@ function LogisticsOrderManagement() {
                 setActiveTab('all');
                 setFilterCancelRequestsOnly(false);
               }}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'all'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'all'
                   ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
               <span>All Orders</span>
@@ -910,15 +909,14 @@ function LogisticsOrderManagement() {
                 setActiveTab('order-placed');
                 setFilterCancelRequestsOnly(false);
               }}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'order-placed'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'order-placed'
                   ? (counts['order-placed'] || 0) > 0
                     ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : (counts['order-placed'] || 0) > 0
                     ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
               title="Filter by Order Placed (Awaiting confirmation)"
             >
               {(counts['order-placed'] || 0) > 0 && (
@@ -938,13 +936,11 @@ function LogisticsOrderManagement() {
 
               {(counts['order-placed'] || 0) > 0 && (
                 <span
-                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
-                    (counts['order-placed'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
-                  } ${
-                    activeTab === 'order-placed'
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${(counts['order-placed'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                    } ${activeTab === 'order-placed'
                       ? 'bg-[#c81e1e] text-white'
                       : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
-                  }`}
+                    }`}
                   title={`${counts['order-placed']} Order Placed`}
                 >
                   {counts['order-placed'] > 99 ? '99+' : counts['order-placed']}
@@ -959,15 +955,14 @@ function LogisticsOrderManagement() {
                 setActiveTab('waiting-courier');
                 setFilterCancelRequestsOnly(false);
               }}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'waiting-courier'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'waiting-courier'
                   ? (counts['waiting-courier'] || 0) > 0
                     ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : (counts['waiting-courier'] || 0) > 0
                     ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
               title="Filter by Waiting for Courier (To Ship / Packing)"
             >
               {(counts['waiting-courier'] || 0) > 0 && (
@@ -976,13 +971,11 @@ function LogisticsOrderManagement() {
               <span>Waiting for Courier</span>
               {(counts['waiting-courier'] || 0) > 0 && (
                 <span
-                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
-                    (counts['waiting-courier'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
-                  } ${
-                    activeTab === 'waiting-courier'
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${(counts['waiting-courier'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                    } ${activeTab === 'waiting-courier'
                       ? 'bg-[#c81e1e] text-white'
                       : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
-                  }`}
+                    }`}
                   title={`${counts['waiting-courier']} Waiting for Courier`}
                 >
                   {(counts['waiting-courier'] || 0) > 99 ? '99+' : counts['waiting-courier']}
@@ -997,15 +990,14 @@ function LogisticsOrderManagement() {
                 setActiveTab('in-transit');
                 setFilterCancelRequestsOnly(false);
               }}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'in-transit'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'in-transit'
                   ? (counts['in-transit'] || 0) > 0
                     ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : (counts['in-transit'] || 0) > 0
                     ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
               title="Filter by In Transit (Dispatched to Courier)"
             >
               {(counts['in-transit'] || 0) > 0 && (
@@ -1014,13 +1006,11 @@ function LogisticsOrderManagement() {
               <span>In Transit</span>
               {(counts['in-transit'] || 0) > 0 && (
                 <span
-                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
-                    (counts['in-transit'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
-                  } ${
-                    activeTab === 'in-transit'
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${(counts['in-transit'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                    } ${activeTab === 'in-transit'
                       ? 'bg-[#c81e1e] text-white'
                       : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
-                  }`}
+                    }`}
                   title={`${counts['in-transit']} In Transit`}
                 >
                   {(counts['in-transit'] || 0) > 99 ? '99+' : counts['in-transit']}
@@ -1035,11 +1025,10 @@ function LogisticsOrderManagement() {
                 setActiveTab('delivered');
                 setFilterCancelRequestsOnly(false);
               }}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'delivered'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'delivered'
                   ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
             >
               <span>Delivered</span>
             </button>
@@ -1051,11 +1040,10 @@ function LogisticsOrderManagement() {
                 setActiveTab('cancel');
                 setFilterCancelRequestsOnly(false);
               }}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'cancel'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'cancel'
                   ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
             >
               <span>Cancel</span>
             </button>
@@ -1231,8 +1219,8 @@ function LogisticsOrderManagement() {
                     )
                   }
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedPaymentMethod === 'Cash on Delivery (COD)'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
                   COD Only
@@ -1244,8 +1232,8 @@ function LogisticsOrderManagement() {
                     setSelectedPaymentMethod(selectedPaymentMethod === 'GCash' ? 'All' : 'GCash')
                   }
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedPaymentMethod === 'GCash'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
                   GCash Only
@@ -1258,8 +1246,8 @@ function LogisticsOrderManagement() {
                     setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                   }}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${selectedDate === new Date().toISOString().split('T')[0]
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
                   Today's Orders
@@ -1297,8 +1285,8 @@ function LogisticsOrderManagement() {
                   setFilterCancelRequestsOnly((prev) => !prev);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${filterCancelRequestsOnly
-                    ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
-                    : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-100 shadow-2xs'
+                  ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
+                  : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-100 shadow-2xs'
                   }`}
               >
                 <Filter className="w-3.5 h-3.5" />
@@ -1344,10 +1332,13 @@ function LogisticsOrderManagement() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading && orders.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="9"
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Loading orders masterlist...</span>
@@ -1356,7 +1347,10 @@ function LogisticsOrderManagement() {
                   </tr>
                 ) : filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="9"
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Package className="w-6 h-6 text-slate-300" />
                         <span>No orders found matching your search or filter criteria.</span>
@@ -1390,31 +1384,35 @@ function LogisticsOrderManagement() {
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm cursor-pointer"
                       >
                         {/* 1. ORDER ID */}
-                        <td className="px-4 py-3.5 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          #{order._id?.slice(-8).toUpperCase()}
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                            #{order._id?.slice(-8).toUpperCase()}
+                          </span>
                         </td>
 
                         {/* 2. ORDER DATE */}
-                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {orderDate}
                         </td>
 
                         {/* 3. CUSTOMER (Name + Email) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
-                          <span className="font-bold text-slate-900 block truncate max-w-[200px]" title={customerName}>
-                            {customerName}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[200px]">
-                            {order.userId?.email || order.user?.email || 'Mhira Shopper'}
-                          </span>
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-xs text-slate-900 truncate max-w-[200px]" title={customerName}>
+                              {customerName}
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-mono truncate max-w-[200px] mt-0.5">
+                              {order.userId?.email || order.user?.email || 'Mhira Shopper'}
+                            </span>
+                          </div>
                         </td>
 
                         {/* 4. SHIPPING DESTINATION */}
                         <td
-                          className="px-4 py-3.5 whitespace-nowrap text-slate-600 truncate max-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[200px] truncate"
                           title={formatShippingAddress(order.shippingAddress) || 'N/A'}
                         >
-                          <div className="flex items-center gap-1.5 truncate">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-700 truncate">
                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="truncate">{formatShippingAddress(order.shippingAddress) || 'Storefront Delivery Address'}</span>
                           </div>
@@ -1422,24 +1420,24 @@ function LogisticsOrderManagement() {
 
                         {/* 5. PURCHASED ITEMS */}
                         <td
-                          className="px-4 py-3.5 whitespace-nowrap font-bold text-xs text-slate-800 truncate max-w-[220px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          className="px-4 py-3.5 whitespace-nowrap font-semibold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[220px] truncate"
                           title={itemsSummary}
                         >
                           {itemsSummary || 'No items recorded'}
                         </td>
 
                         {/* 6. PAYMENT */}
-                        <td className="px-4 py-3.5 text-center font-mono font-semibold text-xs text-slate-700 uppercase whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-700 uppercase bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {order.paymentMethod || 'COD'}
                         </td>
 
-                        {/* 7. TOTAL AMOUNT */}
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-[#01390f] whitespace-nowrap text-xs sm:text-sm bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 7. TOTAL AMOUNT (Accent Column) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           ₱{total}
                         </td>
 
                         {/* 8. STATUS */}
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex flex-col items-center justify-center gap-1">
                             <div className="flex items-center justify-center gap-1.5">
                               {getStatusBadge(order.status)}
@@ -1461,7 +1459,7 @@ function LogisticsOrderManagement() {
                             </div>
                             {order.cancellationRequest?.status === 'Pending' && (
                               <span
-                                className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-300 inline-flex items-center gap-1 animate-pulse"
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300 inline-flex items-center gap-1 animate-pulse"
                                 title={`Reason: ${order.cancellationRequest.reason || 'Customer requested'}`}
                               >
                                 <AlertTriangle className="w-3 h-3 text-rose-600" />
@@ -1471,7 +1469,7 @@ function LogisticsOrderManagement() {
                           </div>
                         </td>
 
-                        {/* 9. ACTION (Sticky Right - Matching Finished Goods / Catalog Table) */}
+                        {/* 9. ACTION (Sticky Right) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
                           className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors"
@@ -1498,7 +1496,7 @@ function LogisticsOrderManagement() {
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                               {((order.status || '').toLowerCase() === 'order placed' || (order.status || '').toLowerCase() === 'to pay') && (
                                 <span
-                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c81e1e] border-2 border-white animate-pulse"
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white animate-pulse"
                                   title="Order Placed - Awaiting Confirmation"
                                 />
                               )}
@@ -1707,12 +1705,12 @@ function LogisticsOrderManagement() {
                           </div>
                           <span
                             className={`text-[10px] font-bold text-center max-w-[70px] leading-tight transition-colors ${isTabActive
-                                ? 'text-[#01390f] underline decoration-2 underline-offset-2'
-                                : isCurrent
-                                  ? 'text-[#01390f]'
-                                  : isPassed
-                                    ? 'text-slate-700'
-                                    : 'text-slate-400'
+                              ? 'text-[#01390f] underline decoration-2 underline-offset-2'
+                              : isCurrent
+                                ? 'text-[#01390f]'
+                                : isPassed
+                                  ? 'text-slate-700'
+                                  : 'text-slate-400'
                               }`}
                           >
                             {step.label}
@@ -1745,10 +1743,10 @@ function LogisticsOrderManagement() {
                           if (isUnlocked) setActiveDrawerTab(tab.id);
                         }}
                         className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${!isUnlocked
-                            ? 'bg-slate-100/60 text-slate-400 cursor-not-allowed opacity-45 border border-transparent pointer-events-none select-none'
-                            : isActive
-                              ? 'bg-[#01390f] text-white shadow-xs cursor-pointer'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer'
+                          ? 'bg-slate-100/60 text-slate-400 cursor-not-allowed opacity-45 border border-transparent pointer-events-none select-none'
+                          : isActive
+                            ? 'bg-[#01390f] text-white shadow-xs cursor-pointer'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer'
                           }`}
                         title={
                           isUnlocked
@@ -1758,10 +1756,10 @@ function LogisticsOrderManagement() {
                       >
                         <span
                           className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${!isUnlocked
-                              ? 'bg-slate-200/70 text-slate-400'
-                              : isActive
-                                ? 'bg-white/20 text-white'
-                                : 'bg-slate-200 text-slate-700'
+                            ? 'bg-slate-200/70 text-slate-400'
+                            : isActive
+                              ? 'bg-white/20 text-white'
+                              : 'bg-slate-200 text-slate-700'
                             }`}
                         >
                           {!isUnlocked ? <Lock className="w-2.5 h-2.5 text-slate-400" /> : tab.stageNum}

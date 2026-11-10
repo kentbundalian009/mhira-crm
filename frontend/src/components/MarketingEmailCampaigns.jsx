@@ -152,7 +152,7 @@ export default function MarketingEmailCampaigns() {
           }));
         }
       }
-    } catch (_e) {}
+    } catch (_e) { }
     return [
       {
         id: 'hist-1',
@@ -194,7 +194,7 @@ export default function MarketingEmailCampaigns() {
     setCampaignHistory(updated);
     try {
       localStorage.setItem('mhira_marketing_campaign_history', JSON.stringify(updated));
-    } catch (_e) {}
+    } catch (_e) { }
   };
 
   // Fetch Customers from backend (strictly verified customer accounts)
@@ -514,11 +514,10 @@ export default function MarketingEmailCampaigns() {
                     setViewMode(mod.id);
                     setCurrentPage(1);
                   }}
-                  className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
-                    isActive
+                  className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${isActive
                       ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
                       : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
-                  }`}
+                    }`}
                 >
                   {mod.id === 'active' ? (
                     <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
@@ -536,9 +535,8 @@ export default function MarketingEmailCampaigns() {
         <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
           {/* ACTIONS GROUP */}
           <div
-            className={`w-full ${
-              viewMode === 'archived' ? 'lg:w-[140px]' : 'lg:w-[210px]'
-            } shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]`}
+            className={`w-full ${viewMode === 'archived' ? 'lg:w-[140px]' : 'lg:w-[210px]'
+              } shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]`}
           >
             <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
               {viewMode !== 'archived' && (
@@ -675,11 +673,10 @@ export default function MarketingEmailCampaigns() {
                   onClick={() =>
                     setAudienceFilter(audienceFilter === 'ALL_CUSTOMERS' ? 'All' : 'ALL_CUSTOMERS')
                   }
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
-                    audienceFilter === 'ALL_CUSTOMERS'
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${audienceFilter === 'ALL_CUSTOMERS'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
                       : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
+                    }`}
                 >
                   Broadcast Only
                 </button>
@@ -687,11 +684,10 @@ export default function MarketingEmailCampaigns() {
                 <button
                   type="button"
                   onClick={() => setAudienceFilter(audienceFilter === 'CUSTOM' ? 'All' : 'CUSTOM')}
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
-                    audienceFilter === 'CUSTOM'
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${audienceFilter === 'CUSTOM'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
                       : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
+                    }`}
                 >
                   Single Email Only
                 </button>
@@ -701,11 +697,10 @@ export default function MarketingEmailCampaigns() {
                   onClick={() =>
                     setVoucherFilter(voucherFilter === 'WithVoucher' ? 'All' : 'WithVoucher')
                   }
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${
-                    voucherFilter === 'WithVoucher'
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${voucherFilter === 'WithVoucher'
                       ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
                       : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
+                    }`}
                 >
                   With Voucher Only
                 </button>
@@ -769,22 +764,24 @@ export default function MarketingEmailCampaigns() {
                       className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                     >
                       {/* 1. Campaign Subject */}
-                      <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <div className="font-bold text-xs text-slate-800 truncate max-w-[260px]">
+                      <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-xs truncate">
+                        <div className="font-semibold text-xs text-slate-900 truncate">
                           {stripEmojis(item.title)}
                         </div>
                         {item.headline && item.headline !== item.title && (
-                          <div className="text-[11px] text-slate-500 truncate max-w-[260px]">
+                          <div className="text-[11px] text-slate-500 truncate mt-0.5">
                             {stripEmojis(item.headline)}
                           </div>
                         )}
                       </td>
 
                       {/* 2. Target Audience */}
-                      <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {item.targetAudience === 'ALL_CUSTOMERS'
-                          ? 'All Verified Customers'
-                          : item.recipientEmail || 'Single Recipient'}
+                      <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                          {item.targetAudience === 'ALL_CUSTOMERS'
+                            ? 'All Verified Customers'
+                            : item.recipientEmail || 'Single Recipient'}
+                        </span>
                       </td>
 
                       {/* 3. Recipients (Matches Quantity Blue Theme) */}
@@ -793,48 +790,39 @@ export default function MarketingEmailCampaigns() {
                       </td>
 
                       {/* 4. Voucher Code */}
-                      <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {item.discountCode || 'None'}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                          {item.discountCode || 'None'}
+                        </span>
                       </td>
 
                       {/* 5. Offer Note */}
-                      <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[200px] truncate">
+                      <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs font-semibold text-slate-700 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[200px] truncate">
                         {item.discountNote || '—'}
                       </td>
 
                       {/* 6. Dispatched Date */}
-                      <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {item.dispatchedAt
                           ? new Date(item.dispatchedAt).toLocaleDateString()
                           : 'N/A'}
                       </td>
 
-                      {/* 7. Status */}
+                      {/* 7. Status (Tinted cell, dot removed) */}
                       <td
-                        className={`px-4 py-3.5 whitespace-nowrap text-center text-slate-800 font-semibold text-xs transition-colors select-none ${
-                          item.isArchived
-                            ? 'bg-slate-200/60 group-hover:bg-slate-200/80'
-                            : 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
-                        }`}
+                        className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.isArchived
+                            ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                            : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                          }`}
                       >
-                        <span className="inline-flex items-center gap-1.5">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              item.isArchived
-                                ? 'bg-slate-500'
-                                : 'bg-emerald-500 animate-pulse'
-                            }`}
-                          />
-                          <span>{item.isArchived ? 'Archived' : item.status || 'Delivered'}</span>
-                        </span>
+                        <span>{item.isArchived ? 'Archived' : item.status || 'Delivered'}</span>
                       </td>
 
-                      {/* 8. Action (Sticky Right - Matching Products Vouchers) */}
+                      {/* 8. Action (Sticky Right) */}
                       <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
                         <div className="flex items-center justify-center gap-1.5">
                           {viewMode !== 'archived' ? (
                             <>
-                              {/* Edit / Resend */}
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditModal(item)}
@@ -844,7 +832,6 @@ export default function MarketingEmailCampaigns() {
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
 
-                              {/* Archive */}
                               <button
                                 type="button"
                                 onClick={() => handleToggleArchive(item)}
@@ -856,7 +843,6 @@ export default function MarketingEmailCampaigns() {
                             </>
                           ) : (
                             <>
-                              {/* Restore */}
                               <button
                                 type="button"
                                 onClick={() => handleToggleArchive(item)}
@@ -866,7 +852,6 @@ export default function MarketingEmailCampaigns() {
                                 <RotateCcw className="w-3.5 h-3.5" />
                               </button>
 
-                              {/* Delete permanently */}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteCampaign(item.id)}
@@ -1182,8 +1167,8 @@ export default function MarketingEmailCampaigns() {
                     {sending
                       ? 'Sending...'
                       : editingCampaign
-                      ? 'Save & Resend'
-                      : 'Send Campaign'}
+                        ? 'Save & Resend'
+                        : 'Send Campaign'}
                   </span>
                 </button>
               </div>

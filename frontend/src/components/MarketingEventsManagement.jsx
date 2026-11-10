@@ -33,7 +33,7 @@ function MarketingEventsManagement() {
     try {
       const cached = localStorage.getItem('cached_marketing_events');
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [loading, setLoading] = useState(false);
@@ -84,7 +84,7 @@ function MarketingEventsManagement() {
       setEvents(safeData);
       try {
         localStorage.setItem('cached_marketing_events', JSON.stringify(safeData));
-      } catch (e) {}
+      } catch (e) { }
     } catch (err) {
       console.error('Error fetching events:', err);
     } finally {
@@ -232,15 +232,15 @@ function MarketingEventsManagement() {
         const next = prev.map((item) =>
           item._id === id
             ? {
-                ...item,
-                isArchived: !isCurrentlyArchived,
-                isPublished: !isCurrentlyArchived ? false : item.isPublished,
-              }
+              ...item,
+              isArchived: !isCurrentlyArchived,
+              isPublished: !isCurrentlyArchived ? false : item.isPublished,
+            }
             : item
         );
         try {
           localStorage.setItem('cached_marketing_events', JSON.stringify(next));
-        } catch (_e) {}
+        } catch (_e) { }
         return next;
       });
 
@@ -278,7 +278,7 @@ function MarketingEventsManagement() {
         const next = prev.filter((item) => item._id !== deleteTargetEvent._id);
         try {
           localStorage.setItem('cached_marketing_events', JSON.stringify(next));
-        } catch (_e) {}
+        } catch (_e) { }
         return next;
       });
 
@@ -401,8 +401,7 @@ function MarketingEventsManagement() {
       doc.setFontSize(8.5);
       doc.setFont('helvetica', 'normal');
       doc.text(
-        `Generated on ${new Date().toLocaleDateString()} | Total Items: ${filteredEvents.length} | Scope: ${
-          viewMode === 'archived' ? 'Archive Vault' : 'All Active Broadcasts'
+        `Generated on ${new Date().toLocaleDateString()} | Total Items: ${filteredEvents.length} | Scope: ${viewMode === 'archived' ? 'Archive Vault' : 'All Active Broadcasts'
         }`,
         14,
         18
@@ -436,9 +435,8 @@ function MarketingEventsManagement() {
         styles: { cellPadding: 2.8 },
       });
 
-      const fileName = `${
-        viewMode === 'archived' ? 'Announcements_Archive_Vault_' : 'Announcements_Audit_'
-      }${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `${viewMode === 'archived' ? 'Announcements_Archive_Vault_' : 'Announcements_Audit_'
+        }${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
       showSuccessToast(`Exported Announcements Audit: ${fileName}`);
     } catch (err) {
@@ -465,11 +463,10 @@ function MarketingEventsManagement() {
                   setViewMode(tab.id);
                   setCurrentPage(1);
                 }}
-                className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
-                  viewMode === tab.id
-                    ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
-                }`}
+                className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${viewMode === tab.id
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
+                  }`}
               >
                 {tab.id === 'active' ? (
                   <Layers className="w-3.5 h-3.5 text-[#01390f]" />
@@ -486,9 +483,8 @@ function MarketingEventsManagement() {
         <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
           {/* ACTIONS GROUP */}
           <div
-            className={`w-full ${
-              viewMode === 'archived' ? 'lg:w-[130px]' : 'lg:w-[210px]'
-            } shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]`}
+            className={`w-full ${viewMode === 'archived' ? 'lg:w-[130px]' : 'lg:w-[210px]'
+              } shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]`}
           >
             <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
               {/* Tall Action Button: New Broadcast (Active view only) */}
@@ -634,11 +630,10 @@ function MarketingEventsManagement() {
                   onClick={() =>
                     setSelectedStatus(selectedStatus === 'published' ? 'All' : 'published')
                   }
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedStatus === 'published'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedStatus === 'published'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
                 >
                   Live Only
                 </button>
@@ -646,11 +641,10 @@ function MarketingEventsManagement() {
                 <button
                   type="button"
                   onClick={() => setSelectedStatus(selectedStatus === 'draft' ? 'All' : 'draft')}
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedStatus === 'draft'
-                      ? 'bg-slate-100 border-slate-400 text-slate-800 font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedStatus === 'draft'
+                    ? 'bg-slate-100 border-slate-400 text-slate-800 font-semibold'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
                 >
                   Drafts Only
                 </button>
@@ -662,11 +656,10 @@ function MarketingEventsManagement() {
                       selectedCategory === 'Announcement' ? 'All' : 'Announcement'
                     )
                   }
-                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedCategory === 'Announcement'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedCategory === 'Announcement'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
                 >
                   Announcements
                 </button>
@@ -711,7 +704,7 @@ function MarketingEventsManagement() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
                     <td
@@ -730,106 +723,112 @@ function MarketingEventsManagement() {
                       colSpan="6"
                       className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
                     >
-                      {viewMode === 'archived'
-                        ? 'No archived announcements found in the Archive Vault.'
-                        : searchQuery || selectedCategory !== 'All' || selectedStatus !== 'All'
-                        ? 'No announcements match your filter criteria.'
-                        : 'No announcements created yet. Click "New Broadcast" to publish your first post.'}
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Info className="w-6 h-6 text-slate-300" />
+                        <span>
+                          {viewMode === 'archived'
+                            ? 'No archived announcements found in the Archive Vault.'
+                            : searchQuery || selectedCategory !== 'All' || selectedStatus !== 'All'
+                              ? 'No announcements match your filter criteria.'
+                              : 'No announcements created yet. Click "New Broadcast" to publish your first post.'}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  paginatedEvents.map((evt) => {
+                  paginatedEvents.map((evt, idx) => {
                     const isLive = Boolean(evt.isPublished);
                     const isItemArchived = Boolean(evt.isArchived);
 
                     return (
                       <tr
-                        key={evt._id}
+                        key={evt._id || evt.id || idx}
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
                         {/* 1. TITLE & BANNER */}
-                        <td className="py-3.5 px-4 whitespace-nowrap min-w-[260px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[260px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex items-center gap-3">
                             {evt.bannerImage ? (
                               <img
                                 src={evt.bannerImage}
                                 alt=""
-                                className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                                className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-2xs shrink-0"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                              <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
                                 <ImageIcon className="w-5 h-5" />
                               </div>
                             )}
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-bold text-slate-900 text-xs sm:text-sm truncate max-w-[220px]">
-                                {evt.title}
+                            <div className="flex flex-col min-w-0 max-w-[240px]">
+                              <span
+                                className="font-semibold text-xs text-slate-900 truncate"
+                                title={evt.title}
+                              >
+                                {evt.title || 'Untitled Announcement'}
                               </span>
-                              <span className="text-[11px] text-slate-400 truncate max-w-[220px]">
+                              <span
+                                className="text-[11px] text-slate-500 truncate"
+                                title={evt.description}
+                              >
                                 {evt.description || 'No description provided'}
                               </span>
                             </div>
                           </div>
                         </td>
 
-                        {/* 2. CATEGORY */}
-                        <td className="py-3.5 px-4 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {evt.category || 'Announcement'}
+                        {/* 2. CATEGORY (Standard Emerald Pill Badge) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                            {evt.category || 'Announcement'}
+                          </span>
                         </td>
 
                         {/* 3. EVENT DATE */}
-                        <td className="py-3.5 px-4 font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {evt.eventDate
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {evt.eventDate && !isNaN(new Date(evt.eventDate).getTime())
                             ? new Date(evt.eventDate).toLocaleDateString([], {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
                             : 'Ongoing'}
                         </td>
 
                         {/* 4. LOCATION */}
-                        <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{evt.location || 'Online / Main Store'}</span>
+                            <span className="truncate max-w-[200px]" title={evt.location}>
+                              {evt.location || 'Online / Main Store'}
+                            </span>
                           </span>
                         </td>
 
-                        {/* 5. STOREFRONT STATUS */}
+                        {/* 5. STOREFRONT STATUS (Clean tinted cell, dot removed) */}
                         <td
-                          className={`py-3.5 px-4 text-center whitespace-nowrap text-slate-800 font-semibold text-xs transition-colors select-none ${
-                            isItemArchived
-                              ? 'bg-slate-100 text-slate-600'
+                          className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${isItemArchived
+                              ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
                               : isLive
-                              ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
-                              : 'bg-amber-500/20 group-hover:bg-amber-500/30'
-                          }`}
+                                ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                                : 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                            }`}
                         >
                           {isItemArchived ? (
-                            <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-semibold">
-                              <Archive className="w-3 h-3 text-slate-400" />
-                              <span>Archived</span>
-                            </span>
+                            <span>Archived</span>
                           ) : (
                             <button
                               type="button"
                               onClick={(e) => handleTogglePublish(evt, e)}
-                              className="inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-transform"
-                              title="Click to toggle live publish state"
+                              className="cursor-pointer hover:opacity-80 active:scale-95 transition-transform"
+                              title="Click to toggle publish status"
                             >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-                                }`}
-                              />
-                              <span>{isLive ? 'Published' : 'Draft'}</span>
+                              {isLive ? 'Published' : 'Draft'}
                             </button>
                           )}
                         </td>
 
-                        {/* 6. ACTION BUTTONS: EYE, EDIT, ARCHIVE (IN ALL BROADCASTS) */}
-                        <td className="py-3.5 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
+                        {/* 6. ACTION (Sticky Right) */}
+                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
                             {/* Eye (View) */}
                             <button
@@ -857,7 +856,7 @@ function MarketingEventsManagement() {
                                 <button
                                   type="button"
                                   onClick={() => setArchiveTargetEvent(evt)}
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-amber-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   title="Move to Archive Vault"
                                 >
                                   <Archive className="w-3.5 h-3.5" />
@@ -865,7 +864,7 @@ function MarketingEventsManagement() {
                               </>
                             ) : (
                               <>
-                                {/* Restore to All Broadcasts */}
+                                {/* Restore */}
                                 <button
                                   type="button"
                                   onClick={() => setArchiveTargetEvent(evt)}
@@ -1189,19 +1188,18 @@ function MarketingEventsManagement() {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">Status:</span>
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      viewEventModal.isArchived
-                        ? 'bg-slate-100 text-slate-600 border-slate-300'
-                        : viewEventModal.isPublished
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${viewEventModal.isArchived
+                      ? 'bg-slate-100 text-slate-600 border-slate-300'
+                      : viewEventModal.isPublished
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         : 'bg-slate-100 text-slate-600 border-slate-200'
-                    }`}
+                      }`}
                   >
                     {viewEventModal.isArchived
                       ? 'Archived in Vault'
                       : viewEventModal.isPublished
-                      ? 'Published & Live'
-                      : 'Draft'}
+                        ? 'Published & Live'
+                        : 'Draft'}
                   </span>
                 </div>
               </div>
@@ -1224,11 +1222,10 @@ function MarketingEventsManagement() {
                   setViewEventModal(null);
                   setArchiveTargetEvent(target);
                 }}
-                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${
-                  viewEventModal.isArchived
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white'
-                    : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white'
-                }`}
+                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${viewEventModal.isArchived
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white'
+                  : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white'
+                  }`}
                 title={viewEventModal.isArchived ? 'Restore Announcement' : 'Move to Archive Vault'}
               >
                 {viewEventModal.isArchived ? (
@@ -1272,11 +1269,10 @@ function MarketingEventsManagement() {
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 overflow-hidden border border-slate-100 flex flex-col gap-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3.5">
               <div
-                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
-                  archiveTargetEvent.isArchived
-                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                    : 'bg-amber-50 text-amber-600 border border-amber-100'
-                }`}
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${archiveTargetEvent.isArchived
+                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                  : 'bg-amber-50 text-amber-600 border border-amber-100'
+                  }`}
               >
                 {archiveTargetEvent.isArchived ? (
                   <RotateCcw className="w-5 h-5" />
@@ -1341,11 +1337,10 @@ function MarketingEventsManagement() {
                 type="button"
                 onClick={handleExecuteToggleArchive}
                 disabled={isArchiving}
-                className={`px-6 py-2.5 sm:py-3 rounded-full text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap ${
-                  archiveTargetEvent.isArchived
-                    ? 'bg-[#01390f] hover:bg-[#0a5219]'
-                    : 'bg-amber-600 hover:bg-amber-700'
-                }`}
+                className={`px-6 py-2.5 sm:py-3 rounded-full text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap ${archiveTargetEvent.isArchived
+                  ? 'bg-[#01390f] hover:bg-[#0a5219]'
+                  : 'bg-amber-600 hover:bg-amber-700'
+                  }`}
               >
                 {isArchiving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1358,8 +1353,8 @@ function MarketingEventsManagement() {
                   {isArchiving
                     ? 'Processing...'
                     : archiveTargetEvent.isArchived
-                    ? 'Yes, Restore'
-                    : 'Yes, Archive'}
+                      ? 'Yes, Restore'
+                      : 'Yes, Archive'}
                 </span>
               </button>
             </div>

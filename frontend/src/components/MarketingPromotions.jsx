@@ -337,11 +337,10 @@ function MarketingPromotions() {
                     setViewMode(mod.id);
                     setCurrentPage(1);
                   }}
-                  className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
-                    isActive
-                      ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
-                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
-                  }`}
+                  className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${isActive
+                    ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
+                    }`}
                 >
                   {mod.id === 'active' ? (
                     <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
@@ -478,11 +477,10 @@ function MarketingPromotions() {
                 <button
                   type="button"
                   onClick={() => setStatusFilter(statusFilter === 'Active' ? 'All' : 'Active')}
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
-                    statusFilter === 'Active'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${statusFilter === 'Active'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Active Only
                 </button>
@@ -490,11 +488,10 @@ function MarketingPromotions() {
                 <button
                   type="button"
                   onClick={() => setSelectedSegment(selectedSegment === 'Gold Tier' ? 'All' : 'Gold Tier')}
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
-                    selectedSegment === 'Gold Tier'
-                      ? 'bg-amber-50 border-amber-500 text-amber-900 font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedSegment === 'Gold Tier'
+                    ? 'bg-amber-50 border-amber-500 text-amber-900 font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Gold Tier
                 </button>
@@ -502,11 +499,10 @@ function MarketingPromotions() {
                 <button
                   type="button"
                   onClick={() => setSelectedSegment(selectedSegment === 'Silver Tier' ? 'All' : 'Silver Tier')}
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
-                    selectedSegment === 'Silver Tier'
-                      ? 'bg-slate-100 border-slate-400 text-slate-800 font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedSegment === 'Silver Tier'
+                    ? 'bg-slate-100 border-slate-400 text-slate-800 font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Silver Tier
                 </button>
@@ -514,11 +510,10 @@ function MarketingPromotions() {
                 <button
                   type="button"
                   onClick={() => setSelectedSegment(selectedSegment === 'Bronze Tier' ? 'All' : 'Bronze Tier')}
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${
-                    selectedSegment === 'Bronze Tier'
-                      ? 'bg-orange-50 border-orange-400 text-orange-900 font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedSegment === 'Bronze Tier'
+                    ? 'bg-orange-50 border-orange-400 text-orange-900 font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    }`}
                 >
                   Bronze Tier
                 </button>
@@ -583,115 +578,122 @@ function MarketingPromotions() {
                       colSpan="8"
                       className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
                     >
-                      {viewMode === 'archived'
-                        ? 'No archived coupons in the vault.'
-                        : 'No coupons found matching your search.'}
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Info className="w-6 h-6 text-slate-300" />
+                        <span>
+                          {viewMode === 'archived'
+                            ? 'No archived coupons found in the vault.'
+                            : 'No coupons matched your search or filter criteria.'}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  paginatedCoupons.map((c) => {
+                  paginatedCoupons.map((c, idx) => {
                     const expired = checkIsExpired(c.expiry);
-                    const rawDiscount = String(c.discount ?? '').replace(/%\s*OFF/i, '').trim();
-                    const minSpendNum = Number(String(c.minSpend ?? '0').replace(/[^0-9.]/g, '')) || 0;
+                    const rawDiscount = String(c.discount ?? '')
+                      .replace(/%\s*OFF/i, '')
+                      .trim();
+                    const minSpendNum =
+                      Number(String(c.minSpend ?? '0').replace(/[^0-9.]/g, '')) || 0;
                     const limitNum = Number(c.usageLimit || 0);
                     const usedNum = Number(c.usedCount || 0);
                     const isLimitReached = limitNum > 0 && usedNum >= limitNum;
 
+                    // Status text & style categorization
+                    let statusLabel = 'Active';
+                    let statusStyle = 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900';
+
+                    if (c.isArchived) {
+                      statusLabel = 'Archived';
+                      statusStyle = 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700';
+                    } else if (expired) {
+                      statusLabel = 'Expired';
+                      statusStyle = 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800';
+                    } else if (isLimitReached) {
+                      statusLabel = 'Limit Reached';
+                      statusStyle = 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900';
+                    }
+
                     return (
                       <tr
-                        key={c._id}
+                        key={c._id || c.id || idx}
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
-                        {/* 1. Promo Code Column */}
+                        {/* 1. PROMO CODE */}
                         <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
-                              {c.code}
-                            </span>
-                          </div>
+                          <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                            {c.code || 'N/A'}
+                          </span>
                         </td>
 
-                        {/* 2. Discount Rate (Matches Quantity Blue Theme) */}
+                        {/* 2. DISCOUNT RATE (Volume / Accent Blue Column) */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
                           {rawDiscount.includes('%') || rawDiscount.includes('₱')
                             ? `${rawDiscount} OFF`
                             : `${rawDiscount}% OFF`}
                         </td>
 
-                        {/* 3. Min Spend */}
+                        {/* 3. MIN SPEND */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {minSpendNum > 0 ? `₱${minSpendNum.toFixed(2)}` : 'No Minimum'}
                         </td>
 
-                        {/* 4. Usage Limit */}
+                        {/* 4. USAGE LIMIT */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {limitNum > 0 ? (
-                            <span className={`font-bold ${isLimitReached ? 'text-rose-600' : 'text-slate-800'}`}>
+                            <span
+                              className={`font-bold ${isLimitReached ? 'text-rose-600' : 'text-slate-800'
+                                }`}
+                            >
                               {usedNum} / {limitNum}
                             </span>
                           ) : (
-                            <span className="text-slate-500 font-sans font-medium">Unlimited</span>
+                            <span className="text-slate-500 font-sans font-medium text-xs">
+                              Unlimited
+                            </span>
                           )}
                         </td>
 
-                        {/* 5. Target Audience */}
+                        {/* 5. TARGET AUDIENCE (Standardized Pill Badges) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                            (c.targetSegment || '').includes('Gold') || (c.targetSegment || '').includes('Loyal') || (c.targetSegment || '') === 'VIP'
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                              : (c.targetSegment || '').includes('Silver') || (c.targetSegment || '') === 'Regular'
-                              ? 'bg-slate-100 text-slate-800 border border-slate-300'
-                              : (c.targetSegment || '').includes('Bronze') || (c.targetSegment || '') === 'New'
-                              ? 'bg-orange-50 text-orange-800 border border-orange-200'
-                              : 'bg-emerald-50 text-[#01390f] border border-emerald-200'
-                          }`}>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${(c.targetSegment || '').includes('Gold') ||
+                                (c.targetSegment || '').includes('Loyal') ||
+                                (c.targetSegment || '') === 'VIP'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : (c.targetSegment || '').includes('Silver') ||
+                                  (c.targetSegment || '') === 'Regular'
+                                  ? 'bg-slate-100 text-slate-800 border border-slate-300'
+                                  : (c.targetSegment || '').includes('Bronze') ||
+                                    (c.targetSegment || '') === 'New'
+                                    ? 'bg-orange-50 text-orange-800 border border-orange-200'
+                                    : 'bg-emerald-50 text-[#01390f] border border-emerald-200'
+                              }`}
+                          >
                             {c.targetSegment || 'All Shoppers'}
                           </span>
                         </td>
 
-                        {/* 6. Expiry Date */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {c.expiry ? new Date(c.expiry).toLocaleDateString() : 'No Expiry'}
+                        {/* 6. EXPIRY DATE */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {c.expiry && !isNaN(new Date(c.expiry).getTime())
+                            ? new Date(c.expiry).toLocaleDateString()
+                            : 'No Expiry'}
                         </td>
 
-                        {/* 7. Status Column */}
+                        {/* 7. STATUS (Cell-Tinted Style Matching Days Remaining / Expiry Table) */}
                         <td
-                          className={`px-4 py-3.5 whitespace-nowrap text-center text-slate-800 font-semibold text-xs transition-colors select-none ${
-                            c.isArchived
-                              ? 'bg-slate-200/60 group-hover:bg-slate-200/80'
-                              : !expired && !isLimitReached
-                              ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
-                              : 'bg-amber-500/20 group-hover:bg-amber-500/30'
-                          }`}
+                          className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${statusStyle}`}
                         >
-                          <span className="inline-flex items-center gap-1.5">
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                c.isArchived
-                                  ? 'bg-slate-500'
-                                  : !expired && !isLimitReached
-                                  ? 'bg-emerald-500 animate-pulse'
-                                  : 'bg-amber-400'
-                              }`}
-                            />
-                            <span>
-                              {c.isArchived
-                                ? 'Archived'
-                                : isLimitReached
-                                ? 'Limit Reached'
-                                : !expired
-                                ? 'Active'
-                                : 'Expired'}
-                            </span>
-                          </span>
+                          <span>{statusLabel}</span>
                         </td>
 
-                        {/* 8. Action (Sticky Right - Matching Finished Goods / Catalog Table) */}
+                        {/* 8. ACTION (Sticky Right) */}
                         <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
                             {viewMode !== 'archived' ? (
                               <>
-                                {/* Edit */}
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEditModal(c)}
@@ -701,7 +703,6 @@ function MarketingPromotions() {
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
 
-                                {/* Archive */}
                                 <button
                                   type="button"
                                   onClick={() => handleToggleArchive(c)}
@@ -713,7 +714,6 @@ function MarketingPromotions() {
                               </>
                             ) : (
                               <>
-                                {/* Restore */}
                                 <button
                                   type="button"
                                   onClick={() => handleToggleArchive(c)}
@@ -723,7 +723,6 @@ function MarketingPromotions() {
                                   <RotateCcw className="w-3.5 h-3.5" />
                                 </button>
 
-                                {/* Delete permanently */}
                                 <button
                                   type="button"
                                   onClick={(e) => handleDeleteCoupon(c._id, e)}
@@ -949,8 +948,8 @@ function MarketingPromotions() {
                         ? 'Saving...'
                         : 'Creating...'
                       : editingCoupon
-                      ? 'Save Changes'
-                      : 'Create Coupon'}
+                        ? 'Save Changes'
+                        : 'Create Coupon'}
                   </span>
                 </button>
               </div>

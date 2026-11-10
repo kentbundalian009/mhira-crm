@@ -1844,10 +1844,13 @@ function InventoryFinishedGoods() {
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading && products.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="8"
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Fetching product data from database...</span>
@@ -1865,23 +1868,31 @@ function InventoryFinishedGoods() {
                         key={item._id || item.id}
                         className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
                       >
-                        {/* CODE */}
-                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {item.code || 'N/A'}
+                        {/* 1. CODE */}
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                            {item.code || 'N/A'}
+                          </span>
                         </td>
 
-                        {/* IMAGE */}
+                        {/* 2. IMAGE */}
                         <td className="py-2.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex justify-center items-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedImageItem({ ...item, type: 'Finished Good', condition })}
-                              className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
+                              onClick={() =>
+                                setSelectedImageItem({ ...item, type: 'Finished Good', condition })
+                              }
+                              className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-white"
                               title="Click to view full product image"
                               aria-label={`View photo of ${item.itemName || item.itemDescription}`}
                             >
                               <img
-                                src={resolveItemImageUrl(item.image || item.imageUrl || (Array.isArray(item.images) ? item.images[0] : null))}
+                                src={resolveItemImageUrl(
+                                  item.image ||
+                                  item.imageUrl ||
+                                  (Array.isArray(item.images) ? item.images[0] : null)
+                                )}
                                 alt={item.itemDescription || item.itemName || 'Product'}
                                 onError={(e) => {
                                   e.currentTarget.onerror = null;
@@ -1896,55 +1907,58 @@ function InventoryFinishedGoods() {
                           </div>
                         </td>
 
-                        {/* CATEGORY */}
-                        <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {item.category || 'Finished Goods'}
+                        {/* 3. CATEGORY (Pill Badge) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                            {item.category || 'Finished Goods'}
+                          </span>
                         </td>
 
-                        {/* ITEM NAME */}
-                        <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                        {/* 4. ITEM NAME */}
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {item.itemName || 'N/A'}
+                            <span className="font-bold text-xs text-slate-800">
+                              {item.itemName || 'N/A'}
+                            </span>
                             {item.isArchived && (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-bold border border-rose-200">
+                              <span className="inline-flex items-center text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full font-bold border border-rose-200">
                                 Archived
                               </span>
                             )}
                           </div>
                         </td>
 
-                        {/* QUANTITY & CONDITION */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 5. QUANTITY & CONDITION (Blue Highlight Accent Column, No Dot) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 transition-colors">
                           <div className="flex flex-col items-center gap-1">
-                            <span className="font-mono font-bold text-slate-900 text-sm">
+                            <span className="font-mono font-bold text-slate-800 text-xs">
                               {displayQty}{' '}
-                              <span className="text-[10px] text-slate-400 font-normal font-sans">
+                              <span className="text-[10px] text-slate-600 font-normal font-sans">
                                 / {resolved.overstockLimitPoint} max
                               </span>
                             </span>
                             <span
-                              className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                              className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${condition.badgeClass}`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
                               {condition.label}
                             </span>
                           </div>
                         </td>
 
-                        {/* SPECIFICATION & UOM */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 6. SPECIFICATION & UOM */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex flex-col items-center gap-1">
-                            <span className="font-mono font-bold text-slate-900 text-sm">
+                            <span className="font-mono font-bold text-slate-800 text-xs">
                               {item.specification ? item.specification : '-'}
                             </span>
-                            <span className="inline-flex items-center justify-center text-xs font-bold px-2.5 py-0.5 rounded-md border border-slate-200 bg-slate-100 text-slate-700 uppercase">
+                            <span className="inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-300 bg-slate-100 text-slate-700 uppercase">
                               {item.uom || 'PCS'}
                             </span>
                           </div>
                         </td>
 
-                        {/* REQUIRED INGREDIENTS */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 7. REQUIRED INGREDIENTS */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex items-center justify-center">
                             {Array.isArray(item.ingredients) && item.ingredients.length > 0 ? (
                               <button
@@ -1961,7 +1975,7 @@ function InventoryFinishedGoods() {
                           </div>
                         </td>
 
-                        {/* ACTION (STICKY RIGHT) */}
+                        {/* 8. ACTION (STICKY RIGHT) */}
                         <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
                             {!item.isArchived ? (
@@ -2012,7 +2026,10 @@ function InventoryFinishedGoods() {
 
                 {!loading && filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="8"
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Info className="w-6 h-6 text-slate-300" />
                         <span>
@@ -2646,15 +2663,15 @@ function InventoryFinishedGoods() {
                             const name = (ing.name || '').toLowerCase();
                             return name.includes('water') || name.includes('aqua') || name.includes('purified');
                           }) && (
-                            <button
-                              type="button"
-                              onClick={handleAutoBalanceWater}
-                              className="px-3 py-1.5 bg-[#01390f] hover:bg-[#0a5219] text-white font-bold rounded-lg text-[11px] transition-all shadow-xs cursor-pointer shrink-0 self-start sm:self-auto"
-                              title="Automatically adjust Water to reach 100.00% (5000g)"
-                            >
-                              Auto-Balance Water to 100%
-                            </button>
-                          )}
+                              <button
+                                type="button"
+                                onClick={handleAutoBalanceWater}
+                                className="px-3 py-1.5 bg-[#01390f] hover:bg-[#0a5219] text-white font-bold rounded-lg text-[11px] transition-all shadow-xs cursor-pointer shrink-0 self-start sm:self-auto"
+                                title="Automatically adjust Water to reach 100.00% (5000g)"
+                              >
+                                Auto-Balance Water to 100%
+                              </button>
+                            )}
                         </div>
                       )}
                     </div>

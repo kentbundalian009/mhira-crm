@@ -90,7 +90,7 @@ function InventoryPurchaseRequest() {
     try {
       const cached = localStorage.getItem('cached_inventory_raw_materials');
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [loading, setLoading] = useState(false);
@@ -217,7 +217,7 @@ function InventoryPurchaseRequest() {
         setRawMaterials(raw);
         try {
           localStorage.setItem('cached_inventory_raw_materials', JSON.stringify(raw));
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (error) {
       console.error('Error fetching raw materials for purchase requisitions:', error);
@@ -495,7 +495,7 @@ function InventoryPurchaseRequest() {
       if (logoBase64) {
         try {
           doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
-        } catch (e) {}
+        } catch (e) { }
       }
 
       doc.setFont('helvetica', 'bold');
@@ -594,8 +594,8 @@ function InventoryPurchaseRequest() {
       const indColor = isCrit
         ? { fillColor: [254, 226, 226], textColor: [185, 28, 28] } // Soft red tint (red-100)
         : isWarn
-        ? { fillColor: [254, 249, 195], textColor: [161, 98, 7] }   // Soft yellow tint (amber-100)
-        : { fillColor: [220, 252, 231], textColor: [22, 101, 52] };  // Soft green tint (emerald-100)
+          ? { fillColor: [254, 249, 195], textColor: [161, 98, 7] }   // Soft yellow tint (amber-100)
+          : { fillColor: [220, 252, 231], textColor: [22, 101, 52] };  // Soft green tint (emerald-100)
 
       // Specifications Table (Consistent UI: Category Title Row & Condition-Colored Current Stock)
       const specStartY = (doc.lastAutoTable?.finalY || 45) + 4.5;
@@ -769,7 +769,7 @@ function InventoryPurchaseRequest() {
         if (watermarkBase64) {
           try {
             doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
-          } catch (e) {}
+          } catch (e) { }
         }
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.2);
@@ -815,7 +815,7 @@ function InventoryPurchaseRequest() {
       if (logoBase64) {
         try {
           doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
-        } catch (e) {}
+        } catch (e) { }
       }
 
       doc.setFont('helvetica', 'bold');
@@ -1133,7 +1133,7 @@ function InventoryPurchaseRequest() {
         if (watermarkBase64) {
           try {
             doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
-          } catch (e) {}
+          } catch (e) { }
         }
 
         if (i > 1) {
@@ -1142,7 +1142,7 @@ function InventoryPurchaseRequest() {
           if (logoBase64) {
             try {
               doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
-            } catch (e) {}
+            } catch (e) { }
           }
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(7.2);
@@ -1257,11 +1257,10 @@ function InventoryPurchaseRequest() {
                       );
                       setCurrentPage(1);
                     }}
-                    className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${
-                      conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
+                    className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
                         ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold shadow-2xs'
                         : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
-                    }`}
+                      }`}
                     title={
                       conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
                         ? 'Showing Critical Alert only (Click to show all)'
@@ -1269,11 +1268,10 @@ function InventoryPurchaseRequest() {
                     }
                   >
                     <AlertTriangle
-                      className={`w-3.5 h-3.5 shrink-0 ${
-                        conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
+                      className={`w-3.5 h-3.5 shrink-0 ${conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
                           ? 'text-rose-600'
                           : 'text-slate-500'
-                      }`}
+                        }`}
                     />
                     <span className="whitespace-nowrap">
                       Critical PR
@@ -1405,11 +1403,10 @@ function InventoryPurchaseRequest() {
                       setHideZeroQty(!hideZeroQty);
                       if (!hideZeroQty) setShowZeroOnly(false);
                     }}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${
-                      hideZeroQty
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${hideZeroQty
                         ? 'bg-red-50 text-red-700 border border-red-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}
+                      }`}
                     title={hideZeroQty ? 'Showing: 0 Qty Hidden (Click to show)' : 'Click to Hide 0 Quantity items'}
                   >
                     <EyeOff className="w-3.5 h-3.5 text-slate-500" />
@@ -1423,11 +1420,10 @@ function InventoryPurchaseRequest() {
                       setShowZeroOnly(!showZeroOnly);
                       if (!showZeroOnly) setHideZeroQty(false);
                     }}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[30px] sm:h-[22px] w-full shadow-2xs ${
-                      showZeroOnly
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[30px] sm:h-[22px] w-full shadow-2xs ${showZeroOnly
                         ? 'bg-rose-50 text-rose-700 border border-rose-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}
+                      }`}
                     title={
                       showZeroOnly
                         ? 'Showing: 0 Qty Only'
@@ -1514,84 +1510,82 @@ function InventoryPurchaseRequest() {
                       </div>
                     </td>
                   </tr>
-                ) : paginatedRawMatRequisitions.map((item) => {
-                  return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap group"
-                    >
-                      <td className="py-3 px-4 text-center font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
-                          {item.prNumber}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {item.materialCode}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <span className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-md font-semibold border border-orange-200/70">
-                          {item.category || 'Materials'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <span className="inline-flex items-center gap-1 text-xs text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-md font-semibold border border-cyan-200/70 uppercase">
+                ) : (
+                  paginatedRawMatRequisitions.map((item) => {
+                    return (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap group text-xs sm:text-sm"
+                      >
+                        {/* 1. PR NUMBER */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                            {item.prNumber}
+                          </span>
+                        </td>
+
+                        {/* 2. MATERIAL CODE */}
+                        <td className="px-4 py-3.5 font-mono font-semibold text-xs text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.materialCode}
+                        </td>
+
+                        {/* 3. CATEGORY (Pill Badge) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                            {item.category || 'Materials'}
+                          </span>
+                        </td>
+
+                        {/* 4. MATERIAL NAME */}
+                        <td className="px-4 py-3.5 font-bold text-xs text-slate-800 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {item.materialName}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <span
-                          className={
-                            item.isCritical
-                              ? 'text-rose-700'
-                              : item.isRestockWarning
-                                ? 'text-amber-700'
-                                : 'text-slate-800'
-                          }
-                        >
+                        </td>
+
+                        {/* 5. CURRENT STOCK (Matches Blue Accent Column) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
                           {item.currentStock} {item.uom}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono text-slate-500 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {item.restockWarningPoint !== null
-                          ? `${item.restockWarningPoint} ${item.uom}`
-                          : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-[#01390f] whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        {item.suggestedOrderQty > 0
-                          ? `+${item.suggestedOrderQty} ${item.uom}`
-                          : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <span
-                          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${item.badgeClass}`}
-                        >
+                        </td>
+
+                        {/* 6. RESTOCK WARNING POINT */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.restockWarningPoint !== null
+                            ? `${item.restockWarningPoint} ${item.uom}`
+                            : '-'}
+                        </td>
+
+                        {/* 7. SUGGESTED ORDER QTY */}
+                        <td className="px-4 py-3.5 text-center font-mono font-bold text-xs text-[#01390f] whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.suggestedOrderQty > 0
+                            ? `+${item.suggestedOrderQty} ${item.uom}`
+                            : '-'}
+                        </td>
+
+                        {/* 8. STATUS / CONDITION (Dot removed, clean badge) */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              item.isCritical
-                                ? 'bg-rose-500'
-                                : item.isRestockWarning
-                                  ? 'bg-amber-500'
-                                  : 'bg-emerald-500'
-                            }`}
-                          ></span>
-                          {item.conditionLabel}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewRequest(item)}
-                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            title="View Requisition Details"
+                            className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${item.badgeClass}`}
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            {item.conditionLabel}
+                          </span>
+                        </td>
+
+                        {/* 9. ACTION (Sticky Right) */}
+                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewRequest(item)}
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              title="View Requisition Details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

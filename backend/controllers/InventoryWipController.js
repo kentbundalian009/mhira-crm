@@ -196,6 +196,7 @@ export const completePendingWIP = async (req, res) => {
       actualProducedQuantity,
       rejectedQuantity,
       rejectionReason,
+      rejectionNotes,
       rejectionApprover,
       rejectionDisposition,
     } = req.body;
@@ -219,6 +220,11 @@ export const completePendingWIP = async (req, res) => {
         const count = await ScrapAuditLog.countDocuments();
         const generatedLogId = `SCRAP-WIP-${dateStr}-${String(count + 1).padStart(4, '0')}`;
 
+        const cleanNotes = (rejectionNotes && rejectionNotes.trim()) ? rejectionNotes.trim() : '';
+        const auditNotes = cleanNotes
+          ? `${cleanNotes} (Target: ${maxAllowed} pcs | Stocked: ${yieldToAdd} pcs | Defect: ${finalRejectQty} pcs)`
+          : `Batch Target: ${maxAllowed} pcs | Stocked: ${yieldToAdd} pcs | Defect Loss: ${finalRejectQty} pcs`;
+
         const newScrap = new ScrapAuditLog({
           logId: generatedLogId,
           itemType: 'WIP / In-Production',
@@ -230,12 +236,13 @@ export const completePendingWIP = async (req, res) => {
           reason: (rejectionReason && rejectionReason.trim()) || 'Production Spillage / Quality Defect',
           approverName: (rejectionApprover && rejectionApprover.trim()) || 'Production QC Supervisor',
           disposition: (rejectionDisposition && rejectionDisposition.trim()) || 'Scrap / Dispose',
-          notes: `Batch Target: ${maxAllowed} pcs | Stocked: ${yieldToAdd} pcs | Defect Loss: ${finalRejectQty} pcs`,
+          notes: auditNotes,
         });
 
         await newScrap.save();
         wip.rejectedQuantity = finalRejectQty;
         wip.rejectionReason = newScrap.reason;
+        wip.rejectionNotes = cleanNotes;
         wip.rejectionApprover = newScrap.approverName;
         wip.rejectionDisposition = newScrap.disposition;
         wip.scrapLogId = newScrap.logId;
@@ -245,6 +252,7 @@ export const completePendingWIP = async (req, res) => {
     } else {
       wip.rejectedQuantity = 0;
       wip.rejectionReason = '';
+      wip.rejectionNotes = '';
       wip.rejectionApprover = '';
       wip.rejectionDisposition = '';
       wip.scrapLogId = '';

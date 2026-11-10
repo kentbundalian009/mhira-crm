@@ -513,11 +513,10 @@ function LogisticsSupportCenter() {
             <button
               type="button"
               onClick={() => setActiveTab('all')}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'all'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'all'
                   ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
               <span>All Inquiries</span>
@@ -527,15 +526,14 @@ function LogisticsSupportCenter() {
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'pending'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'pending'
                   ? activeCount > 0
                     ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : activeCount > 0
                     ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
               title="Filter by Active & Pending Customer Support Cases"
             >
               {activeCount > 0 && (
@@ -544,13 +542,11 @@ function LogisticsSupportCenter() {
               <span>Active & Pending</span>
               {activeCount > 0 && (
                 <span
-                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
-                    activeCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
-                  } ${
-                    activeTab === 'pending'
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${activeCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                    } ${activeTab === 'pending'
                       ? 'bg-[#c81e1e] text-white'
                       : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
-                  }`}
+                    }`}
                   title={`${activeCount} Active / Pending Support Cases`}
                 >
                   {activeCount > 99 ? '99+' : activeCount}
@@ -562,11 +558,10 @@ function LogisticsSupportCenter() {
             <button
               type="button"
               onClick={() => setActiveTab('resolved')}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                activeTab === 'resolved'
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'resolved'
                   ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
+                }`}
             >
               <span>Resolved</span>
             </button>
@@ -813,10 +808,13 @@ function LogisticsSupportCenter() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading && tickets.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="9"
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-[#01390f]" />
                         <span>Loading support inquiries...</span>
@@ -825,7 +823,10 @@ function LogisticsSupportCenter() {
                   </tr>
                 ) : filteredTickets.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="9"
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Headphones className="w-6 h-6 text-slate-300" />
                         <span>No customer support conversations found matching your search or filters.</span>
@@ -849,30 +850,34 @@ function LogisticsSupportCenter() {
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm cursor-pointer"
                       >
                         {/* 1. TICKET ID */}
-                        <td className="px-4 py-3.5 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          #{t.ticketId}
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                            #{t.ticketId}
+                          </span>
                         </td>
 
                         {/* 2. DATE FILED */}
-                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs text-slate-600 font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {ticketDate}
                         </td>
 
                         {/* 3. CUSTOMER (Name + Email) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
-                          <span className="font-bold text-slate-900 block truncate max-w-[200px]" title={t.customerName}>
-                            {t.customerName || 'Customer'}
-                          </span>
-                          {t.customerEmail && (
-                            <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[200px]">
-                              {t.customerEmail}
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-xs text-slate-900 truncate max-w-[200px]" title={t.customerName}>
+                              {t.customerName || 'Customer'}
                             </span>
-                          )}
+                            {t.customerEmail && (
+                              <span className="text-[11px] text-slate-500 font-mono truncate max-w-[200px] mt-0.5">
+                                {t.customerEmail}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* 4. INQUIRY TOPIC */}
                         <td
-                          className="px-4 py-3.5 whitespace-nowrap font-bold text-slate-800 truncate max-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          className="px-4 py-3.5 whitespace-nowrap font-semibold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[200px] truncate"
                           title={t.subject || 'General Inquiry'}
                         >
                           {t.subject || 'General Inquiry'}
@@ -880,35 +885,35 @@ function LogisticsSupportCenter() {
 
                         {/* 5. LATEST MESSAGE */}
                         <td
-                          className="px-4 py-3.5 whitespace-nowrap text-slate-500 truncate max-w-[220px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[220px] truncate"
                           title={lastMsg?.text || ''}
                         >
                           {lastMsg?.text || (hasAttachment ? 'Attachment sent' : 'Inquiry opened')}
                         </td>
 
                         {/* 6. ATTACHMENTS (Blue Accent Style) */}
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
                           {hasAttachment ? (
                             <span className="inline-flex items-center justify-center gap-1">
                               <ImageIcon className="w-3.5 h-3.5 text-blue-900 shrink-0" />
                               <span>Photo</span>
                             </span>
                           ) : (
-                            <span className="text-slate-500/80 font-normal">None</span>
+                            <span className="text-slate-500 font-normal">None</span>
                           )}
                         </td>
 
                         {/* 7. MESSAGES COUNT */}
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-800 text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {t.messages?.length || 0} msgs
                         </td>
 
                         {/* 8. STATUS */}
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {getStatusBadge(t.status)}
                         </td>
 
-                        {/* 9. ACTION (Sticky Right - Matching Finished Goods / Catalog Table) */}
+                        {/* 9. ACTION (Sticky Right) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
                           className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px] transition-colors"
@@ -924,7 +929,7 @@ function LogisticsSupportCenter() {
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                               {t.status !== 'resolved' && (
                                 <span
-                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c81e1e] border-2 border-white animate-pulse"
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white animate-pulse"
                                   title="Active / Pending Support Inquiry"
                                 />
                               )}

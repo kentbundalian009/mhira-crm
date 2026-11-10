@@ -418,6 +418,7 @@ function InventoryWIP() {
   // Rejection & Scrap Audit states
   const [rejectionReason, setRejectionReason] = useState('Filling Spillage / Overflow');
   const [customRejectionReason, setCustomRejectionReason] = useState('');
+  const [rejectionNotes, setRejectionNotes] = useState('');
   const [rejectionApprover, setRejectionApprover] = useState('Production QC Supervisor');
   const [rejectionDisposition, setRejectionDisposition] = useState('Scrap / Dispose');
 
@@ -429,6 +430,7 @@ function InventoryWIP() {
     setFulfillProducedQty(String(target));
     setRejectionReason('Filling Spillage / Overflow');
     setCustomRejectionReason('');
+    setRejectionNotes('');
     try {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
@@ -1402,6 +1404,7 @@ function InventoryWIP() {
         rejectionReason: rejectionReason === 'Other' && customRejectionReason.trim()
           ? customRejectionReason.trim()
           : rejectionReason,
+        rejectionNotes: rejectionNotes.trim(),
         rejectionApprover: rejectionApprover.trim() || 'Production QC Supervisor',
         rejectionDisposition: rejectionDisposition || 'Scrap / Dispose',
       };
@@ -1455,7 +1458,7 @@ function InventoryWIP() {
 
       if (calculatedRejects > 0) {
         showSuccessToast(
-          `Production Batch fulfilled! ${validQty} pcs stocked to inventory and ${calculatedRejects} rejected pcs audited in Scrap Log. 🛡️`
+          `Production Batch fulfilled! ${validQty} pcs stocked to inventory and ${calculatedRejects} rejected pcs audited in Scrap Log.`
         );
       } else {
         showSuccessToast(res.data?.message || "Production Batch successfully completed and stock updated!");
@@ -2457,75 +2460,104 @@ function InventoryWIP() {
                       <th className="py-3.5 px-4 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] font-semibold text-white z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-36 min-w-[130px]">ACTION</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 font-medium">
                     {loading ? (
                       <tr>
-                        <td colSpan="8" className="py-12 text-center text-slate-400">
-                          <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#01390f] mb-2" />
-                          <span>Loading production batches...</span>
+                        <td
+                          colSpan="8"
+                          className="py-12 text-center text-[#01390f] font-medium italic whitespace-nowrap"
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <span>Loading production batches...</span>
+                          </div>
                         </td>
                       </tr>
                     ) : filteredWipLogs.length === 0 ? (
                       <tr>
-                        <td colSpan="8" className="py-12 text-center text-slate-400 italic">
-                          No production batches found matching your search.
+                        <td
+                          colSpan="8"
+                          className="py-12 text-center text-slate-400 font-medium italic whitespace-nowrap"
+                        >
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Info className="w-6 h-6 text-slate-300" />
+                            <span>No production batches found matching your search.</span>
+                          </div>
                         </td>
                       </tr>
                     ) : (
                       paginatedWipLogs.map((log, idx) => {
                         return (
-                          <tr key={log._id || log.id || idx} className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group">
-                            {/* BATCH CODE */}
-                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[160px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              <span className="font-mono font-semibold text-slate-600 text-xs sm:text-sm">
+                          <tr
+                            key={log._id || log.id || idx}
+                            className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                          >
+                            {/* 1. BATCH CODE */}
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[160px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
                                 {log.wipBatchCode}
                               </span>
                             </td>
 
-                            {/* PRODUCT NAME */}
-                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              <div className="flex flex-col">
-                                <span className="font-bold text-slate-900">{log.productName}</span>
+                            {/* 2. PRODUCT NAME */}
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-bold text-xs text-slate-800">
+                                  {log.productName}
+                                </span>
                                 {log.productCode && (
-                                  <span className="font-mono text-[10px] text-slate-400 font-bold">
+                                  <span className="font-mono text-[10px] text-slate-500 font-semibold">
                                     {log.productCode}
                                   </span>
                                 )}
                               </div>
                             </td>
 
-                            {/* BATCH SIZE */}
-                            <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {log.numberOfBatches || 1} Batch ({log.totalBatchWeight || 5} {log.batchWeightUom || 'kg'})
+                            {/* 3. BATCH SIZE */}
+                            <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {log.numberOfBatches || 1} Batch ({log.totalBatchWeight || 5}{' '}
+                              {log.batchWeightUom || 'kg'})
                             </td>
 
-                            {/* TARGET YIELD */}
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {/* 4. TARGET YIELD */}
+                            <td className="px-4 py-3.5 text-center font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {log.targetQuantity} pcs
                             </td>
 
-                            {/* PRODUCED OUTPUT */}
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {/* 5. PRODUCED OUTPUT (Matches Blue Accent Column) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
                               <span>{log.producedQuantity || 0} pcs</span>
                               {log.rejectedQuantity > 0 && (
-                                <span className="block text-[10px] text-rose-600 font-medium">
+                                <span className="block text-[10px] text-rose-700 font-bold font-sans">
                                   ({log.rejectedQuantity} Reject)
                                 </span>
                               )}
                             </td>
 
-                            {/* MFG DATE */}
-                            <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {log.mfgDate ? new Date(log.mfgDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                            {/* 6. MFG DATE */}
+                            <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {log.mfgDate
+                                ? new Date(log.mfgDate).toLocaleDateString([], {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                                : 'N/A'}
                             </td>
 
-                            {/* EXP DATE */}
-                            <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {log.expDate ? new Date(log.expDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                            {/* 7. EXP DATE */}
+                            <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              {log.expDate
+                                ? new Date(log.expDate).toLocaleDateString([], {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                                : 'N/A'}
                             </td>
 
-                            {/* ACTIONS (STICKY RIGHT) */}
-                            <td className="py-3.5 px-4 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-36 min-w-[130px]">
+                            {/* 8. ACTIONS (STICKY RIGHT) */}
+                            <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-36 min-w-[130px]">
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   type="button"
@@ -2690,15 +2722,15 @@ function InventoryWIP() {
                           <div className="bg-rose-50/90 border border-rose-200 rounded-2xl p-4 flex flex-col gap-3 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
-                                  ⚠️
+                                <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                                  <AlertTriangle className="w-4 h-4 text-white" />
                                 </div>
                                 <div>
                                   <span className="font-bold text-xs text-rose-950 block">
                                     {rejectCount} Defective / Rejected Units Detected (Production Loss)
                                   </span>
                                   <span className="text-[11px] text-rose-800 block">
-                                    Target yield is <strong>{targetQty} pcs</strong>. Only <strong>{enteredActual} pcs</strong> will be added to inventory. The remaining <strong>{rejectCount} pcs</strong> will be logged in Scrap & Loss Prevention Audit.
+                                    Target yield is <strong>{targetQty} pcs</strong>. Only <strong>{enteredActual} pcs</strong> will be added to inventory. The remaining <strong>{rejectCount} pcs</strong> will be logged in Scrap &amp; Loss Prevention Audit.
                                   </span>
                                 </div>
                               </div>
@@ -2762,6 +2794,20 @@ function InventoryWIP() {
                                   <option value="Destroyed">Destroyed / Incinerated</option>
                                 </select>
                               </div>
+                            </div>
+
+                            {/* DEDUCTION NOTES / DETAILED REASON */}
+                            <div className="pt-2 border-t border-rose-200/70">
+                              <label className="block text-[11px] font-bold text-rose-900 mb-1">
+                                Deduction Notes / Detailed Reason
+                              </label>
+                              <textarea
+                                rows={2}
+                                placeholder="Ilagay ang detalyadong obserbasyon kung bakit nagkaroon ng reject o nabawasan ang quantity..."
+                                value={rejectionNotes}
+                                onChange={(e) => setRejectionNotes(e.target.value)}
+                                className="w-full bg-white border border-rose-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-rose-600 shadow-2xs resize-none"
+                              />
                             </div>
                           </div>
                         )}

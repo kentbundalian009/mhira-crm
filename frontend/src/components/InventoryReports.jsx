@@ -114,6 +114,7 @@ function InventoryReports() {
   const [products, setProducts] = useState([]);
   const [rawMaterials, setRawMaterials] = useState([]);
   const [expiryItems, setExpiryItems] = useState([]);
+  const [wipRecords, setWipRecords] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch all reports ledger data with safe caching
@@ -123,12 +124,15 @@ function InventoryReports() {
       const token = localStorage.getItem('token');
       const config = { headers: token ? { Authorization: `Bearer ${token}` } : {} };
 
-      const [prodRes, rawRes, expRes] = await Promise.allSettled([
+      const [prodRes, rawRes, expRes, wipRes] = await Promise.allSettled([
         axios.get(`${API_BASE_URL}/api/inventory-products`, config).catch(async () => {
           return await API.get('/api/products').catch(() => ({ data: [] }));
         }),
         axios.get(`${API_BASE_URL}/api/inventory-raw-materials`, config).catch(() => ({ data: [] })),
         axios.get(`${API_BASE_URL}/api/inventory-expiry`, config).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE_URL}/api/inventory-wip`, config).catch(async () => {
+          return await API.get('/api/inventory-wip').catch(() => ({ data: [] }));
+        }),
       ]);
 
       if (prodRes.status === 'fulfilled') {
@@ -198,6 +202,28 @@ function InventoryReports() {
         try {
           const cached = JSON.parse(localStorage.getItem('cached_inventory_expiry') || '[]');
           if (cached.length > 0) setExpiryItems(cached);
+        } catch (e) { }
+      }
+
+      if (wipRes.status === 'fulfilled') {
+        const raw = Array.isArray(wipRes.value.data)
+          ? wipRes.value.data
+          : (wipRes.value.data?.wips || wipRes.value.data?.items || []);
+        if (raw.length > 0) {
+          setWipRecords(raw);
+          try {
+            localStorage.setItem('cached_inventory_wip_reports', JSON.stringify(raw));
+          } catch (e) { }
+        } else {
+          try {
+            const cached = JSON.parse(localStorage.getItem('cached_inventory_wip_reports') || '[]');
+            if (cached.length > 0) setWipRecords(cached);
+          } catch (e) { }
+        }
+      } else {
+        try {
+          const cached = JSON.parse(localStorage.getItem('cached_inventory_wip_reports') || '[]');
+          if (cached.length > 0) setWipRecords(cached);
         } catch (e) { }
       }
     } catch (error) {
@@ -395,6 +421,50 @@ function InventoryReports() {
     });
   }, [expiryItems, activeTab, isRawMaterialExpiry, isFinishedGoodExpiry, searchQuery, hideZeroQty, showZeroOnly, selectedMonth, selectedYear, selectedStatus]);
 
+  // 4. FILTERED WIP DEFECTIVE / REJECTED UNITS
+  const filteredWipDefective = useMemo(() => {
+    return wipRecords.filter((w) => {
+      // Must have rejected quantity > 0
+      const rejectQty = Number(w.rejectedQuantity) || 0;
+      if (rejectQty <= 0) return false;
+
+      const q = searchQuery.toLowerCase().trim();
+      const batchCode = (w.wipBatchCode || '').toLowerCase();
+      const pCode = (w.productCode || '').toLowerCase();
+      const pName = (w.productName || '').toLowerCase();
+      const reason = (w.rejectionReason || '').toLowerCase();
+      const notes = (w.rejectionNotes || '').toLowerCase();
+      const approver = (w.rejectionApprover || '').toLowerCase();
+      const disposition = (w.rejectionDisposition || '').toLowerCase();
+      const scrapId = (w.scrapLogId || '').toLowerCase();
+
+      if (
+        q &&
+        !batchCode.includes(q) &&
+        !pCode.includes(q) &&
+        !pName.includes(q) &&
+        !reason.includes(q) &&
+        !notes.includes(q) &&
+        !approver.includes(q) &&
+        !disposition.includes(q) &&
+        !scrapId.includes(q)
+      ) {
+        return false;
+      }
+
+      if (!matchesDateFilter(w.updatedAt || w.createdAt || w.mfgDate)) return false;
+
+      if (selectedStatus !== 'All') {
+        const disp = disposition.toLowerCase();
+        if (selectedStatus === 'Scrap' && !disp.includes('scrap')) return false;
+        if (selectedStatus === 'Quarantined' && !disp.includes('quarantine')) return false;
+        if (selectedStatus === 'Destroyed' && !disp.includes('destroy')) return false;
+      }
+
+      return true;
+    });
+  }, [wipRecords, searchQuery, selectedMonth, selectedYear, selectedStatus]);
+
   // Reset pagination on filter, tab, or sort change
   useEffect(() => {
     setCurrentPage(1);
@@ -405,16 +475,34 @@ function InventoryReports() {
       return filteredExpiryItems;
     }
     switch (activeTab) {
+      case 'wip-defective':
+        return filteredWipDefective;
       case 'finished-goods':
         return filteredFinishedGoods;
       case 'raw-materials':
       default:
         return filteredRawMaterials;
     }
-  }, [showExpiryOnly, filteredExpiryItems, activeTab, filteredFinishedGoods, filteredRawMaterials]);
+  }, [showExpiryOnly, filteredExpiryItems, activeTab, filteredWipDefective, filteredFinishedGoods, filteredRawMaterials]);
 
   const sortedData = useMemo(() => {
     let result = [...activeDataset];
+    if (activeTab === 'wip-defective' && !showExpiryOnly) {
+      if (sortBy === 'qty_desc') {
+        result.sort((a, b) => (Number(b.rejectedQuantity) || 0) - (Number(a.rejectedQuantity) || 0));
+      } else if (sortBy === 'qty_asc') {
+        result.sort((a, b) => (Number(a.rejectedQuantity) || 0) - (Number(b.rejectedQuantity) || 0));
+      } else if (sortBy === 'name_asc') {
+        result.sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
+      } else if (sortBy === 'name_desc') {
+        result.sort((a, b) => (b.productName || '').localeCompare(a.productName || ''));
+      } else if (sortBy === 'code_asc') {
+        result.sort((a, b) => (a.wipBatchCode || '').localeCompare(b.wipBatchCode || ''));
+      } else {
+        result.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+      }
+      return result;
+    }
     if (sortBy === 'name_asc') {
       result.sort((a, b) =>
         (a.itemName || a.name || a.materialName || a.itemDescription || '').localeCompare(b.itemName || b.name || b.materialName || b.itemDescription || '')
@@ -437,7 +525,7 @@ function InventoryReports() {
       );
     }
     return result;
-  }, [activeDataset, sortBy]);
+  }, [activeDataset, sortBy, activeTab, showExpiryOnly]);
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -454,6 +542,8 @@ function InventoryReports() {
       }).length;
     }
     switch (activeTab) {
+      case 'wip-defective':
+        return 0;
       case 'finished-goods':
         return products.filter((p) => (Number(p.quantity) || 0) === 0).length;
       case 'raw-materials':
@@ -467,6 +557,8 @@ function InventoryReports() {
       return activeTab === 'finished-goods' ? 'Finished Goods Expiry' : 'Raw Materials Expiry';
     }
     switch (activeTab) {
+      case 'wip-defective':
+        return 'WIP Defective / Rejected Units';
       case 'raw-materials':
         return 'Raw Materials';
       case 'finished-goods':
@@ -479,6 +571,7 @@ function InventoryReports() {
   const reportTabs = useMemo(() => [
     { id: 'raw-materials', label: 'Raw Materials', icon: Layers },
     { id: 'finished-goods', label: 'Finished Goods', icon: Package },
+    { id: 'wip-defective', label: 'WIP Defective / Rejected Units', icon: AlertTriangle },
   ], []);
 
   // EXPORT AUDIT LEDGER TO PDF (Official Executive Report in A4 Portrait with Summary Table & Blue Header)
@@ -512,16 +605,16 @@ function InventoryReports() {
         selectedMonth === 'All' && selectedYear === 'All'
           ? 'All Time (Full Ledger)'
           : selectedMonth === 'All'
-          ? `Full Year ${selectedYear}`
-          : selectedYear === 'All'
-          ? `${selectedMonth} (All Years)`
-          : `${selectedMonth} ${selectedYear}`;
+            ? `Full Year ${selectedYear}`
+            : selectedYear === 'All'
+              ? `${selectedMonth} (All Years)`
+              : `${selectedMonth} ${selectedYear}`;
 
       const yearTag = selectedYear !== 'All' ? selectedYear : new Date().getFullYear();
       const monthTag = selectedMonth !== 'All' ? selectedMonth.slice(0, 3).toUpperCase() : 'FULL';
       const typeTag = showExpiryOnly
         ? (activeTab === 'finished-goods' ? 'FG-EXP' : 'RM-EXP')
-        : (activeTab === 'finished-goods' ? 'FG' : 'RM');
+        : (activeTab === 'wip-defective' ? 'WIP-DEFECT' : activeTab === 'finished-goods' ? 'FG' : 'RM');
       const docNo = `MN-INV-${typeTag}-${yearTag}-${monthTag}-${String(Date.now()).slice(-4)}`;
 
       // Determine Report Title
@@ -530,6 +623,8 @@ function InventoryReports() {
         reportTitle = activeTab === 'finished-goods'
           ? 'FINISHED GOODS EXPIRY MONITORING AUDIT'
           : 'RAW MATERIALS EXPIRY MONITORING AUDIT';
+      } else if (activeTab === 'wip-defective') {
+        reportTitle = 'WIP DEFECTIVE & REJECTED UNITS AUDIT REPORT';
       } else if (activeTab === 'finished-goods') {
         reportTitle = 'FINISHED GOODS INVENTORY AUDIT';
       } else {
@@ -545,7 +640,7 @@ function InventoryReports() {
       if (logoBase64) {
         try {
           doc.addImage(logoBase64, 'PNG', 14, 12, headerLogoW, headerLogoH, undefined, 'FAST');
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Company Titles (starts at X=36, generously spaced in height)
@@ -626,6 +721,21 @@ function InventoryReports() {
         card3Val = `${healthyCount} Safe Buffer (>30d)`;
         card4Label = 'CRITICAL & EXPIRY ALERTS';
         card4Val = `${expiredCount} Expired | ${criticalCount} Critical (<= 7d)`;
+      } else if (activeTab === 'wip-defective') {
+        const totalBatches = filteredWipDefective.length;
+        const totalTarget = filteredWipDefective.reduce((acc, w) => acc + (Number(w.targetQuantity) || 0), 0);
+        const totalProduced = filteredWipDefective.reduce((acc, w) => acc + (Number(w.producedQuantity) || 0), 0);
+        const totalDefective = filteredWipDefective.reduce((acc, w) => acc + (Number(w.rejectedQuantity) || 0), 0);
+        const lossRate = totalTarget > 0 ? ((totalDefective / totalTarget) * 100).toFixed(1) : '0.0';
+
+        card1Label = 'DEFECTIVE WIP BATCHES';
+        card1Val = `${totalBatches.toLocaleString()} Batches Audited`;
+        card2Label = 'TOTAL TARGET PLANNED';
+        card2Val = `${totalTarget.toLocaleString()} Planned Units`;
+        card3Label = 'ACTUAL PRODUCED YIELD';
+        card3Val = `${totalProduced.toLocaleString()} Finished Units`;
+        card4Label = 'TOTAL SCRAP LOSS';
+        card4Val = `${totalDefective.toLocaleString()} pcs Defective (${lossRate}%)`;
       } else if (activeTab === 'finished-goods') {
         const totalItems = filteredFinishedGoods.length;
         const totalStock = filteredFinishedGoods.reduce((acc, p) => acc + (Number(p.quantity ?? 0) || 0), 0);
@@ -761,6 +871,12 @@ function InventoryReports() {
           if (!categoryMap.has(cat)) categoryMap.set(cat, []);
           categoryMap.get(cat).push(item);
         });
+      } else if (activeTab === 'wip-defective') {
+        filteredWipDefective.forEach((w) => {
+          const cat = (w.rejectionDisposition || 'Scrap / Dispose').trim() || 'General';
+          if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+          categoryMap.get(cat).push(w);
+        });
       } else if (activeTab === 'finished-goods') {
         filteredFinishedGoods.forEach((p) => {
           const cat = (p.category || 'Finished Goods').trim() || 'General';
@@ -791,6 +907,17 @@ function InventoryReports() {
           4: { halign: 'center', cellWidth: 20 },
           5: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
           6: { fontStyle: 'bold', halign: 'center', cellWidth: 26 },
+        };
+      } else if (activeTab === 'wip-defective') {
+        colHeaders = ['WIP NO', 'PRODUCT / ITEM NAME', 'TOTAL COUNT NA PRODUCE', 'NABAWAS NA QTY', 'REASON & DEDUCTION NOTES', 'QC APPROVER', 'DATE'];
+        columnStyles = {
+          0: { fontStyle: 'bold', halign: 'left', cellWidth: 18 },
+          1: { fontStyle: 'bold', halign: 'left', cellWidth: 44 },
+          2: { halign: 'center', cellWidth: 28 },
+          3: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
+          4: { halign: 'left', cellWidth: 38 },
+          5: { fontStyle: 'bold', halign: 'center', cellWidth: 20 },
+          6: { halign: 'center', cellWidth: 14 },
         };
       } else if (activeTab === 'finished-goods') {
         colHeaders = ['CODE', 'ITEM NAME', 'QUANTITY', 'SPECIFICATION & UOM'];
@@ -842,12 +969,12 @@ function InventoryReports() {
               const daysStr = item.status === 'Disposed'
                 ? 'Disposed'
                 : isExpired
-                ? '0d (Expired)'
-                : isCritical
-                ? `${days}d left (Critical)`
-                : isNear
-                ? `${days}d left (Near)`
-                : `${days}d left`;
+                  ? '0d (Expired)'
+                  : isCritical
+                    ? `${days}d left (Critical)`
+                    : isNear
+                      ? `${days}d left (Near)`
+                      : `${days}d left`;
 
               let expiryColor = { fillColor: [220, 252, 231], textColor: [22, 101, 52] };
               if (isExpired || isCritical) {
@@ -873,6 +1000,34 @@ function InventoryReports() {
                     overflow: 'ellipsize',
                   },
                 },
+              ];
+            });
+          } else if (activeTab === 'wip-defective') {
+            catBody = catItems.map((w) => {
+              const target = Number(w.targetQuantity || 0);
+              const produced = Number(w.producedQuantity || 0);
+              const rejected = Number(w.rejectedQuantity || 0);
+              const dateStr = w.updatedAt || w.createdAt ? new Date(w.updatedAt || w.createdAt).toLocaleDateString() : 'N/A';
+              const reasonText = w.rejectionReason || 'Defective Loss';
+              const notesText = w.rejectionNotes ? ` - ${w.rejectionNotes}` : '';
+
+              return [
+                w.wipBatchCode || 'WIP-BATCH',
+                `${w.productName || 'Product'} (${w.productCode || 'FG'})`,
+                `${target.toLocaleString()} tgt / ${produced.toLocaleString()} act`,
+                {
+                  content: `-${rejected.toLocaleString()} pcs`,
+                  styles: {
+                    fillColor: [254, 226, 226],
+                    textColor: [185, 28, 28],
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    overflow: 'visible',
+                  },
+                },
+                `${reasonText}${notesText}`,
+                w.rejectionApprover || 'QC Staff',
+                dateStr,
               ];
             });
           } else if (activeTab === 'finished-goods') {
@@ -933,6 +1088,8 @@ function InventoryReports() {
             }
           }
 
+          const isWipDefective = activeTab === 'wip-defective';
+
           autoTable(doc, {
             startY: currentTableStartY,
             margin: { left: 14, right: 14, top: 19, bottom: 12 },
@@ -945,13 +1102,13 @@ function InventoryReports() {
                     fillColor: [241, 245, 249],
                     textColor: [21, 62, 151],
                     fontStyle: 'bold',
-                    fontSize: 7.2,
+                    fontSize: isWipDefective ? 6.2 : 7.2,
                     halign: 'left',
                     valign: 'middle',
-                    cellPadding: { top: 2.2, bottom: 2.2, left: 3, right: 3 },
+                    cellPadding: isWipDefective ? { top: 1.5, bottom: 1.5, left: 2, right: 2 } : { top: 2.2, bottom: 2.2, left: 3, right: 3 },
                     lineColor: [203, 213, 225],
                     lineWidth: 0.15,
-                    overflow: 'ellipsize',
+                    overflow: 'visible',
                   },
                 },
               ],
@@ -961,27 +1118,28 @@ function InventoryReports() {
             theme: 'grid',
             styles: {
               font: 'helvetica',
-              fontSize: 6.8,
+              fontSize: isWipDefective ? 5.4 : 6.8,
               textColor: [51, 65, 85],
-              cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+              cellPadding: isWipDefective ? { top: 1.4, bottom: 1.4, left: 1.2, right: 1.2 } : { top: 2, bottom: 2, left: 2, right: 2 },
               lineColor: [226, 232, 240],
               lineWidth: 0.15,
               valign: 'middle',
-              overflow: 'ellipsize',
+              overflow: isWipDefective ? 'visible' : 'ellipsize',
             },
             headStyles: {
               fillColor: [21, 62, 151], // Royal Blue #153E97
               textColor: [255, 255, 255],
               fontStyle: 'bold',
-              fontSize: 7,
+              fontSize: isWipDefective ? 5.4 : 7,
+              cellPadding: isWipDefective ? { top: 1.6, bottom: 1.6, left: 1, right: 1 } : { top: 2, bottom: 2, left: 2, right: 2 },
               halign: 'center',
               valign: 'middle',
               lineColor: [21, 62, 151],
               lineWidth: 0.2,
-              overflow: 'ellipsize',
+              overflow: isWipDefective ? 'visible' : 'ellipsize',
             },
             bodyStyles: {
-              overflow: 'ellipsize',
+              overflow: isWipDefective ? 'visible' : 'ellipsize',
               valign: 'middle',
             },
             alternateRowStyles: {
@@ -995,6 +1153,9 @@ function InventoryReports() {
                 }
                 if (data.cell.raw.styles.textColor) {
                   data.cell.styles.textColor = data.cell.raw.styles.textColor;
+                }
+                if (data.cell.raw.styles.overflow) {
+                  data.cell.styles.overflow = data.cell.raw.styles.overflow;
                 }
               }
             },
@@ -1063,7 +1224,7 @@ function InventoryReports() {
         if (watermarkBase64) {
           try {
             doc.addImage(watermarkBase64, 'PNG', wmX, wmY, wmWidth, wmHeight, undefined, 'FAST');
-          } catch (e) {}
+          } catch (e) { }
         }
 
         // Running Header on Page 2+
@@ -1073,7 +1234,7 @@ function InventoryReports() {
           if (logoBase64) {
             try {
               doc.addImage(logoBase64, 'PNG', 14, 7, thumbW, thumbH, undefined, 'FAST');
-            } catch (e) {}
+            } catch (e) { }
           }
 
           doc.setFont('helvetica', 'bold');
@@ -1157,7 +1318,7 @@ function InventoryReports() {
         {/* EXCEL-STYLE RIBBON & WORKBOOK TOOLBAR                    */}
         {/* ======================================================== */}
         <div className="w-full bg-white flex flex-col">
-          
+
           {/* TOP BAR: EXCEL SHEET TABS */}
           <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 border-b border-slate-200">
             <div className="flex items-center gap-1 -mb-px">
@@ -1173,11 +1334,10 @@ function InventoryReports() {
                       setShowExpiryOnly(false);
                       setCurrentPage(1);
                     }}
-                    className={`px-3.5 py-1.5 text-xs transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
-                      isActive
+                    className={`px-3.5 py-1.5 text-xs transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${isActive
                         ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
                         : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg font-semibold'
-                    }`}
+                      }`}
                     title={tab.label}
                     aria-label={tab.label}
                   >
@@ -1191,7 +1351,7 @@ function InventoryReports() {
 
           {/* MS EXCEL-STYLE RIBBON TOOLBAR (RESPONSIVE: STACKS ON MOBILE, 1 ROW ON DESKTOP) */}
           <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
-            
+
             {/* GROUP 1: ACTIONS (Responsive: Full-width on mobile, fixed width on desktop) */}
             <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
               <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
@@ -1221,28 +1381,34 @@ function InventoryReports() {
                 {/* Stacked Compact Rows */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
                   {/* Expiry FG or Expiry RM Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowExpiryOnly((prev) => !prev);
-                      setCurrentPage(1);
-                    }}
-                    className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${
-                      showExpiryOnly
-                        ? 'bg-emerald-50 text-[#01390f] border-emerald-300 font-bold shadow-2xs'
-                        : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
-                    }`}
-                    title={
-                      showExpiryOnly
-                        ? `Showing ${activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'} (Click to view standard list)`
-                        : `Filter by ${activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}`
-                    }
-                  >
-                    <Clock className={`w-3.5 h-3.5 shrink-0 ${showExpiryOnly ? 'text-[#01390f]' : 'text-slate-500'}`} />
-                    <span className="whitespace-nowrap">
-                      {activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}
-                    </span>
-                  </button>
+                  {activeTab !== 'wip-defective' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExpiryOnly((prev) => !prev);
+                        setCurrentPage(1);
+                      }}
+                      className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${showExpiryOnly
+                          ? 'bg-emerald-50 text-[#01390f] border-emerald-300 font-bold shadow-2xs'
+                          : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
+                        }`}
+                      title={
+                        showExpiryOnly
+                          ? `Showing ${activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'} (Click to view standard list)`
+                          : `Filter by ${activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}`
+                      }
+                    >
+                      <Clock className={`w-3.5 h-3.5 shrink-0 ${showExpiryOnly ? 'text-[#01390f]' : 'text-slate-500'}`} />
+                      <span className="whitespace-nowrap">
+                        {activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border border-rose-200 bg-rose-50 text-rose-800 text-xs font-bold w-full h-[28px] lg:h-[22px] whitespace-nowrap select-none">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span className="truncate">Defect / Loss Audit</span>
+                    </div>
+                  )}
 
                   {/* Reset Filters */}
                   <button
@@ -1269,7 +1435,7 @@ function InventoryReports() {
             {/* GROUP 2: SEARCH & FILTERS (Equal 3-Column Grid) */}
             <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
               <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
-                
+
                 {/* Layer 1: Search Bar */}
                 <div className="relative flex items-center w-full">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
@@ -1337,6 +1503,13 @@ function InventoryReports() {
                       title="Filter by Status"
                     >
                       <option value="All">All Statuses</option>
+                      {activeTab === 'wip-defective' && (
+                        <>
+                          <option value="Scrap">🔴 Scrap / Dispose</option>
+                          <option value="Quarantined">🟡 Quarantined</option>
+                          <option value="Destroyed">⚫ Destroyed</option>
+                        </>
+                      )}
                       {activeTab === 'finished-goods' && (
                         <>
                           <option value="Active">🟢 Active / In-Stock</option>
@@ -1370,11 +1543,10 @@ function InventoryReports() {
                       setHideZeroQty(!hideZeroQty);
                       if (!hideZeroQty) setShowZeroOnly(false);
                     }}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${
-                      hideZeroQty
+                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${hideZeroQty
                         ? 'bg-red-50 text-red-700 border border-red-300'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}
+                      }`}
                     title={hideZeroQty ? 'Showing: 0 Qty Hidden (Click to show)' : 'Click to Hide 0 Quantity items'}
                   >
                     <EyeOff className="w-3.5 h-3.5 text-slate-500" />
@@ -1388,11 +1560,10 @@ function InventoryReports() {
                       setShowZeroOnly(!showZeroOnly);
                       if (!showZeroOnly) setHideZeroQty(false);
                     }}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[22px] w-full ${
-                      showZeroOnly
+                    className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[22px] w-full ${showZeroOnly
                         ? 'bg-rose-50 text-rose-700 border border-rose-300 font-bold'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}
+                      }`}
                     title={showZeroOnly ? `Showing: 0 Qty Only (${zeroQtyCount})` : `Filter 0 Qty Only (${zeroQtyCount} items)`}
                   >
                     <Boxes className="w-3.5 h-3.5 text-slate-500" />
@@ -1485,6 +1656,19 @@ function InventoryReports() {
                           <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">UOM</th>
                         </>
                       )}
+
+                      {/* TAB 3: WIP DEFECTIVE / REJECTED UNITS HEADERS */}
+                      {activeTab === 'wip-defective' && (
+                        <>
+                          <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">WIP NO</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px] font-semibold text-white">PRODUCT / ITEM NAME</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">TOTAL COUNT NA PRODUCE</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">NABAWAS NA QUANTITY</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px] font-semibold text-white">REASON & DEDUCTION NOTES</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">NAME NG USER NA NAG BAWAS</th>
+                          <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">DATE</th>
+                        </>
+                      )}
                     </>
                   )}
                 </tr>
@@ -1493,7 +1677,18 @@ function InventoryReports() {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
-                    <td colSpan={showExpiryOnly ? 9 : (activeTab === 'finished-goods' ? 6 : 5)} className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan={
+                        showExpiryOnly
+                          ? 9
+                          : activeTab === 'wip-defective'
+                            ? 7
+                            : activeTab === 'finished-goods'
+                              ? 6
+                              : 5
+                      }
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-[#01390f]" />
                         <span>Loading {activeTabTitle} audit ledger...</span>
@@ -1502,7 +1697,18 @@ function InventoryReports() {
                   </tr>
                 ) : activeDataset.length === 0 ? (
                   <tr>
-                    <td colSpan={showExpiryOnly ? 9 : (activeTab === 'finished-goods' ? 6 : 5)} className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan={
+                        showExpiryOnly
+                          ? 9
+                          : activeTab === 'wip-defective'
+                            ? 7
+                            : activeTab === 'finished-goods'
+                              ? 6
+                              : 5
+                      }
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Info className="w-6 h-6 text-slate-300" />
                         <span>No {activeTabTitle.toLowerCase()} match the selected filters.</span>
@@ -1511,7 +1717,10 @@ function InventoryReports() {
                   </tr>
                 ) : showExpiryOnly ? (
                   paginatedData.map((item, idx) => {
-                    const days = item.daysUntilExpiry !== undefined ? Number(item.daysUntilExpiry) : Number(item.daysRemaining);
+                    const days =
+                      item.daysUntilExpiry !== undefined
+                        ? Number(item.daysUntilExpiry)
+                        : Number(item.daysRemaining);
                     const isExpired = !isNaN(days) && days <= 0;
                     const isCritical = !isNaN(days) && days > 0 && days <= 7;
                     const isNear = !isNaN(days) && days > 7 && days <= 30;
@@ -1521,63 +1730,87 @@ function InventoryReports() {
                         key={item._id || item.id || idx}
                         className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
                       >
-                        {/* ITEM CODE */}
-                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {item.code || item.itemCode || 'N/A'}
+                        {/* 1. ITEM CODE */}
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                            {item.code || item.itemCode || 'N/A'}
+                          </span>
                         </td>
 
-                        {/* BATCH / LOT NO */}
-                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 2. BATCH / LOT NO */}
+                        <td className="px-4 py-3.5 font-mono font-semibold text-xs text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {item.batchNo || 'N/A'}
                         </td>
 
-                        {/* CATEGORY */}
-                        <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {item.category || (activeTab === 'finished-goods' ? 'Finished Goods' : 'Raw Materials')}
+                        {/* 3. CATEGORY (Pill Badge) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                            {item.category ||
+                              (activeTab === 'finished-goods'
+                                ? 'Finished Goods'
+                                : 'Raw Materials')}
+                          </span>
                         </td>
 
-                        {/* ITEM NAME */}
-                        <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 4. ITEM NAME */}
+                        <td
+                          className="px-4 py-3.5 font-semibold text-xs text-slate-900 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={item.itemDescription || item.itemName}
+                        >
                           {item.itemDescription || item.itemName || 'N/A'}
                         </td>
 
-                        {/* STOCK VOLUME */}
-                        <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {Number(item.quantity ?? item.stockVolume ?? 0).toLocaleString()} {item.uom || (activeTab === 'finished-goods' ? 'pcs' : 'kg')}
+                        {/* 5. STOCK VOLUME (Matches Blue Accent Column) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                          {Number(item.quantity ?? item.stockVolume ?? 0).toLocaleString()}{' '}
+                          {item.uom || (activeTab === 'finished-goods' ? 'pcs' : 'kg')}
                         </td>
 
-                        {/* MFG DATE */}
-                        <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 6. MFG DATE */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {item.mfgDate ? new Date(item.mfgDate).toLocaleDateString() : 'N/A'}
                         </td>
 
-                        {/* EXPIRY DATE */}
-                        <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {item.expiryDate && item.expiryDate !== 'N/A' && !isNaN(new Date(item.expiryDate).getTime()) ? (
-                            <span className="text-rose-700">{new Date(item.expiryDate).toLocaleDateString()}</span>
-                          ) : item.expDate && item.expDate !== 'N/A' && !isNaN(new Date(item.expDate).getTime()) ? (
-                            <span className="text-rose-700">{new Date(item.expDate).toLocaleDateString()}</span>
+                        {/* 7. EXPIRY DATE */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.expiryDate &&
+                            item.expiryDate !== 'N/A' &&
+                            !isNaN(new Date(item.expiryDate).getTime()) ? (
+                            new Date(item.expiryDate).toLocaleDateString()
+                          ) : item.expDate &&
+                            item.expDate !== 'N/A' &&
+                            !isNaN(new Date(item.expDate).getTime()) ? (
+                            new Date(item.expDate).toLocaleDateString()
                           ) : (
-                            <span className="text-slate-500 font-semibold">N/A</span>
+                            'N/A'
                           )}
                         </td>
 
-                        {/* DAYS REMAINING */}
-                        <td className="py-3.5 px-4 text-center font-mono text-xs font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {item.status === 'Disposed' ? (
-                            <span className="text-slate-400">Written Off</span>
-                          ) : isExpired ? (
-                            <span className="text-rose-600">0d (Expired)</span>
-                          ) : (
-                            <span className={isCritical ? 'text-rose-600' : isNear ? 'text-amber-700' : 'text-[#01390f]'}>
-                              {days}d left
-                            </span>
-                          )}
+                        {/* 8. DAYS REMAINING (Clean Tinted Cell, Dot Removed) */}
+                        <td
+                          className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.status === 'Disposed'
+                              ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                              : isExpired
+                                ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                : isCritical
+                                  ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                  : isNear
+                                    ? 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                                    : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                            }`}
+                        >
+                          <span>
+                            {item.status === 'Disposed'
+                              ? 'Written Off'
+                              : isExpired
+                                ? 'Expired (0d)'
+                                : `${days}d left`}
+                          </span>
                         </td>
 
-                        {/* ACTION (EYE ICON TO VIEW DETAIL) */}
+                        {/* 9. ACTION (STICKY RIGHT) */}
                         <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center">
                             <button
                               type="button"
                               onClick={() => setSelectedExpiryDetail(item)}
@@ -1606,8 +1839,10 @@ function InventoryReports() {
                             className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
                           >
                             {/* CODE */}
-                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {item.code || item.sku || 'FG-001'}
+                            <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                                {item.code || item.sku || 'FG-001'}
+                              </span>
                             </td>
 
                             {/* IMAGE */}
@@ -1615,12 +1850,22 @@ function InventoryReports() {
                               <div className="flex justify-center items-center">
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedImageItem({ ...item, type: 'Finished Good', condition })}
-                                  className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
+                                  onClick={() =>
+                                    setSelectedImageItem({
+                                      ...item,
+                                      type: 'Finished Good',
+                                      condition,
+                                    })
+                                  }
+                                  className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-white"
                                   title="Click to view full product image"
                                 >
                                   <img
-                                    src={resolveItemImageUrl(item.image || item.imageUrl || (Array.isArray(item.images) ? item.images[0] : null))}
+                                    src={resolveItemImageUrl(
+                                      item.image ||
+                                      item.imageUrl ||
+                                      (Array.isArray(item.images) ? item.images[0] : null)
+                                    )}
                                     alt={item.itemName || item.itemDescription || 'Product'}
                                     onError={(e) => {
                                       e.currentTarget.onerror = null;
@@ -1635,41 +1880,45 @@ function InventoryReports() {
                               </div>
                             </td>
 
-                            {/* CATEGORY */}
-                            <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                              {item.category || 'Finished Goods'}
+                            {/* CATEGORY (Pill Badge) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                                {item.category || 'Finished Goods'}
+                              </span>
                             </td>
 
                             {/* ITEM NAME */}
-                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                              {item.itemName || item.name || item.itemDescription || 'Finished Good'}
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-bold text-xs text-slate-800 transition-colors">
+                              {item.itemName ||
+                                item.name ||
+                                item.itemDescription ||
+                                'Finished Good'}
                             </td>
 
-                            {/* QUANTITY & CONDITION */}
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {/* QUANTITY & CONDITION (Blue Highlight Accent Column, No Dot) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 transition-colors">
                               <div className="flex flex-col items-center gap-1">
-                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                <span className="font-mono font-bold text-slate-800 text-xs">
                                   {displayQty}{' '}
-                                  <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                  <span className="text-[10px] text-slate-600 font-normal font-sans">
                                     / {resolved.overstockLimitPoint} max
                                   </span>
                                 </span>
                                 <span
-                                  className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                                  className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${condition.badgeClass}`}
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
                                   {condition.label}
                                 </span>
                               </div>
                             </td>
 
                             {/* SPECIFICATION & UOM */}
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               <div className="flex flex-col items-center gap-1">
-                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                <span className="font-mono font-bold text-slate-800 text-xs">
                                   {item.specification ? item.specification : '-'}
                                 </span>
-                                <span className="inline-flex items-center justify-center text-xs font-bold px-2.5 py-0.5 rounded-md border border-slate-200 bg-slate-100 text-slate-700 uppercase">
+                                <span className="inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-300 bg-slate-100 text-slate-700 uppercase">
                                   {item.uom || 'PCS'}
                                 </span>
                               </div>
@@ -1691,41 +1940,149 @@ function InventoryReports() {
                             className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
                           >
                             {/* CODE */}
-                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              {item.code || item.itemCode || 'RM0001'}
+                            <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                                {item.code || item.itemCode || 'RM0001'}
+                              </span>
                             </td>
 
-                            {/* CATEGORY */}
-                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                              {item.category || 'Raw Materials'}
+                            {/* CATEGORY (Pill Badge) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                                {item.category || 'Raw Materials'}
+                              </span>
                             </td>
 
                             {/* ITEM NAME */}
-                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-bold text-xs text-slate-800 transition-colors">
                               {item.itemName || item.itemDescription || 'Raw Material'}
                             </td>
 
-                            {/* QUANTITY & CONDITION */}
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {/* QUANTITY & CONDITION (Blue Highlight Accent Column, No Dot) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 transition-colors">
                               <div className="flex flex-col items-center gap-1">
-                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                <span className="font-mono font-bold text-slate-800 text-xs">
                                   {displayQty}{' '}
-                                  <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                  <span className="text-[10px] text-slate-600 font-normal font-sans">
                                     / {resolved.overstockLimitPoint} max
                                   </span>
                                 </span>
                                 <span
-                                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                                  className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${condition.badgeClass}`}
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
                                   {condition.label}
                                 </span>
                               </div>
                             </td>
 
                             {/* UOM */}
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-600 uppercase text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <td className="px-4 py-3.5 text-center font-mono text-xs uppercase text-slate-700 whitespace-nowrap font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {item.uom || item.unit || 'pcs'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                    {/* TAB 3: WIP DEFECTIVE / REJECTED UNITS ROWS */}
+                    {activeTab === 'wip-defective' &&
+                      paginatedData.map((item, idx) => {
+                        const targetQty = Number(item.targetQuantity || 0);
+                        const producedQty = Number(item.producedQuantity || 0);
+                        const rejectedQty = Number(item.rejectedQuantity || 0);
+
+                        return (
+                          <tr
+                            key={item._id || item.wipBatchCode || idx}
+                            className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                          >
+                            {/* WIP NO */}
+                            <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                                {item.wipBatchCode || 'WIP-BATCH'}
+                              </span>
+                            </td>
+
+                            {/* PRODUCT / ITEM NAME */}
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-bold text-slate-800 text-xs">
+                                  {item.productName || 'Finished Product'}
+                                </span>
+                                {item.productCode && (
+                                  <span className="font-mono text-[10px] text-slate-500 font-semibold">
+                                    {item.productCode}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* TOTAL COUNT NA PRODUCE (Blue Highlight Accent Column) */}
+                            <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span>{producedQty.toLocaleString()} pcs produced</span>
+                                <span className="text-[10px] text-slate-600 font-sans font-medium">
+                                  Target: {targetQty.toLocaleString()} pcs
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* NABAWAS NA QUANTITY */}
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200">
+                                  -{rejectedQty.toLocaleString()} pcs
+                                </span>
+                                <span className="text-[10px] text-rose-700 font-semibold uppercase tracking-wider">
+                                  {item.rejectionDisposition || 'Scrap / Dispose'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* REASON & DEDUCTION NOTES */}
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col gap-0.5 max-w-xs">
+                                <span className="font-bold text-slate-800 text-xs">
+                                  {item.rejectionReason || 'Quality Defect'}
+                                </span>
+                                {item.rejectionNotes ? (
+                                  <span
+                                    className="text-[11px] text-slate-600 font-normal italic truncate"
+                                    title={item.rejectionNotes}
+                                  >
+                                    "{item.rejectionNotes}"
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-normal italic">
+                                    No deduction notes provided
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* USER / QC APPROVER */}
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="font-bold text-xs text-slate-800 whitespace-nowrap">
+                                {item.rejectionApprover || 'QC Inspector'}
+                              </span>
+                            </td>
+
+                            {/* DATE */}
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <div className="flex flex-col items-center">
+                                <span className="font-mono text-xs font-semibold text-slate-700">
+                                  {new Date(
+                                    item.updatedAt || item.createdAt || item.mfgDate
+                                  ).toLocaleDateString()}
+                                </span>
+                                <span className="font-mono text-[10px] text-slate-400">
+                                  {item.updatedAt
+                                    ? new Date(item.updatedAt).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                    : ''}
+                                </span>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1789,15 +2146,14 @@ function InventoryReports() {
                       const isNear = !isNaN(days) && days > 7 && days <= 30;
 
                       return (
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          isExpired
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${isExpired
                             ? 'bg-rose-100 text-rose-700 border border-rose-200'
                             : isCritical
                               ? 'bg-rose-50 text-rose-700 border border-rose-200'
                               : isNear
                                 ? 'bg-amber-50 text-amber-800 border border-amber-200'
                                 : 'bg-[#EDF7EE] text-[#01390f] border border-[#d5ead7]'
-                        }`}>
+                          }`}>
                           {isExpired ? 'Expired' : isCritical ? 'Critical (≤7d)' : isNear ? 'Near Expiry (≤30d)' : 'Good Condition'}
                         </span>
                       );

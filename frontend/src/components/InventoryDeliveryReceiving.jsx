@@ -37,19 +37,23 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
-import MasterCategoryUomModal from './common/MasterCategoryUomModal';
+import MasterCategoryUomModal, {
+  getStoredCategories,
+  getStoredUOMs,
+  getStoredThresholds,
+} from './common/MasterCategoryUomModal';
 import { getUserFullName } from '../utils/userId';
 
 const DEFAULT_GLOBAL_THRESHOLDS = {
-  criticalLevel: 0,
-  restockWarningPoint: 10,
-  overstockLimitPoint: 200,
+  criticalLevel: 1000,
+  restockWarningPoint: 5000,
+  overstockLimitPoint: 200000,
 };
 
 const DEFAULT_UOM_THRESHOLDS = {
   pcs: { criticalLevel: 0, restockWarningPoint: 10, overstockLimitPoint: 200 },
   kg: { criticalLevel: 0, restockWarningPoint: 5, overstockLimitPoint: 50 },
-  g: { criticalLevel: 0, restockWarningPoint: 500, overstockLimitPoint: 5000 },
+  g: { criticalLevel: 0, restockWarningPoint: 30, overstockLimitPoint: 9999999 },
   l: { criticalLevel: 0, restockWarningPoint: 10, overstockLimitPoint: 100 },
   lt: { criticalLevel: 0, restockWarningPoint: 10, overstockLimitPoint: 100 },
   ml: { criticalLevel: 0, restockWarningPoint: 500, overstockLimitPoint: 5000 },
@@ -162,36 +166,22 @@ function InventoryDeliveryReceiving() {
   const [dateReceived, setDateReceived] = useState(todayDate);
   const [originLocation, setOriginLocation] = useState('');
 
-  // Multi-tier Threshold Rules States
-  const [globalThresholds, setGlobalThresholds] = useState(() => {
-    try {
-      const saved = localStorage.getItem('rawmat_threshold_rules');
-      if (saved) return JSON.parse(saved);
-    } catch (err) {
-      console.error('Failed to load global thresholds:', err);
-    }
-    return DEFAULT_GLOBAL_THRESHOLDS;
-  });
+  // Multi-tier Threshold Rules States (Synced with Raw Materials Master Thresholds)
+  const [defaultThresholds, setDefaultThresholds] = useState(() =>
+    getStoredThresholds('raw_materials')
+  );
 
-  const [uomThresholds, setUomThresholds] = useState(() => {
-    try {
-      const saved = localStorage.getItem('rawmat_uom_thresholds');
-      if (saved) return JSON.parse(saved);
-    } catch (err) {
-      console.error('Failed to load uom thresholds:', err);
-    }
-    return DEFAULT_UOM_THRESHOLDS;
-  });
-
-  const [itemSpecificLimits, setItemSpecificLimits] = useState(() => {
-    try {
-      const saved = localStorage.getItem('rawmat_item_specific_limits');
-      if (saved) return JSON.parse(saved);
-    } catch (err) {
-      console.error('Failed to load specific limits:', err);
-    }
-    return {};
-  });
+  useEffect(() => {
+    const handleThresholdChange = () => {
+      setDefaultThresholds(getStoredThresholds('raw_materials'));
+    };
+    window.addEventListener('inventory_categories_uom_updated', handleThresholdChange);
+    window.addEventListener('storage', handleThresholdChange);
+    return () => {
+      window.removeEventListener('inventory_categories_uom_updated', handleThresholdChange);
+      window.removeEventListener('storage', handleThresholdChange);
+    };
+  }, []);
 
   // Search & Raw Material Selection
   const [rawMaterialsList, setRawMaterialsList] = useState([]);
@@ -350,84 +340,54 @@ function InventoryDeliveryReceiving() {
     return filteredInboundLogs.slice(start, start + logPerPage);
   }, [filteredInboundLogs, logPage, logPerPage]);
 
-  // Helper: Resolve effective threshold for an item based on item's own limits, material-specific, UOM, or global default
+  // Helper: Resolve effective threshold for an item based on its direct limits, raw materials master list, or dynamic defaults
   const getResolvedThreshold = useCallback(
-    (item, gRules = globalThresholds, uRules = uomThresholds, sLimits = itemSpecificLimits) => {
-      // 0. Direct Item thresholds configured from Raw Materials master list
+    (item) => {
+      // 0. Match with raw material in master rawMaterialsList if not directly carrying explicit limits
+      const rawMat =
+        item && (item.overstockLimitPoint !== undefined || item.criticalLevel !== undefined)
+          ? item
+          : rawMaterialsList.find(
+              (m) =>
+                (m._id || m.id) === (item?._id || item?.id || item?.rawMaterialId) ||
+                (m.code && item?.code && m.code.toLowerCase() === item.code.toLowerCase())
+            ) || item;
+
+      // 1. Direct Item thresholds configured from Raw Materials master list
       if (
-        item?.overstockLimitPoint !== undefined ||
-        item?.maxLimit !== undefined ||
-        item?.thresholds?.overstockLimitPoint !== undefined
+        rawMat?.overstockLimitPoint !== undefined ||
+        rawMat?.maxLimit !== undefined ||
+        rawMat?.thresholds?.overstockLimitPoint !== undefined
       ) {
         return {
-          criticalLevel: Number(item?.criticalLevel ?? item?.thresholds?.criticalLevel ?? gRules.criticalLevel ?? 0),
-          restockWarningPoint: Number(item?.restockWarningPoint ?? item?.thresholds?.restockWarningPoint ?? gRules.restockWarningPoint ?? 10),
-          overstockLimitPoint: Number(item?.overstockLimitPoint ?? item?.maxLimit ?? item?.thresholds?.overstockLimitPoint ?? gRules.overstockLimitPoint ?? 1000),
+          criticalLevel: Number(rawMat?.criticalLevel ?? rawMat?.thresholds?.criticalLevel ?? defaultThresholds.criticalLevel ?? 1000),
+          restockWarningPoint: Number(rawMat?.restockWarningPoint ?? rawMat?.thresholds?.restockWarningPoint ?? defaultThresholds.restockWarningPoint ?? 5000),
+          overstockLimitPoint: Number(rawMat?.overstockLimitPoint ?? rawMat?.maxLimit ?? rawMat?.thresholds?.overstockLimitPoint ?? defaultThresholds.overstockLimitPoint ?? 200000),
         };
       }
 
-      const itemId = item?._id || item?.id || item?.rawMaterialId;
-      const code = item?.code || item?.itemCode;
-
-      // 1. Material specific override
-      if (itemId && sLimits[itemId] !== undefined) {
-        return {
-          criticalLevel: Number(gRules.criticalLevel ?? 0),
-          restockWarningPoint: Number(gRules.restockWarningPoint ?? 10),
-          overstockLimitPoint: Number(sLimits[itemId]),
-        };
-      }
-      if (code && sLimits[code] !== undefined) {
-        return {
-          criticalLevel: Number(gRules.criticalLevel ?? 0),
-          restockWarningPoint: Number(gRules.restockWarningPoint ?? 10),
-          overstockLimitPoint: Number(sLimits[code]),
-        };
-      }
-
-      // 2. UOM specific rules
-      const uomKey = (item?.uom || item?.unit || 'pcs').toLowerCase().trim();
-      if (uRules && uRules[uomKey]) {
-        return {
-          criticalLevel: Number(uRules[uomKey].criticalLevel ?? 0),
-          restockWarningPoint: Number(uRules[uomKey].restockWarningPoint ?? 10),
-          overstockLimitPoint: Number(uRules[uomKey].overstockLimitPoint ?? 200),
-        };
-      }
-
-      // 3. Global fallback
+      // 2. Global fallback from MasterCategoryUomModal
       return {
-        criticalLevel: Number(gRules.criticalLevel ?? 0),
-        restockWarningPoint: Number(gRules.restockWarningPoint ?? 10),
-        overstockLimitPoint: Number(gRules.overstockLimitPoint ?? 200),
+        criticalLevel: Number(defaultThresholds?.criticalLevel ?? 1000),
+        restockWarningPoint: Number(defaultThresholds?.restockWarningPoint ?? 5000),
+        overstockLimitPoint: Number(defaultThresholds?.overstockLimitPoint ?? 200000),
       };
     },
-    [globalThresholds, uomThresholds, itemSpecificLimits]
+    [rawMaterialsList, defaultThresholds]
   );
 
-  // Helper: Calculate stock condition status
+  // Helper: Calculate stock condition status (strictly matches InventoryRawMaterials condition rules)
   const calculateProjectedStatus = useCallback(
     (currentStock, qtyReceived, item) => {
       const current = Number(currentStock) || 0;
       const rules = getResolvedThreshold(item);
-      const critical = Number(rules?.criticalLevel ?? 0);
-      const restock = Number(rules?.restockWarningPoint ?? 10);
-      const maxLimit = Number(rules?.overstockLimitPoint ?? 200);
+      const critical = Number(rules?.criticalLevel ?? 1000);
+      const restock = Number(rules?.restockWarningPoint ?? 5000);
+      const maxLimit = Number(rules?.overstockLimitPoint ?? 200000);
 
       const received = Number(qtyReceived) || 0;
       const projected = current + received;
 
-      if (projected > maxLimit) {
-        return {
-          key: 'Overstock',
-          label: 'Overstock Limit Exceeded',
-          isOverLimit: true,
-          overAmount: projected - maxLimit,
-          maxLimit,
-          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
-          dotClass: 'bg-blue-500',
-        };
-      }
       if (projected <= critical) {
         return {
           key: 'Critical Alert',
@@ -448,13 +408,24 @@ function InventoryDeliveryReceiving() {
           dotClass: 'bg-amber-500',
         };
       }
+      if (projected <= maxLimit) {
+        return {
+          key: 'Healthy',
+          label: 'Healthy',
+          isOverLimit: false,
+          maxLimit,
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
+          dotClass: 'bg-emerald-500',
+        };
+      }
       return {
-        key: 'Healthy',
-        label: 'Healthy',
-        isOverLimit: false,
+        key: 'Overstock',
+        label: 'Overstock',
+        isOverLimit: true,
+        overAmount: projected - maxLimit,
         maxLimit,
-        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
-        dotClass: 'bg-emerald-500',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
+        dotClass: 'bg-blue-500',
       };
     },
     [getResolvedThreshold]
@@ -607,16 +578,35 @@ function InventoryDeliveryReceiving() {
     const initialRawQty = 1;
     const factor = getConversionFactor(receivingUnit, baseUom);
     const initialConverted = parseFloat((initialRawQty * factor).toFixed(2));
+    const cleanItemName =
+      (item.itemName && item.itemName.trim() !== '' && item.itemName.trim() !== '-')
+        ? item.itemName.trim()
+        : (item.name && item.name.trim() !== '' && item.name.trim() !== '-')
+          ? item.name.trim()
+          : (item.itemDescription && item.itemDescription.trim() !== '' && item.itemDescription.trim() !== '-')
+            ? item.itemDescription.trim()
+            : 'Raw Material';
+
+    const cleanItemDesc =
+      item.itemDescription && item.itemDescription.trim() !== '' && item.itemDescription.trim() !== '-'
+        ? item.itemDescription.trim()
+        : cleanItemName;
+
     const newItem = {
       lineKey: `${itemId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       rawMaterialId: itemId,
       code: item.code || item.itemCode || 'N/A',
-      itemName: item.itemName || item.name || item.itemDescription || item.description || '',
-      itemDescription: item.itemDescription || item.description || item.itemName || '',
+      itemName: cleanItemName,
+      itemDescription: cleanItemDesc,
       specification: item.specification || item.spec || '',
       category: item.category || 'Raw Material',
       segment: item.segment || '',
       currentStock: Number(item.quantity ?? item.qty ?? 0),
+      criticalLevel: item.criticalLevel,
+      restockWarningPoint: item.restockWarningPoint,
+      overstockLimitPoint: item.overstockLimitPoint,
+      thresholds: item.thresholds,
+      qcStatus: item.qcStatus || 'Pass',
       rawInputQty: initialRawQty,
       receivingUnit: receivingUnit,
       quantityReceived: initialConverted,
@@ -1141,12 +1131,12 @@ function InventoryDeliveryReceiving() {
   const hasOverstockItems = useMemo(() => {
     return selectedItems.some((item) => {
       const rules = getResolvedThreshold(item);
-      const limit = Number(rules?.overstockLimitPoint ?? 200);
+      const limit = Number(rules?.overstockLimitPoint ?? defaultThresholds?.overstockLimitPoint ?? 200000);
       const current = Number(item.currentStock || 0);
       const received = Number(item.quantityReceived || 1);
       return current + received > limit;
     });
-  }, [selectedItems, getResolvedThreshold]);
+  }, [selectedItems, getResolvedThreshold, defaultThresholds]);
 
   const hasBlockedSpec = hasOverstockItems;
 
@@ -1374,7 +1364,21 @@ function InventoryDeliveryReceiving() {
                         const segment = item.Segment || item.segment || item.category;
                         const count = item.ActualCount || item.actualCount || item.AvailableStock || item.currentStock || item.quantity || 0;
                         const uom = item.UOM || item.uom || item.unit || 'pcs';
-                        const desc = item.ItemDescription || item.itemDescription || item.itemName || item.name || 'Raw Material';
+                        const displayName =
+                          (item.itemName && item.itemName.trim() !== '' && item.itemName.trim() !== '-')
+                            ? item.itemName.trim()
+                            : (item.name && item.name.trim() !== '' && item.name.trim() !== '-')
+                              ? item.name.trim()
+                              : (item.itemDescription && item.itemDescription.trim() !== '' && item.itemDescription.trim() !== '-')
+                                ? item.itemDescription.trim()
+                                : 'Raw Material';
+                        const secondaryDesc =
+                          item.itemDescription &&
+                          item.itemDescription.trim() !== '' &&
+                          item.itemDescription.trim() !== '-' &&
+                          item.itemDescription.trim().toLowerCase() !== displayName.toLowerCase()
+                            ? item.itemDescription.trim()
+                            : '';
                         const code = item.Code || item.code || item.itemCode || 'RM-N/A';
                         const isAdded = selectedItems.some((i) => i.rawMaterialId === itemId);
 
@@ -1388,7 +1392,7 @@ function InventoryDeliveryReceiving() {
                             <div className="flex flex-col min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-sm text-slate-800 whitespace-normal break-words">
-                                  {desc}
+                                  {displayName}
                                 </span>
                                 {dimension && (
                                   <span className="font-mono text-xs font-bold px-2 py-0.5 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
@@ -1396,6 +1400,11 @@ function InventoryDeliveryReceiving() {
                                   </span>
                                 )}
                               </div>
+                              {secondaryDesc && (
+                                <span className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 font-normal">
+                                  {secondaryDesc}
+                                </span>
+                              )}
                               <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
                                 {segment && (
                                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border bg-slate-100 border-slate-200 text-slate-600">
@@ -1479,6 +1488,7 @@ function InventoryDeliveryReceiving() {
                           const current = Number(item.currentStock || 0);
                           const convertedQty = Number(item.quantityReceived || 0);
                           const projected = current + convertedQty;
+                          const currentStatus = calculateProjectedStatus(current, 0, item);
                           const status = calculateProjectedStatus(current, convertedQty, item);
                           const limit = status.maxLimit;
                           const availableUnits = getAvailableReceivingUnits(item.uom);
@@ -1500,12 +1510,20 @@ function InventoryDeliveryReceiving() {
 
                           {/* 3. CURRENT STOCK */}
                           <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <span className="font-mono font-bold text-slate-900 text-sm">
-                              {current.toLocaleString()}{' '}
-                              <span className="text-[10px] text-slate-400 font-normal font-sans uppercase">
-                                {item.uom}
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="font-mono font-bold text-slate-900 text-sm">
+                                {current.toLocaleString()}{' '}
+                                <span className="text-[10px] text-slate-400 font-normal font-sans uppercase">
+                                  {item.uom}
+                                </span>
                               </span>
-                            </span>
+                              <span
+                                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md border ${currentStatus.badgeClass}`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${currentStatus.dotClass}`}></span>
+                                {currentStatus.label}
+                              </span>
+                            </div>
                           </td>
 
                           {/* 4. QTY RECEIVED */}
@@ -2137,7 +2155,7 @@ function InventoryDeliveryReceiving() {
                   <div className="border border-slate-200/80 rounded-2xl overflow-hidden divide-y divide-slate-100 max-h-48 overflow-y-auto pr-1">
                     {selectedItems.map((item, index) => {
                       const rules = getResolvedThreshold(item);
-                      const limit = Number(rules?.overstockLimitPoint ?? 200);
+                      const limit = Number(rules?.overstockLimitPoint ?? defaultThresholds?.overstockLimitPoint ?? 200000);
                       const current = Number(item.currentStock || 0);
                       const received = Number(item.quantityReceived || 1);
                       const projected = current + received;

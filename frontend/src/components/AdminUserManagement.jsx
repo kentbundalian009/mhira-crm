@@ -717,7 +717,7 @@ function AdminUserManagement() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
                     <td
@@ -748,7 +748,7 @@ function AdminUserManagement() {
                       className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                     >
                       {/* FULL NAME & USERNAME */}
-                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      <td className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-slate-200 shadow-2xs flex items-center justify-center bg-[#01390f] text-white text-xs font-bold">
                             {user.profileImage || user.ProfileImage ? (
@@ -783,19 +783,19 @@ function AdminUserManagement() {
                       </td>
 
                       {/* EMP NO / CUSTOMER NO */}
-                      <td className="py-3.5 px-4 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      <td className="px-4 py-3.5 whitespace-nowrap font-mono font-bold text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {user.customerNo || user.empNo || user.emp_no || 'N/A'}
                       </td>
 
                       {/* EMAIL */}
-                      <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      <td className="px-4 py-3.5 font-mono text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {user.email || 'N/A'}
                       </td>
 
                       {/* ROLE */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                             user.role === 'Admin'
                               ? 'bg-rose-50 text-rose-700 border-rose-200/70'
                               : user.role === 'Inventory'
@@ -813,8 +813,8 @@ function AdminUserManagement() {
                         </span>
                       </td>
 
-                      {/* ACCESS STATUS & EMAIL SECURITY */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      {/* ACCESS STATUS & EMAIL SECURITY (Blue Accent Column matching Raw Materials Volume/Qty) */}
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 transition-colors">
                         <div className="flex flex-col items-center gap-1">
                           {user.isArchived ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-700 border-amber-200/80">
@@ -822,21 +822,21 @@ function AdminUserManagement() {
                               <span>Archived</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-emerald-50 text-emerald-700 border-emerald-200/80">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-emerald-50 text-emerald-800 border-emerald-200/80">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                               <span>Active</span>
                             </span>
                           )}
 
                           {user.isEmailVerified ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
                               <ShieldCheck className="w-3 h-3 text-emerald-600" /> Verified
                             </span>
                           ) : user.role === 'Customer' ? (
                             <button
                               type="button"
                               onClick={() => handleSendVerificationLink(user.email, user.fullName || user.username)}
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md transition-all cursor-pointer shadow-2xs active:scale-95"
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full transition-all cursor-pointer shadow-2xs active:scale-95"
                               title="Send email verification link to customer"
                             >
                               <Mail className="w-2.5 h-2.5" /> Send Verification Link
@@ -846,7 +846,7 @@ function AdminUserManagement() {
                               <button
                                 type="button"
                                 onClick={() => handleSendVerificationLink(user.email, user.fullName || user.username)}
-                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-md transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full transition-all cursor-pointer shadow-2xs active:scale-95"
                                 title="Send verification link to staff email"
                               >
                                 <Mail className="w-2.5 h-2.5" /> Send Link
@@ -854,7 +854,7 @@ function AdminUserManagement() {
                               <button
                                 type="button"
                                 onClick={() => handlePromptVerifyCode(user.email)}
-                                className="inline-flex items-center text-[10px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-1.5 py-0.5 rounded-md transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="inline-flex items-center text-[10px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-1.5 py-0.5 rounded-full transition-all cursor-pointer shadow-2xs active:scale-95"
                                 title="Enter 6-digit code provided by staff"
                               >
                                 Verify
@@ -865,7 +865,7 @@ function AdminUserManagement() {
                       </td>
 
                       {/* REGISTERED DATE */}
-                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs text-slate-500 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap font-mono text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                         {new Date(
                           user.createdAt || user.dateAdded || Date.now()
                         ).toLocaleDateString([], {

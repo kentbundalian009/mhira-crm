@@ -530,8 +530,8 @@ function InventoryExpiryMonitoring() {
                     type="button"
                     onClick={() => handleTabChange(mod.id)}
                     className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 ${isActive
-                        ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
+                      ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
                       }`}
                   >
                     <IconComponent className={`w-3.5 h-3.5 ${isActive ? 'text-[#01390f]' : 'text-slate-500'}`} />
@@ -659,8 +659,8 @@ function InventoryExpiryMonitoring() {
                       if (!showCriticalOnly) setShowExpiredOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs whitespace-nowrap ${showCriticalOnly
-                        ? 'bg-rose-50 text-rose-700 border border-rose-300'
-                        : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-300'
+                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title="Filter Critical Batches (<= 30 days left)"
                   >
@@ -677,8 +677,8 @@ function InventoryExpiryMonitoring() {
                       if (!showExpiredOnly) setShowCriticalOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs whitespace-nowrap ${showExpiredOnly
-                        ? 'bg-red-50 text-red-700 border border-red-300'
-                        : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                      ? 'bg-red-50 text-red-700 border border-red-300'
+                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title="Filter Expired Batches"
                   >
@@ -748,100 +748,123 @@ function InventoryExpiryMonitoring() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="9"
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Fetching shelf life and expiry records...</span>
                       </div>
                     </td>
                   </tr>
-                ) : paginatedItems.map((item, idx) => (
-                  <tr
-                    key={item._id || idx}
-                    className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
-                  >
-                    {/* ITEM CODE */}
-                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.code || 'N/A'}
-                    </td>
+                ) : (
+                  paginatedItems.map((item, idx) => {
+                    const days = Number(item.daysUntilExpiry ?? 0);
+                    const isExpired = !isNaN(days) && days <= 0;
+                    const isCritical = !isNaN(days) && days > 0 && days <= 30;
+                    const isNear = !isNaN(days) && days > 30 && days <= 60;
 
-                    {/* BATCH / LOT NO */}
-                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.batchNo || 'N/A'}
-                    </td>
+                    return (
+                      <tr
+                        key={item._id || idx}
+                        className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                      >
+                        {/* 1. ITEM CODE */}
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                            {item.code || 'N/A'}
+                          </span>
+                        </td>
 
-                    {/* CATEGORY */}
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.category || 'General'}
-                    </td>
+                        {/* 2. BATCH / LOT NO */}
+                        <td className="px-4 py-3.5 font-mono font-semibold text-xs text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.batchNo || 'N/A'}
+                        </td>
 
-                    {/* ITEM NAME */}
-                    <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.itemDescription || item.itemName || 'N/A'}
-                    </td>
+                        {/* 3. CATEGORY (Pill Badge) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                            {item.category || 'General'}
+                          </span>
+                        </td>
 
-                    {/* STOCK VOLUME */}
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {Number(item.quantity ?? 0).toLocaleString()} {item.uom || 'pcs'}
-                    </td>
-
-                    {/* MFG DATE */}
-                    <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.mfgDate ? new Date(item.mfgDate).toLocaleDateString() : 'N/A'}
-                    </td>
-
-                    {/* EXPIRY DATE */}
-                    <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.expiryDate && item.expiryDate !== 'N/A' && !isNaN(new Date(item.expiryDate).getTime()) ? (
-                        <span className="text-rose-700">{new Date(item.expiryDate).toLocaleDateString()}</span>
-                      ) : (
-                        <span className="text-slate-500 font-semibold">N/A</span>
-                      )}
-                    </td>
-
-                    {/* DAYS REMAINING */}
-                    <td className="py-3.5 px-4 text-center font-mono text-xs font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.status === 'Disposed' ? (
-                        <span className="text-slate-400">Written Off</span>
-                      ) : item.daysUntilExpiry <= 0 ? (
-                        <span className="text-rose-600">0d (Expired)</span>
-                      ) : (
-                        <span
-                          className={
-                            item.daysUntilExpiry <= 30
-                              ? 'text-rose-600'
-                              : item.daysUntilExpiry <= 60
-                                ? 'text-amber-700'
-                                : 'text-[#01390f]'
-                          }
+                        {/* 4. ITEM NAME */}
+                        <td
+                          className="px-4 py-3.5 font-semibold text-xs text-slate-900 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          title={item.itemDescription || item.itemName}
                         >
-                          {item.daysUntilExpiry}d left
-                        </span>
-                      )}
-                    </td>
+                          {item.itemDescription || item.itemName || 'N/A'}
+                        </td>
 
-                    {/* ACTION COLUMN (EYE ICON BUTTON TO OPEN DETAIL MODAL) */}
-                    <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedItem(item)}
-                          title="View Expiry Details"
-                          className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                        {/* 5. STOCK VOLUME (Matches Blue Accent Column) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                          {Number(item.quantity ?? 0).toLocaleString()} {item.uom || 'pcs'}
+                        </td>
+
+                        {/* 6. MFG DATE */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.mfgDate ? new Date(item.mfgDate).toLocaleDateString() : 'N/A'}
+                        </td>
+
+                        {/* 7. EXPIRY DATE */}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {item.expiryDate &&
+                            item.expiryDate !== 'N/A' &&
+                            !isNaN(new Date(item.expiryDate).getTime())
+                            ? new Date(item.expiryDate).toLocaleDateString()
+                            : 'N/A'}
+                        </td>
+
+                        {/* 8. DAYS REMAINING (Clean Tinted Cell, Dot Removed) */}
+                        <td
+                          className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.status === 'Disposed'
+                              ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                              : isExpired
+                                ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                : isCritical
+                                  ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                  : isNear
+                                    ? 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                                    : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                            }`}
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <span>
+                            {item.status === 'Disposed'
+                              ? 'Written Off'
+                              : isExpired
+                                ? 'Expired (0d)'
+                                : `${days}d left`}
+                          </span>
+                        </td>
+
+                        {/* 9. ACTION (Sticky Right) */}
+                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedItem(item)}
+                              title="View Expiry Details"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
 
                 {!loading && filteredItems.length === 0 && (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="9"
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
                       {viewMode === 'finished-goods'
                         ? 'No finished goods expiry records matched your search or filter criteria.'
                         : 'No raw materials expiry records matched your search or filter criteria.'}

@@ -474,7 +474,7 @@ function AdminUserActivity() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
                     <td
@@ -499,7 +499,7 @@ function AdminUserActivity() {
                 ) : (
                   paginatedActivities.map((log, index) => {
                     const logDate = log.createdAt
-                      ? new Date(log.createdAt).toLocaleDateString()
+                        ? new Date(log.createdAt).toLocaleDateString()
                       : log.date || 'Today';
                     const logTime = log.createdAt
                       ? new Date(log.createdAt).toLocaleTimeString([], {
@@ -520,14 +520,16 @@ function AdminUserActivity() {
                             <div className="w-7 h-7 rounded-full bg-[#01390f]/10 text-[#01390f] font-bold text-xs flex items-center justify-center shrink-0">
                               <User size={13} />
                             </div>
-                            <span>{log.username || 'System'}</span>
+                            <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                              {log.username || 'System'}
+                            </span>
                           </div>
                         </td>
 
                         {/* ROLE */}
                         <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${getRoleBadgeStyle(
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getRoleBadgeStyle(
                               log.role
                             )}`}
                           >
@@ -536,14 +538,14 @@ function AdminUserActivity() {
                         </td>
 
                         {/* MODULE */}
-                        <td className="px-4 py-3.5 whitespace-nowrap font-semibold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-md border border-slate-200 text-xs">
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-[#01390f] px-2.5 py-0.5 rounded-full border border-emerald-200 text-[11px] font-semibold">
                             {log.module || 'General'}
                           </span>
                         </td>
 
-                        {/* OPERATION */}
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* OPERATION (Signature Blue Accent Cell matching Raw Materials Volume/Qty) */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 transition-colors">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${getOperationBadge(
                               log.operation || log.action
@@ -555,7 +557,7 @@ function AdminUserActivity() {
 
                         {/* ACTION LOG DETAIL */}
                         <td
-                          className="px-4 py-3.5 max-w-md truncate text-slate-700 font-normal whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                          className="px-4 py-3.5 max-w-md truncate text-slate-700 font-normal whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors text-xs"
                           title={log.action || log.description}
                         >
                           {log.action || log.description || 'System operation executed'}

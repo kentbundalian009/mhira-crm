@@ -1585,11 +1585,14 @@ function InventoryRawMaterials() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {showExpiryOnly ? (
                   loadingExpiry ? (
                     <tr>
-                      <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                      <td
+                        colSpan="9"
+                        className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                      >
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="w-5 h-5 animate-spin" />
                           <span>Fetching raw materials expiry records...</span>
@@ -1598,7 +1601,10 @@ function InventoryRawMaterials() {
                     </tr>
                   ) : filteredExpiryMaterials.length === 0 ? (
                     <tr>
-                      <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                      <td
+                        colSpan="9"
+                        className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                      >
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Info className="w-6 h-6 text-slate-300" />
                           <span>No raw materials expiry records matched your search or filter criteria.</span>
@@ -1607,7 +1613,10 @@ function InventoryRawMaterials() {
                     </tr>
                   ) : (
                     paginatedExpiryMaterials.map((item, idx) => {
-                      const days = item.daysUntilExpiry !== undefined ? Number(item.daysUntilExpiry) : Number(item.daysRemaining);
+                      const days =
+                        item.daysUntilExpiry !== undefined
+                          ? Number(item.daysUntilExpiry)
+                          : Number(item.daysRemaining);
                       const isExpired = !isNaN(days) && days <= 0;
                       const isCritical = !isNaN(days) && days > 0 && days <= 7;
                       const isNear = !isNaN(days) && days > 7 && days <= 30;
@@ -1618,27 +1627,34 @@ function InventoryRawMaterials() {
                           className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                         >
                           {/* 1. ITEM CODE */}
-                          <td className="px-4 py-3.5 font-mono font-bold text-xs text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            {item.code || 'N/A'}
+                          <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                              {item.code || 'N/A'}
+                            </span>
                           </td>
 
                           {/* 2. BATCH / LOT NO */}
-                          <td className="px-4 py-3.5 font-mono font-semibold text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <td className="px-4 py-3.5 font-mono font-semibold text-xs text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                             {item.batchNo || 'N/A'}
                           </td>
 
-                          {/* 3. CATEGORY */}
-                          <td className="px-4 py-3.5 font-medium text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            {item.category || 'Raw Materials'}
+                          {/* 3. CATEGORY (Pill Badge matching Target Audience) */}
+                          <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                              {item.category || 'Raw Materials'}
+                            </span>
                           </td>
 
                           {/* 4. ITEM NAME */}
-                          <td className="px-4 py-3.5 font-bold text-xs text-slate-800 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors" title={item.itemDescription || item.itemName}>
+                          <td
+                            className="px-4 py-3.5 font-semibold text-xs text-slate-900 whitespace-nowrap max-w-xs truncate bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
+                            title={item.itemDescription || item.itemName}
+                          >
                             {item.itemDescription || item.itemName || 'N/A'}
                           </td>
 
-                          {/* 5. STOCK VOLUME (Blue Accent Column) */}
-                          <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                          {/* 5. STOCK VOLUME (Matches Blue Accent Column) */}
+                          <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
                             {Number(item.quantity ?? 0).toLocaleString()} {item.uom || 'pcs'}
                           </td>
 
@@ -1649,45 +1665,35 @@ function InventoryRawMaterials() {
 
                           {/* 7. EXPIRY DATE */}
                           <td className="px-4 py-3.5 text-center font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            {item.expiryDate && item.expiryDate !== 'N/A' && !isNaN(new Date(item.expiryDate).getTime())
+                            {item.expiryDate &&
+                              item.expiryDate !== 'N/A' &&
+                              !isNaN(new Date(item.expiryDate).getTime())
                               ? new Date(item.expiryDate).toLocaleDateString()
                               : 'N/A'}
                           </td>
 
-                          {/* 8. DAYS REMAINING / STATUS (Conditional Background Tint) */}
+                          {/* 8. DAYS REMAINING / STATUS (Dot removed, purely clean tinted cell) */}
                           <td
-                            className={`px-4 py-3.5 text-center font-mono text-xs font-bold whitespace-nowrap transition-colors select-none text-slate-800 ${item.status === 'Disposed'
-                              ? 'bg-slate-500/10 group-hover:bg-slate-500/20 text-slate-500'
-                              : isExpired || isCritical
-                                ? 'bg-rose-500/20 group-hover:bg-rose-500/30'
-                                : isNear
-                                  ? 'bg-amber-500/20 group-hover:bg-amber-500/30'
-                                  : 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
+                            className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.status === 'Disposed'
+                                ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                                : isExpired || isCritical
+                                  ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                  : isNear
+                                    ? 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                                    : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
                               }`}
                           >
-                            <span className="inline-flex items-center gap-1.5">
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${item.status === 'Disposed'
-                                  ? 'bg-slate-400'
-                                  : isExpired || isCritical
-                                    ? 'bg-rose-500'
-                                    : isNear
-                                      ? 'bg-amber-500'
-                                      : 'bg-emerald-500 animate-pulse'
-                                  }`}
-                              />
-                              <span>
-                                {item.status === 'Disposed'
-                                  ? 'Written Off'
-                                  : isExpired
-                                    ? 'Expired (0d)'
-                                    : `${days}d left`}
-                              </span>
+                            <span>
+                              {item.status === 'Disposed'
+                                ? 'Written Off'
+                                : isExpired
+                                  ? 'Expired (0d)'
+                                  : `${days}d left`}
                             </span>
                           </td>
 
-                          {/* 9. ACTION (STICKY RIGHT) */}
-                          <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px]">
+                          {/* 9. ACTION (Sticky Right) */}
+                          <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px]">
                             <div className="flex items-center justify-center">
                               <button
                                 type="button"
@@ -1707,7 +1713,10 @@ function InventoryRawMaterials() {
                   <>
                     {loading ? (
                       <tr>
-                        <td colSpan="6" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                        <td
+                          colSpan="6"
+                          className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                        >
                           <div className="flex items-center justify-center gap-2">
                             <Loader2 className="w-5 h-5 animate-spin" />
                             <span>Loading raw materials...</span>
@@ -1719,7 +1728,6 @@ function InventoryRawMaterials() {
                         const displayCode = item.code || item.itemCode || 'N/A';
                         const displayCat = item.category || 'Materials';
                         const displayName = item.itemName || 'N/A';
-                        const displayDesc = item.itemDescription || item.description || 'N/A';
                         const displayQty = Number(item.quantity ?? item.qty ?? 0);
                         const displayUom = item.uom || item.unit || 'pcs';
                         const condition = getStockCondition(displayQty, item);
@@ -1731,39 +1739,43 @@ function InventoryRawMaterials() {
                             className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
                           >
                             {/* CODE */}
-                            <td className="py-3.5 px-4 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-mono font-semibold text-slate-600 whitespace-nowrap">
-                              <span>{displayCode}</span>
+                            <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                              <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                                {displayCode}
+                              </span>
                             </td>
 
                             {/* CATEGORY */}
-                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                              {displayCat}
-
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-medium text-xs text-slate-600 transition-colors">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                                {displayCat}
+                              </span>
                             </td>
 
                             {/* ITEM NAME */}
-                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-bold text-xs text-slate-800 transition-colors">
                               {displayName}
                             </td>
 
-                            {/* QUANTITY */}
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {/* QUANTITY & CONDITION (Blue cell tint para cohesive sa volume) */}
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 transition-colors">
                               <div className="flex flex-col items-center gap-1">
-                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                <span className="font-mono font-bold text-slate-900 text-xs">
                                   {displayQty}{' '}
-                                  <span className="text-[10px] text-slate-400 font-normal font-sans">
+                                  <span className="text-[10px] text-slate-600 font-normal font-sans">
                                     / {resolvedRules.overstockLimitPoint} max
                                   </span>
                                 </span>
                                 <span
-                                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${condition.badgeClass}`}
+                                  className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${condition.badgeClass}`}
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${condition.dotClass}`}></span>
                                   {condition.label}
                                 </span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 text-center font-mono text-xs uppercase text-slate-600 whitespace-nowrap font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+
+                            {/* UOM */}
+                            <td className="px-4 py-3.5 text-center font-mono text-xs uppercase text-slate-700 whitespace-nowrap font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {displayUom}
                             </td>
 
@@ -1818,7 +1830,10 @@ function InventoryRawMaterials() {
 
                     {!loading && filteredMaterials.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                        <td
+                          colSpan="6"
+                          className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                        >
                           <div className="flex flex-col items-center justify-center gap-2">
                             <Info className="w-6 h-6 text-slate-300" />
                             <span>

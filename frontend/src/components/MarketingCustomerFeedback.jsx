@@ -41,7 +41,7 @@ function MarketingCustomerFeedback() {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch (e) {}
+    } catch (e) { }
     return INITIAL_DEFAULT_PRODUCTS;
   });
   const [catalogProducts, setCatalogProducts] = useState(() => {
@@ -51,7 +51,7 @@ function MarketingCustomerFeedback() {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [loading, setLoading] = useState(true);
@@ -229,12 +229,12 @@ function MarketingCustomerFeedback() {
 
     const candidateName = String(
       rev.itemName ||
-        rev.productName ||
-        colObj?.itemName ||
-        colObj?.itemDescription ||
-        matchedCat?.itemName ||
-        matchedCat?.itemDescription ||
-        ''
+      rev.productName ||
+      colObj?.itemName ||
+      colObj?.itemDescription ||
+      matchedCat?.itemName ||
+      matchedCat?.itemDescription ||
+      ''
     ).toLowerCase().trim();
 
     const allFg = [...finishedGoods, ...INITIAL_DEFAULT_PRODUCTS];
@@ -465,11 +465,10 @@ function MarketingCustomerFeedback() {
             <button
               type="button"
               onClick={() => setRatingFilter('All')}
-              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${
-                ratingFilter === 'All'
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
+              className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${ratingFilter === 'All'
+                ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
               <span>All Reviews</span>
@@ -479,23 +478,20 @@ function MarketingCustomerFeedback() {
               <button
                 type="button"
                 onClick={() => setRatingFilter(ratingFilter === 'unread' ? 'All' : 'unread')}
-                className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${
-                  ratingFilter === 'unread'
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                }`}
+                className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${ratingFilter === 'unread'
+                  ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  }`}
                 title="Filter by unread customer comments"
               >
                 <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
                 <span>Unread Comments</span>
                 <span
-                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${
-                    unreadCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
-                  } ${
-                    ratingFilter === 'unread'
+                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${unreadCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
+                    } ${ratingFilter === 'unread'
                       ? 'bg-[#c81e1e] text-white'
                       : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
-                  }`}
+                    }`}
                 >
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
@@ -631,8 +627,8 @@ function MarketingCustomerFeedback() {
                   type="button"
                   onClick={() => setRatingFilter(ratingFilter === '5' ? 'All' : '5')}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${ratingFilter === '5'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
                   5 Stars Only
@@ -642,8 +638,8 @@ function MarketingCustomerFeedback() {
                   type="button"
                   onClick={() => setRatingFilter(ratingFilter === 'low' ? 'All' : 'low')}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${ratingFilter === 'low'
-                      ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
                   Critical (≤ 3★)
@@ -653,8 +649,8 @@ function MarketingCustomerFeedback() {
                   type="button"
                   onClick={() => setSortOrder(sortOrder === 'highest' ? 'newest' : 'highest')}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${sortOrder === 'highest'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
                   Highest First
@@ -699,10 +695,13 @@ function MarketingCustomerFeedback() {
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">DATE</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="7"
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Loading verified customer feedback...</span>
@@ -711,10 +710,18 @@ function MarketingCustomerFeedback() {
                   </tr>
                 ) : paginatedReviews.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
-                      {searchQuery || ratingFilter !== 'All'
-                        ? 'No reviews match your filter criteria.'
-                        : 'No customer feedback received yet.'}
+                    <td
+                      colSpan="7"
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Info className="w-6 h-6 text-slate-300" />
+                        <span>
+                          {searchQuery || ratingFilter !== 'All'
+                            ? 'No reviews match your filter criteria.'
+                            : 'No customer feedback received yet.'}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -723,75 +730,75 @@ function MarketingCustomerFeedback() {
                     const customerName = rev.userName || 'Verified Buyer';
                     const customerEmail = resolveCustomerEmail(rev);
                     const { itemProfile, specification, uom } = resolveReviewProductInfo(rev);
+                    const hasUnread =
+                      !rev.isRead && (!rev.adminReply || String(rev.adminReply).trim() === '');
+                    const hasReplied = rev.adminReply && String(rev.adminReply).trim() !== '';
 
                     return (
                       <tr
                         key={rev._id || idx}
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
-                        {/* 1. CUSTOMER (Customer Name <br /> Email) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
-                          <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                            {customerName}
-                          </span>
-                          <br />
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {customerEmail}
-                          </span>
-                        </td>
-
-                        {/* 2. ITEM PROFILE (Finished Goods) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex flex-col min-w-0 max-w-[280px]">
-                            <span
-                              className="font-bold text-xs truncate text-slate-800"
-                              title={itemProfile}
-                            >
-                              {itemProfile}
+                        {/* 1. CUSTOMER (Name & Subtitle) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-xs text-slate-900 truncate">
+                              {customerName}
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-mono truncate mt-0.5">
+                              {customerEmail || 'No email provided'}
                             </span>
                           </div>
                         </td>
 
+                        {/* 2. ITEM PROFILE */}
+                        <td
+                          className="px-4 py-3.5 whitespace-nowrap font-semibold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-xs truncate"
+                          title={itemProfile}
+                        >
+                          {itemProfile || 'N/A'}
+                        </td>
+
                         {/* 3. SPECIFICATION */}
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-800 text-xs whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {specification || '-'}
+                        <td className="px-4 py-3.5 text-center font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {specification || '—'}
                         </td>
 
                         {/* 4. UOM */}
-                        <td className="px-4 py-3.5 text-center font-medium text-xs text-slate-600 uppercase whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 text-center font-mono text-xs uppercase text-slate-700 font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {uom || 'ML'}
                         </td>
 
-                        {/* 5. RATING (Blue Accent Column) */}
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                        {/* 5. RATING (Matches Quantity/Volume Blue Accent) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
                           <div className="inline-flex items-center justify-center gap-1.5">
                             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 stroke-none" />
                             <span>{Number(ratingNum || 0).toFixed(1)}</span>
                           </div>
                         </td>
 
-                        {/* 6. COMMENTS (Eye Icon - Same as Ingredients in Finished Goods) */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 6. COMMENTS (Action Circle Cell) */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex items-center justify-center">
                             <button
                               type="button"
                               onClick={() => handleOpenCommentModal(rev)}
                               title={
-                                !rev.isRead && (!rev.adminReply || String(rev.adminReply).trim() === '')
+                                hasUnread
                                   ? 'Unread Comment - Click to read & reply'
-                                  : rev.adminReply
+                                  : hasReplied
                                     ? 'View Comment & Mhira Natural Reply'
                                     : 'View Customer Comment & Reply'
                               }
                               className="relative w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
-                              <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
-                              {!rev.isRead && (!rev.adminReply || String(rev.adminReply).trim() === '') ? (
+                              <Eye className="w-3.5 h-3.5" />
+                              {hasUnread ? (
                                 <span
-                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c81e1e] border-2 border-white animate-pulse"
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white animate-pulse"
                                   title="Unread comment"
                                 />
-                              ) : rev.adminReply && String(rev.adminReply).trim() !== '' ? (
+                              ) : hasReplied ? (
                                 <span
                                   className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"
                                   title="Replied by Mhira Natural"
@@ -802,8 +809,8 @@ function MarketingCustomerFeedback() {
                         </td>
 
                         {/* 7. DATE */}
-                        <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap font-medium bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {rev.createdAt
+                        <td className="px-4 py-3.5 text-center font-mono text-xs font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {rev.createdAt && !isNaN(new Date(rev.createdAt).getTime())
                             ? new Date(rev.createdAt).toLocaleDateString([], {
                               month: 'short',
                               day: 'numeric',

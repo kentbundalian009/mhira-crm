@@ -1404,11 +1404,10 @@ function MarketingAllProductsCatalog() {
                   type="button"
                   onClick={handleClearAllFilters}
                   disabled={activeFiltersCount === 0}
-                  className={`flex items-center justify-center sm:justify-start gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-center sm:text-left w-full h-[32px] sm:h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap shadow-2xs sm:shadow-none ${
-                    activeFiltersCount > 0
+                  className={`flex items-center justify-center sm:justify-start gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-center sm:text-left w-full h-[32px] sm:h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap shadow-2xs sm:shadow-none ${activeFiltersCount > 0
                       ? 'bg-emerald-50/80 border-emerald-200/90 text-[#01390f] hover:bg-emerald-100/90'
                       : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent text-slate-700 hover:bg-slate-100'
-                  }`}
+                    }`}
                   title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                 >
                   <RotateCcw className={`w-3.5 h-3.5 shrink-0 ${activeFiltersCount > 0 ? 'text-[#01390f]' : 'text-slate-500'}`} />
@@ -1615,203 +1614,251 @@ function MarketingAllProductsCatalog() {
                     <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white text-slate-700 text-xs">
-                  {paginatedProducts.map((row) => {
-                    const isDepleted = Number(row.quantity ?? 0) === 0;
-                    const count = Number(row.quantity ?? 0);
-                    const isPkg = isPackageSet(row);
-                    const rowRefId = typeof row.productRef === 'object' ? (row.productRef?._id || row.productRef?.id) : row.productRef;
-                    const matchedInv = inventoryProducts.find(
-                      (inv) =>
-                        (rowRefId && String(inv._id || inv.id) === String(rowRefId)) ||
-                        (row.code && String(inv.code || inv.itemCode || '').toLowerCase() === String(row.code).toLowerCase()) ||
-                        ((row.itemName || row.itemDescription) &&
-                          (String(inv.itemName || '').toLowerCase() === String(row.itemName || row.itemDescription).toLowerCase() ||
-                            String(inv.itemDescription || '').toLowerCase() === String(row.itemName || row.itemDescription).toLowerCase()))
-                    );
-                    const maxQty = isPkg
-                      ? getPackageBuildableStock(row)
-                      : (matchedInv !== undefined ? Number(matchedInv.quantity ?? 0) : count);
-                    const specVal = isPkg
-                      ? `${Array.isArray(row.bundleItems) ? row.bundleItems.length : 0} items bundle`
-                      : (matchedInv?.specification || row.specification || '-');
-                    const uomVal = isPkg ? (row.uom || 'Sets') : (matchedInv?.uom || row.uom || 'PCS');
-                    const displayName = isPkg
-                      ? (row.itemName || row.itemDescription || 'Package Set')
-                      : (matchedInv?.itemName || row.itemName || row.itemDescription || matchedInv?.itemDescription || 'Product');
-
-                    return (
-                      <tr
-                        key={row._id}
-                        className={`transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm ${isDepleted && showZeroOnly ? 'bg-red-50/50' : ''
-                          }`}
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan="10"
+                        className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
                       >
-                        {/* 1. Item Name */}
-                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex flex-col min-w-0 max-w-[280px]">
-                            <span
-                              className="font-bold text-xs truncate text-slate-800"
-                              title={displayName}
-                            >
-                              {displayName}
-                            </span>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              {isPkg && (
-                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wide flex items-center gap-1 flex-shrink-0">
-                                  <span>Package Set ({Array.isArray(row.bundleItems) ? row.bundleItems.length : 0} items)</span>
-                                </span>
-                              )}
-                              {row.isOnSale && (
-                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 border border-amber-500/30 uppercase tracking-wide flex-shrink-0">
-                                  {row.promoBadge || 'On Sale'}
-                                </span>
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Loading products catalog...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginatedProducts.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="10"
+                        className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Info className="w-6 h-6 text-slate-300" />
+                          <span>
+                            {viewMode === 'archived'
+                              ? 'No archived products found in the vault.'
+                              : 'No products matched your search or filter criteria.'}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedProducts.map((row, idx) => {
+                      const isDepleted = Number(row.quantity ?? 0) === 0;
+                      const count = Number(row.quantity ?? 0);
+                      const isPkg = isPackageSet(row);
+                      const rowRefId =
+                        typeof row.productRef === 'object'
+                          ? row.productRef?._id || row.productRef?.id
+                          : row.productRef;
+                      const matchedInv = inventoryProducts.find(
+                        (inv) =>
+                          (rowRefId && String(inv._id || inv.id) === String(rowRefId)) ||
+                          (row.code &&
+                            String(inv.code || inv.itemCode || '').toLowerCase() ===
+                            String(row.code).toLowerCase()) ||
+                          ((row.itemName || row.itemDescription) &&
+                            (String(inv.itemName || '').toLowerCase() ===
+                              String(row.itemName || row.itemDescription).toLowerCase() ||
+                              String(inv.itemDescription || '').toLowerCase() ===
+                              String(row.itemName || row.itemDescription).toLowerCase()))
+                      );
+                      const maxQty = isPkg
+                        ? getPackageBuildableStock(row)
+                        : matchedInv !== undefined
+                          ? Number(matchedInv.quantity ?? 0)
+                          : count;
+                      const specVal = isPkg
+                        ? `${Array.isArray(row.bundleItems) ? row.bundleItems.length : 0} items bundle`
+                        : matchedInv?.specification || row.specification || '—';
+                      const uomVal = isPkg
+                        ? row.uom || 'Sets'
+                        : matchedInv?.uom || row.uom || 'PCS';
+                      const displayName = isPkg
+                        ? row.itemName || row.itemDescription || 'Package Set'
+                        : matchedInv?.itemName ||
+                        row.itemName ||
+                        row.itemDescription ||
+                        matchedInv?.itemDescription ||
+                        'Product';
+
+                      return (
+                        <tr
+                          key={row._id || row.id || idx}
+                          className={`transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm ${isDepleted && showZeroOnly ? 'bg-red-50/40' : ''
+                            }`}
+                        >
+                          {/* 1. ITEM NAME */}
+                          <td
+                            className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-xs truncate"
+                            title={displayName}
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-semibold text-xs text-slate-900 truncate">
+                                {displayName}
+                              </span>
+                              {(isPkg || row.isOnSale) && (
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  {isPkg && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200 uppercase tracking-wide">
+                                      Package Set (
+                                      {Array.isArray(row.bundleItems) ? row.bundleItems.length : 0} items)
+                                    </span>
+                                  )}
+                                  {row.isOnSale && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30 uppercase tracking-wide">
+                                      {row.promoBadge || 'On Sale'}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* 2. Image (Interactive with hover Eye overlay like Finished Goods) */}
-                        <td className="py-2.5 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex justify-center items-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isPkg) {
-                                  setViewPackageModal(row);
-                                } else {
-                                  handleOpenViewModal(row);
-                                }
-                              }}
-                              className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
-                              title="Click to view full product image & specs"
-                              aria-label={`View photo of ${displayName}`}
-                            >
-                              <img
-                                src={resolveProductImageUrl((row.images && row.images[0]) || row.image)}
-                                alt={displayName}
-                                onError={(e) => {
-                                  e.currentTarget.onerror = null;
-                                  e.currentTarget.src = '/mhira_removebg.png';
+                          {/* 2. IMAGE */}
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <div className="flex justify-center items-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isPkg) {
+                                    setViewPackageModal(row);
+                                  } else {
+                                    handleOpenViewModal(row);
+                                  }
                                 }}
-                                className="w-10 h-10 object-cover rounded-lg bg-slate-50 transition-transform duration-200 group-hover/img:scale-110"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white rounded-lg">
-                                <Eye className="w-3.5 h-3.5 drop-shadow" />
-                              </div>
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* 3. Code */}
-                        <td className="px-4 py-3.5 whitespace-nowrap font-mono font-semibold text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors" title={row.code}>
-                          {row.code || '—'}
-                        </td>
-
-                        {/* 4. Category */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {row.category || 'Standard'}
-                        </td>
-
-                        {/* 5. Store Price */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          ₱{peso(row.price || 0)}
-                        </td>
-
-                        {/* 6. Storefront Quantity */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
-                          {count.toLocaleString()}
-                        </td>
-
-                        {/* 7. MAX Quantity (Warehouse Stock) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {maxQty.toLocaleString()}
-                        </td>
-
-                        {/* 8. Specification */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {specVal}
-                        </td>
-
-                        {/* 9. UOM */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-medium text-xs text-slate-600 uppercase bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {uomVal}
-                        </td>
-
-                        {/* 8. Storefront Status (Non-clickable / View-only indicator) */}
-                        <td className={`px-4 py-3.5 whitespace-nowrap text-center text-slate-800 font-semibold text-xs transition-colors select-none ${row.isPublished
-                          ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
-                          : 'bg-amber-500/20 group-hover:bg-amber-500/30'
-                          }`}>
-                          {row.isPublished ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span>Live</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span>Draft</span>
-                            </span>
-                          )}
-                        </td>
-
-                        {/* 9. Action (Sticky Right - Matching Finished Goods / Raw Materials) */}
-                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {viewMode !== 'archived' ? (
-                              <>
-                                {/* Edit */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (isPkg) {
-                                      openEditPackageSetModal(row);
-                                    } else {
-                                      openEditModal(row);
-                                    }
+                                className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
+                                title="Click to view full product image & specs"
+                                aria-label={`View photo of ${displayName}`}
+                              >
+                                <img
+                                  src={resolveProductImageUrl(
+                                    (row.images && row.images[0]) || row.image
+                                  )}
+                                  alt={displayName}
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null;
+                                    e.currentTarget.src = '/mhira_removebg.png';
                                   }}
-                                  title={isPkg ? "Edit Package Set Details" : "Edit Product Details"}
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
+                                  className="w-9 h-9 object-cover rounded-lg bg-slate-50 transition-transform duration-200 group-hover/img:scale-110"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white rounded-lg">
+                                  <Eye className="w-3.5 h-3.5 drop-shadow" />
+                                </div>
+                              </button>
+                            </div>
+                          </td>
 
-                                {/* Archive */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleArchive(row)}
-                                  title="Archive Product"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <Archive className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                {/* Restore */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleArchive(row)}
-                                  title="Restore to Active Catalog"
-                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" />
-                                </button>
+                          {/* 3. CODE */}
+                          <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                              {row.code || 'N/A'}
+                            </span>
+                          </td>
 
-                                {/* Delete permanently */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleDeleteCatalog(row._id, e)}
-                                  title="Delete Permanently"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          {/* 4. CATEGORY */}
+                          <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                              {row.category || 'Standard'}
+                            </span>
+                          </td>
+
+                          {/* 5. STORE PRICE */}
+                          <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            ₱{peso(row.price || 0)}
+                          </td>
+
+                          {/* 6. STOREFRONT QUANTITY (Blue accent column) */}
+                          <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                            {count.toLocaleString()}
+                          </td>
+
+                          {/* 7. MAX QUANTITY */}
+                          <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {maxQty.toLocaleString()}
+                          </td>
+
+                          {/* 8. SPECIFICATION */}
+                          <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-semibold text-slate-700 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {specVal}
+                          </td>
+
+                          {/* 9. UOM */}
+                          <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs uppercase text-slate-700 font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {uomVal}
+                          </td>
+
+                          {/* 10. STATUS (Tinted cell matching the Expiry status style) */}
+                          <td
+                            className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${row.isPublished
+                                ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                                : 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                              }`}
+                          >
+                            <span>{row.isPublished ? 'Live' : 'Draft'}</span>
+                          </td>
+
+                          {/* 11. ACTION (Sticky Right) */}
+                          <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {viewMode !== 'archived' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isPkg) {
+                                        openEditPackageSetModal(row);
+                                      } else {
+                                        openEditModal(row);
+                                      }
+                                    }}
+                                    title={
+                                      isPkg
+                                        ? 'Edit Package Set Details'
+                                        : 'Edit Product Details'
+                                    }
+                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleArchive(row)}
+                                    title="Archive Product"
+                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  >
+                                    <Archive className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleArchive(row)}
+                                    title="Restore to Active Catalog"
+                                    className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteCatalog(row._id, e)}
+                                    title="Delete Permanently"
+                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { API, API_BASE_URL } from '../axios';
+import axios, { API, API_BASE_URL } from '../axios';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
 
@@ -220,12 +220,9 @@ function InventorySuppliers() {
     if (!window.confirm(`Are you sure you want to ${actionLabel}?`)) return;
 
     try {
-      const token = localStorage.getItem('token');
       const id = supplier._id || supplier.id;
 
-      await axios.patch(`${API_BASE_URL}/api/inventory-suppliers/${id}/archive`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await API.patch(`/api/inventory-suppliers/${id}/archive`);
 
       showSuccessToast(
         isCurrentlyArchived ? 'Supplier restored to active directory!' : 'Supplier moved to archive vault!'
@@ -276,14 +273,10 @@ function InventorySuppliers() {
       const token = localStorage.getItem('token');
 
       if (isEditing && selectedId) {
-        await axios.put(`${API_BASE_URL}/api/inventory-suppliers/${selectedId}`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await API.put(`/api/inventory-suppliers/${selectedId}`, formData);
         showSuccessToast('Supplier updated successfully!');
       } else {
-        await axios.post(`${API_BASE_URL}/api/inventory-suppliers`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await API.post('/api/inventory-suppliers', formData);
         showSuccessToast('Supplier created successfully!');
       }
 
@@ -300,10 +293,7 @@ function InventorySuppliers() {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to permanently delete this supplier?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_BASE_URL}/api/inventory-suppliers/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await API.delete(`/api/inventory-suppliers/${id}`);
       showSuccessToast('Supplier deleted successfully!');
       fetchSuppliers();
     } catch (error) {
@@ -588,10 +578,13 @@ function InventorySuppliers() {
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
-                    <td colSpan="4" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="4"
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>Fetching supplier records...</span>
@@ -600,80 +593,10 @@ function InventorySuppliers() {
                   </tr>
                 ) : paginatedSuppliers.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="text-center py-12 text-slate-400 font-medium whitespace-nowrap">
-                      No suppliers found.
-                    </td>
-                  </tr>
-                ) : paginatedSuppliers.map((item) => (
-                  <tr
-                    key={item._id || item.id}
-                    className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
-                  >
-                    {/* CODE */}
-                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                      {item.code || 'N/A'}
-                    </td>
-
-                    {/* SUPPLIER NAME */}
-                    <td className="py-3.5 px-4 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
-                      {item.name}
-                    </td>
-
-                    {/* ADDRESS */}
-                    <td className="py-3.5 px-4 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-medium text-slate-700 transition-colors">
-                      {item.address || 'N/A'}
-                    </td>
-
-                    {/* ACTION (STICKY RIGHT) */}
-                    <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px]">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {!item.isArchived ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditModal(item)}
-                              title="Edit Supplier"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleArchive(item)}
-                              title="Archive Supplier"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            >
-                              <Archive className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleArchive(item)}
-                              title="Restore to Active"
-                              className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(item._id || item.id)}
-                              title="Delete Permanently"
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-
-                {!loading && filteredSuppliers.length === 0 && (
-                  <tr>
-                    <td colSpan="5" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td
+                      colSpan="4"
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Info className="w-6 h-6 text-slate-300" />
                         <span>
@@ -684,6 +607,84 @@ function InventorySuppliers() {
                       </div>
                     </td>
                   </tr>
+                ) : (
+                  paginatedSuppliers.map((item) => (
+                    <tr
+                      key={item._id || item.id}
+                      className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap group text-xs sm:text-sm"
+                    >
+                      {/* 1. CODE */}
+                      <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                          {item.code || 'N/A'}
+                        </span>
+                      </td>
+
+                      {/* 2. SUPPLIER NAME */}
+                      <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs text-slate-800">
+                            {item.name}
+                          </span>
+                          {item.isArchived && (
+                            <span className="inline-flex items-center text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full font-bold border border-rose-200">
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 3. ADDRESS */}
+                      <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {item.address || 'N/A'}
+                      </td>
+
+                      {/* 4. ACTION (STICKY RIGHT) */}
+                      <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px]">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {!item.isArchived ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(item)}
+                                title="Edit Supplier"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleArchive(item)}
+                                title="Archive Supplier"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Archive className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleArchive(item)}
+                                title="Restore to Active"
+                                className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item._id || item.id)}
+                                title="Delete Permanently"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

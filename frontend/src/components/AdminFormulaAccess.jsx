@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import API from '../axios';
 import {
   ShieldCheck,
@@ -15,9 +15,20 @@ import {
   Lock,
   Unlock,
   AlertTriangle,
+  Search,
+  X,
+  Plus,
+  Edit2,
+  Sparkles,
   Layers,
-  Sparkles
+  Shield,
+  Clock,
+  Activity,
+  FileSpreadsheet,
+  ArrowUpDown,
+  Filter,
 } from 'lucide-react';
+import TablePagination from './common/TablePagination';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 
 export default function AdminFormulaAccess() {
@@ -34,17 +45,26 @@ export default function AdminFormulaAccess() {
   const [showCurrentPin, setShowCurrentPin] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Modals
+  const [isChangePinModalOpen, setIsChangePinModalOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
+
   // Change PIN Form State
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [showNewPin, setShowNewPin] = useState(false);
 
-  // Reset Confirmation Modal State
-  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-
   // Test Simulator State
   const [testPinInput, setTestPinInput] = useState('');
   const [testResult, setTestResult] = useState(null); // { success: boolean, message: string }
+
+  // Table Search & Pagination State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('All'); // 'All' | 'default' | 'custom'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [activeSheetTab, setActiveSheetTab] = useState('all');
 
   // Fetch live PIN status from Backend
   const fetchStatus = async () => {
@@ -52,7 +72,7 @@ export default function AdminFormulaAccess() {
       setLoading(true);
       const token = localStorage.getItem('token');
       const res = await API.get('/api/system/formula-pin', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (res.data?.success) {
@@ -117,6 +137,7 @@ export default function AdminFormulaAccess() {
         setUpdatedBy(res.data.updatedBy || 'Admin');
         setNewPin('');
         setConfirmPin('');
+        setIsChangePinModalOpen(false);
         // Sync local storage fallback
         localStorage.setItem('bom_security_pin', cleanNewPin);
       }
@@ -180,18 +201,18 @@ export default function AdminFormulaAccess() {
       if (res.data?.valid) {
         setTestResult({
           success: true,
-          message: 'PIN is VALID! Access will be granted to the Bill of Materials formulation.'
+          message: 'PIN is VALID! Access will be granted to the Bill of Materials formulation.',
         });
       } else {
         setTestResult({
           success: false,
-          message: 'PIN is INVALID. Access will be rejected with an authentication failure.'
+          message: 'PIN is INVALID. Access will be rejected with an authentication failure.',
         });
       }
     } catch (err) {
       setTestResult({
         success: false,
-        message: 'Error verifying PIN against server.'
+        message: 'Error verifying PIN against server.',
       });
     } finally {
       setTesting(false);
@@ -201,194 +222,581 @@ export default function AdminFormulaAccess() {
   const formattedDate = updatedAt
     ? new Date(updatedAt).toLocaleString('en-US', {
         dateStyle: 'medium',
-        timeStyle: 'short'
+        timeStyle: 'short',
       })
-    : 'Default Initial Setup';
+    : 'Initial System Default';
+
+  // Master Data records for Formula Security Table
+  const formulaSecurityRecords = useMemo(() => {
+    return [
+      {
+        id: 'sec-01',
+        code: 'BOM-PIN-001',
+        scope: 'Finished Goods Secret Formulas',
+        description: 'Bill of Materials (BOM) ingredient ratio and chemical formulation protection',
+        category: 'Formulation Security',
+        statusType: isDefault ? 'default' : 'custom',
+        statusLabel: isDefault ? 'Default PIN (123456)' : 'Custom Security PIN',
+        targetRoles: 'Admin Only (Staff Blocked)',
+        lastModified: formattedDate,
+        updatedBy: updatedBy,
+        accessLevel: 'Level 4 Critical Safeguard',
+      },
+      {
+        id: 'sec-02',
+        code: 'BOM-RATIO-002',
+        scope: 'Cosmetics & Soap Secret Blend',
+        description: 'Protects proprietary essential oils, active agents, and alkali batch ratios',
+        category: 'Proprietary Asset',
+        statusType: isDefault ? 'default' : 'custom',
+        statusLabel: isDefault ? 'Default PIN (123456)' : 'Custom Security PIN',
+        targetRoles: 'Production Chemist & Admin',
+        lastModified: formattedDate,
+        updatedBy: updatedBy,
+        accessLevel: 'Level 4 Critical Safeguard',
+      },
+      {
+        id: 'sec-03',
+        code: 'BOM-GATE-003',
+        scope: 'Warehouse Formulation Terminal',
+        description: 'Inventory Finished Goods interactive verification gatekeeper prompt',
+        category: 'Authentication Gate',
+        statusType: isDefault ? 'default' : 'custom',
+        statusLabel: isDefault ? 'Factory Checkpoint' : 'Enforced Verification',
+        targetRoles: 'Role Separation Protected',
+        lastModified: formattedDate,
+        updatedBy: updatedBy,
+        accessLevel: 'Interactive PIN Terminal',
+      },
+    ];
+  }, [isDefault, formattedDate, updatedBy]);
+
+  // Filtered Records
+  const filteredRecords = useMemo(() => {
+    return formulaSecurityRecords.filter((item) => {
+      if (selectedStatus === 'default' && item.statusType !== 'default') return false;
+      if (selectedStatus === 'custom' && item.statusType !== 'custom') return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchCode = item.code.toLowerCase().includes(q);
+        const matchScope = item.scope.toLowerCase().includes(q);
+        const matchDesc = item.description.toLowerCase().includes(q);
+        const matchCat = item.category.toLowerCase().includes(q);
+        return matchCode || matchScope || matchDesc || matchCat;
+      }
+      return true;
+    });
+  }, [formulaSecurityRecords, selectedStatus, searchQuery]);
+
+  // Paginated Rows
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRecords.slice(start, start + itemsPerPage);
+  }, [filteredRecords, currentPage, itemsPerPage]);
 
   return (
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif]">
-      {/* TOP OVERVIEW BANNER */}
-      <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="flex items-start sm:items-center gap-4">
-          <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-[#EDF7EE] border border-[#d5ead7] flex items-center justify-center text-[#01390f] shrink-0 shadow-2xs">
-            <KeyRound className="w-7 h-7" strokeWidth={2.2} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-800">
-                Formula Access Authorization
-              </h2>
-              {isDefault ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                  <AlertTriangle className="w-3 h-3 text-amber-600" />
-                  Default Factory PIN (123456)
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-[#01390f] border border-emerald-200">
-                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                  Custom Security PIN Active
-                </span>
-              )}
+      {/* MAIN CARD CONTAINER (HOUSING TOOLBAR, FILTERS & TABLE - MATCHES INVENTORY RAW MAT) */}
+      <div className="w-full bg-white border border-slate-100 text-slate-600 rounded-2xl p-3 sm:p-6 shadow-sm flex flex-col gap-4 sm:gap-6 transition-colors duration-200">
+        
+        {/* COMPACT EXCEL RIBBON TOOLBAR (SEAMLESS WHITE DESIGN) */}
+        <div className="w-full bg-white flex flex-col">
+          {/* TOP BAR: EXCEL SHEET TABS */}
+          <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0 overflow-x-auto no-scrollbar border-b border-slate-100 sm:border-b-0">
+            <div className="flex items-center gap-1 -mb-px">
+              <button
+                type="button"
+                className="px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 border-b-2 whitespace-nowrap border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-[#01390f]" />
+                <span>All Authorization Policies</span>
+              </button>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              Safeguards proprietary cosmetics and soap formulations in Finished Goods.
-              Inventory staff must supply this 6-digit code to inspect Bill of Materials (BOM) ingredient ratios.
-            </p>
+          </div>
+
+          {/* MS EXCEL-STYLE RIBBON TOOLBAR */}
+          <div className="py-2.5 bg-white flex flex-col lg:flex-row items-stretch gap-3 lg:gap-2.5">
+            {/* GROUP 1: ACTIONS RIBBON */}
+            <div className="w-full lg:w-[256px] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200 pb-2.5 lg:pb-0 lg:pr-2.5 min-h-0 lg:min-h-[92px]">
+              <div className="flex items-stretch gap-2 lg:gap-1.5 flex-1">
+                {/* Tall Action Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsChangePinModalOpen(true)}
+                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                  title="Change Formula Authorization PIN Code"
+                >
+                  <Plus className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                  <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
+                    Change{'\n'}PIN
+                  </span>
+                </button>
+
+                {/* Stacked Compact Rows */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 lg:gap-1 py-0.5">
+                  {/* Layer 1: Simulator */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTestPinInput('');
+                      setTestResult(null);
+                      setIsSimulatorModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
+                    title="Open Test PIN Simulator Sandbox"
+                  >
+                    <Activity className="w-3.5 h-3.5 text-[#01390f] shrink-0" />
+                    <span className="whitespace-nowrap truncate">Test Simulator</span>
+                  </button>
+
+                  {/* Layer 2: Reset to Default */}
+                  <button
+                    type="button"
+                    onClick={() => setIsResetModalOpen(true)}
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-700 hover:text-rose-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
+                    title="Reset PIN to factory default (123456)"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span className="whitespace-nowrap truncate">Reset to 123456</span>
+                  </button>
+
+                  {/* Layer 3: Copy PIN */}
+                  <button
+                    type="button"
+                    onClick={handleCopyPin}
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
+                    title="Copy active PIN code"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="whitespace-nowrap truncate">Copy Active PIN</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Group Caption */}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
+                Actions
+              </div>
+            </div>
+
+            {/* GROUP 2: SEARCH & FILTERS */}
+            <div className="flex flex-col justify-between flex-1 min-h-0 lg:min-h-[92px] lg:pl-1">
+              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-2 lg:space-y-1">
+                {/* Layer 1: Search Bar */}
+                <div className="relative flex items-center w-full">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search Authorization Scope, Code, or Category..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] h-[38px] font-normal shadow-2xs transition-colors"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-1.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title="Clear Search"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Layer 2: Filter Dropdowns */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
+                  {/* Status Dropdown */}
+                  <div className="relative inline-flex items-center w-full min-w-0">
+                    <ShieldCheck className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
+                    <select
+                      value={selectedStatus}
+                      onChange={(e) => setSelectedStatus(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
+                    >
+                      <option value="All">All Security Credentials ({formulaSecurityRecords.length})</option>
+                      <option value="custom">Custom Security PIN ({isDefault ? 0 : 3})</option>
+                      <option value="default">Default Factory (123456) ({isDefault ? 3 : 0})</option>
+                    </select>
+                  </div>
+
+                  {/* Access Scope Info */}
+                  <div className="relative inline-flex items-center w-full min-w-0">
+                    <Shield className="w-3.5 h-3.5 absolute left-2 text-slate-500 pointer-events-none" />
+                    <select
+                      defaultValue="All"
+                      className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
+                    >
+                      <option value="All">Scope: Bill of Materials Formulation</option>
+                      <option value="Cosmetics">Scope: Cosmetics & Soap Line</option>
+                    </select>
+                  </div>
+
+                  {/* Refresh Button */}
+                  <button
+                    type="button"
+                    onClick={fetchStatus}
+                    disabled={loading}
+                    className="flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs sm:col-span-2 md:col-span-1"
+                    title="Refresh status from backend"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin text-[#01390f]' : ''}`} />
+                    <span className="whitespace-nowrap">Refresh PIN Status</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Group Caption */}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none hidden lg:block">
+                Search &amp; Filter
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center">
-          <button
-            type="button"
-            onClick={fetchStatus}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
-            title="Refresh status"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsResetModalOpen(true)}
-            disabled={loading || saving || resetting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold uppercase tracking-wider transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
-            title="Reset PIN to factory default (123456)"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
-            <span>Reset to Default (123456)</span>
-          </button>
+        {/* CLEAN SEPARATOR BEFORE TABLE (MATCHES RAW MATERIALS) */}
+        <hr className="border-slate-200 -mt-4 -mb-2" />
+
+        {/* 3. TABLE MASTERLIST (MATCHING INVENTORY RAW MAT TABLE) */}
+        <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden">
+          {/* TABLE PAGINATION */}
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={filteredRecords.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onRowsPerPageChange={(rows) => {
+              setItemsPerPage(rows);
+              setCurrentPage(1);
+            }}
+          />
+
+          <div className="overflow-x-auto relative custom-scrollbar">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CODE</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">CATEGORY</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[170px] font-semibold text-white">FORMULATION SCOPE</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">SECURITY STATUS</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">ACTIVE CREDENTIAL</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">LAST MODIFIED</th>
+                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {loading ? (
+                  <tr>
+                    <td colSpan="7" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Fetching security authorization configuration...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginatedRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <ShieldCheck className="w-6 h-6 text-slate-300" />
+                        <span>No authorization records matched your search criteria.</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRecords.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50/90 transition-colors text-slate-700 font-medium text-xs sm:text-sm whitespace-nowrap group"
+                    >
+                      {/* 1. CODE */}
+                      <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                          {item.code}
+                        </span>
+                      </td>
+
+                      {/* 2. CATEGORY (Pill Badge matching Raw Materials) */}
+                      <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-medium text-xs text-slate-600 transition-colors">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                          {item.category}
+                        </span>
+                      </td>
+
+                      {/* 3. FORMULATION SCOPE */}
+                      <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-bold text-xs text-slate-800 transition-colors">
+                        <div className="flex flex-col">
+                          <span>{item.scope}</span>
+                          <span className="text-[11px] font-normal text-slate-500 max-w-sm truncate">
+                            {item.description}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 4. SECURITY STATUS (Blue cell tint matching Raw Materials Volume/Condition) */}
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 transition-colors">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-mono font-bold text-slate-900 text-xs">
+                            {item.accessLevel}
+                          </span>
+                          <span
+                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              isDefault
+                                ? 'bg-amber-50 text-amber-700 border-amber-200/70'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200/70'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isDefault ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                            {item.statusLabel}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 5. ACTIVE CREDENTIAL (Interactive Digits) */}
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <div className="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 shadow-2xs">
+                          <KeyRound className="w-3.5 h-3.5 text-[#01390f]" />
+                          <span className="font-mono font-bold text-slate-800 text-xs tracking-wider">
+                            {showCurrentPin ? currentPin : '••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCopyPin}
+                            className="text-slate-400 hover:text-[#01390f] cursor-pointer ml-1"
+                            title="Copy PIN"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* 6. LAST MODIFIED */}
+                      <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <div className="flex flex-col items-center">
+                          <span className="font-bold text-slate-700">{item.lastModified}</span>
+                          <span className="text-[10px] text-slate-400">By: {item.updatedBy}</span>
+                        </div>
+                      </td>
+
+                      {/* 7. ACTION (STICKY RIGHT - EXACT RAW MATERIALS STYLING) */}
+                      <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setIsChangePinModalOpen(true)}
+                            title="Change PIN Code"
+                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTestPinInput('');
+                              setTestResult(null);
+                              setIsSimulatorModalOpen(true);
+                            }}
+                            title="Test PIN Simulator"
+                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsResetModalOpen(true)}
+                            title="Reset to Default (123456)"
+                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {/* 2-COLUMN MAIN CONTENT GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* LEFT COLUMN: CURRENT PIN & QUICK ACTIONS (5 COLS) */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          
-          {/* CURRENT PIN DISPLAY CARD */}
-          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Active Security Code
-                </span>
-                <h3 className="text-base font-bold text-slate-800 mt-0.5">
-                  Current Authorization PIN
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCurrentPin((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                {showCurrentPin ? (
-                  <>
-                    <EyeOff className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Hide</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Reveal</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* BIG DIGIT DISPLAY */}
-            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex items-center justify-center gap-2.5 sm:gap-3 select-none">
-              {currentPin.split('').map((char, idx) => (
-                <div
-                  key={idx}
-                  className="w-11 h-13 sm:w-12 sm:h-14 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-xl sm:text-2xl font-mono font-bold text-slate-800"
-                >
-                  {showCurrentPin ? char : '•'}
+      {/* CHANGE PIN MODAL DIALOG */}
+      {isChangePinModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+          onClick={() => !saving && setIsChangePinModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4.5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#EDF7EE] text-[#01390f] flex items-center justify-center border border-[#d5ead7]">
+                  <KeyRound className="w-5 h-5" />
                 </div>
-              ))}
-            </div>
-
-            {/* ACTION & METADATA FOOTER */}
-            <div className="flex items-center justify-between pt-1 text-xs">
-              <div className="text-[11px] text-slate-500">
-                <span>Updated by: </span>
-                <strong className="text-slate-700">{updatedBy}</strong>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    Change Formula Authorization PIN
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Propagates immediately across all inventory & formulation terminals.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={handleCopyPin}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#01390f] hover:underline cursor-pointer"
+                onClick={() => setIsChangePinModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
               >
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy PIN</span>
-                  </>
-                )}
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-400 flex items-center justify-between">
-              <span>Last Modified:</span>
-              <span className="font-medium text-slate-600">{formattedDate}</span>
-            </div>
-          </div>
-
-          {/* SIMULATOR & PIN VALIDATOR CARD */}
-          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col gap-4">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Verification Sandbox
-              </span>
-              <h3 className="text-base font-bold text-slate-800 mt-0.5">
-                Test Authorization Simulator
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Simulate the exact authentication prompt experienced by inventory personnel.
-              </p>
-            </div>
-
-            <form onSubmit={handleTestPin} className="space-y-3">
+            {/* Modal Body */}
+            <form onSubmit={handleSaveNewPin} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-1">
-                  Input 6-Digit PIN Code
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  New 6-Digit PIN <span className="text-rose-500">*</span>
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="relative flex items-center">
                   <input
-                    type="password"
-                    name="simulator_test_pin"
-                    id="simulator_test_pin"
-                    autoComplete="one-time-code"
-                    autoCorrect="off"
-                    spellCheck="false"
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    data-bwignore="true"
+                    type={showNewPin ? 'text' : 'password'}
                     maxLength={6}
                     inputMode="numeric"
-                    value={testPinInput}
-                    onChange={(e) => {
-                      setTestPinInput(e.target.value.replace(/\D/g, ''));
-                      setTestResult(null);
-                    }}
-                    placeholder="Enter 6 digits to verify"
-                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-slate-800 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs"
+                    pattern="[0-9]*"
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter exactly 6 digits (e.g. 987654)"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs pr-11"
+                    required
                   />
                   <button
-                    type="submit"
-                    disabled={testing || testPinInput.length !== 6}
-                    className="px-4 py-2.5 rounded-xl bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5"
+                    type="button"
+                    onClick={() => setShowNewPin(!showNewPin)}
+                    className="absolute right-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    title={showNewPin ? 'Hide characters' : 'Show characters'}
                   >
-                    {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                    <span>Test PIN</span>
+                    {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Digits entered: <strong className="text-slate-700 font-mono">{newPin.length} / 6</strong>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Confirm New PIN <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type={showNewPin ? 'text' : 'password'}
+                  maxLength={6}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Re-enter the same 6 digits"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs"
+                  required
+                />
+                {confirmPin.length > 0 && (
+                  <p
+                    className={`text-[11px] mt-1 font-semibold flex items-center gap-1 ${
+                      newPin === confirmPin ? 'text-emerald-700' : 'text-rose-600'
+                    }`}
+                  >
+                    {newPin === confirmPin ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>PIN codes match!</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                        <span>PIN codes do not match yet</span>
+                      </>
+                    )}
+                  </p>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePinModalOpen(false)}
+                  className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer border border-[#d5ead7]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || newPin.length !== 6 || confirmPin.length !== 6 || newPin !== confirmPin}
+                  className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                  <span>Save New PIN</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TEST PIN SIMULATOR MODAL */}
+      {isSimulatorModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+          onClick={() => setIsSimulatorModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4.5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    Test Authorization Simulator
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Simulates the exact verification prompt shown to warehouse staff.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSimulatorModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleTestPin} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-1">
+                  Enter 6-Digit PIN Code to Verify
+                </label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  inputMode="numeric"
+                  value={testPinInput}
+                  onChange={(e) => {
+                    setTestPinInput(e.target.value.replace(/\D/g, ''));
+                    setTestResult(null);
+                  }}
+                  placeholder="e.g. 123456"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-base font-mono font-bold text-slate-800 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs text-center tracking-widest"
+                />
               </div>
 
               {testResult && (
@@ -407,157 +815,28 @@ export default function AdminFormulaAccess() {
                   <span>{testResult.message}</span>
                 </div>
               )}
-            </form>
-          </div>
 
-          {/* SYSTEM GUIDELINES CARD */}
-          <div className="bg-[#EDF7EE]/60 border border-[#d5ead7] rounded-2xl p-3 sm:p-5 flex items-start gap-3.5">
-            <div className="w-9 h-9 rounded-full bg-white border border-[#d5ead7] flex items-center justify-center text-[#01390f] shrink-0 mt-0.5">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div className="text-xs text-slate-700 space-y-1">
-              <strong className="font-bold text-[#01390f] block text-xs">
-                Role Separation Safeguard
-              </strong>
-              <p className="leading-relaxed text-[11px] text-slate-600">
-                Staff in the Inventory module no longer have access to the default PIN hint or change PIN controls.
-                Only authorized Administrators can configure or reset this security credential.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: CHANGE PIN & RESET CONTROLS (7 COLS) */}
-        <div className="lg:col-span-7 flex flex-col gap-6">
-          
-          {/* CONFIGURE NEW PIN FORM CARD */}
-          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm flex flex-col gap-5">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Security Administration
-              </span>
-              <h3 className="text-base sm:text-lg font-bold text-slate-800 mt-0.5">
-                Change Formula Authorization PIN
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Specify a new 6-digit numeric PIN code. Changes are propagated to all warehouse terminals immediately.
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveNewPin} className="space-y-4">
-              {/* NEW PIN FIELD */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  New 6-Digit PIN <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type={showNewPin ? 'text' : 'password'}
-                    maxLength={6}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={newPin}
-                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter exactly 6 digits (e.g. 987654)"
-                    className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs pr-11"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPin((prev) => !prev)}
-                    className="absolute right-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    title={showNewPin ? 'Hide characters' : 'Show characters'}
-                  >
-                    {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Digits entered: <strong className="text-slate-700 font-mono">{newPin.length} / 6</strong>
-                </p>
-              </div>
-
-              {/* CONFIRM PIN FIELD */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Confirm New PIN <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type={showNewPin ? 'text' : 'password'}
-                    maxLength={6}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={confirmPin}
-                    onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Re-enter the same 6 digits"
-                    className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] transition-all shadow-2xs pr-11"
-                    required
-                  />
-                </div>
-                {confirmPin.length > 0 && (
-                  <p className={`text-[11px] mt-1 font-semibold flex items-center gap-1 ${
-                    newPin === confirmPin ? 'text-emerald-700' : 'text-rose-600'
-                  }`}>
-                    {newPin === confirmPin ? (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>PIN codes match!</span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                        <span>PIN codes do not match yet</span>
-                      </>
-                    )}
-                  </p>
-                )}
-              </div>
-
-              {/* ACTION BUTTON */}
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsSimulatorModalOpen(false)}
+                  className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer border border-[#d5ead7]"
+                >
+                  Close
+                </button>
                 <button
                   type="submit"
-                  disabled={saving || newPin.length !== 6 || confirmPin.length !== 6 || newPin !== confirmPin}
-                  className="px-6 py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={testing || testPinInput.length !== 6}
+                  className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                  <span>{saving ? 'Saving Changes...' : 'Save New Authorization PIN'}</span>
+                  {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  <span>Test Verification</span>
                 </button>
               </div>
             </form>
           </div>
-
-          {/* FACTORY RESET CARD */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-rose-200/90 shadow-sm flex flex-col gap-4 bg-gradient-to-br from-white via-white to-rose-50/30">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700 shrink-0 mt-0.5">
-                <RotateCcw className="w-5 h-5 text-rose-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-slate-800">
-                  Quick Factory Reset (PIN: 123456)
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
-                  If warehouse staff forget the customized PIN or need a quick restore, clicking this will immediately reset the Formula Access PIN back to default: <strong className="font-mono text-slate-800">123456</strong>.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => setIsResetModalOpen(true)}
-                disabled={loading || saving || resetting}
-                className="px-6 py-3 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Reset PIN to Default (123456)</span>
-              </button>
-            </div>
-          </div>
-
         </div>
-      </div>
+      )}
 
       {/* CONFIRM RESET MODAL DIALOG */}
       {isResetModalOpen && (
@@ -593,7 +872,7 @@ export default function AdminFormulaAccess() {
                 type="button"
                 disabled={resetting}
                 onClick={() => setIsResetModalOpen(false)}
-                className="px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border border-[#d5ead7] disabled:opacity-50"
               >
                 Cancel
               </button>

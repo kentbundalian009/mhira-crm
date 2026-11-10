@@ -84,6 +84,11 @@ const wipSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    rejectionNotes: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     rejectionApprover: {
       type: String,
       default: '',
