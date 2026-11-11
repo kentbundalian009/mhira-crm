@@ -289,7 +289,7 @@ export const renderEmailLayout = ({ title, category = "SECURITY NOTIFICATION", c
  */
 export const sendEmail = async ({ to, subject, html, text, attachments = [] }) => {
   const resend = getResendClient();
-  const fromEmail = process.env.RESEND_FROM || "Mhira Natural <onboarding@resend.dev>";
+  const fromEmail = process.env.RESEND_FROM || "Mhira Cosmetics <noreply@mhira.shop>";
 
   // Ensure brand logo CID attachment is included
   const logoAttachment = getLogoAttachment();
