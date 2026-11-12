@@ -178,8 +178,9 @@ export const getProductReviews = async (req, res) => {
 // 3. Get All Reviews (Admin Dashboard)
 export const getAllReviews = async (req, res) => {
   try {
-    const [reviews, allProducts, allUsers] = await Promise.all([
-      Review.find()
+    let reviews = [];
+    try {
+      reviews = await Review.find()
         .populate({
           path: "productId",
           select: "itemName itemDescription code uom specification category image productRef",
@@ -190,8 +191,13 @@ export const getAllReviews = async (req, res) => {
           }
         })
         .sort({ createdAt: -1 })
-        .lean()
-        .maxTimeMS(5000),
+        .lean();
+    } catch (popErr) {
+      console.warn("Review populate error, falling back to basic find:", popErr.message);
+      reviews = await Review.find().sort({ createdAt: -1 }).lean().catch(() => []);
+    }
+
+    const [allProducts, allUsers] = await Promise.all([
       Product.find()
         .select("itemName itemDescription code specification uom category image")
         .lean()

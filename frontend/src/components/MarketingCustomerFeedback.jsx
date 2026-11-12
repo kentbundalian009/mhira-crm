@@ -22,7 +22,8 @@ import {
   Sparkles,
   X,
   FileDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Info
 } from 'lucide-react';
 import axios, { API, API_BASE_URL } from '../axios';
 import { jsPDF } from 'jspdf';
@@ -75,8 +76,8 @@ function MarketingCustomerFeedback() {
 
       const remainingUnread = Math.max(
         0,
-        reviews.filter(
-          (r) => r._id !== revId && !r.isRead && (!r.adminReply || String(r.adminReply).trim() === '')
+        (Array.isArray(reviews) ? reviews : []).filter(
+          (r) => r?._id !== revId && !r?.isRead && (!r?.adminReply || String(r?.adminReply).trim() === '')
         ).length
       );
       try {
@@ -88,7 +89,7 @@ function MarketingCustomerFeedback() {
       try {
         const token = localStorage.getItem('token');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        axios.patch(`${API_BASE_URL}/api/reviews/${revId}/read`, {}, { headers }).catch(() => { });
+        API.patch(`/api/reviews/${revId}/read`, {}, { headers }).catch(() => { });
         notifyLiveSync('reviews');
       } catch (err) {
         console.error('Error marking review as read:', err);
@@ -100,7 +101,7 @@ function MarketingCustomerFeedback() {
     try {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      await axios.patch(`${API_BASE_URL}/api/reviews/mark-all-read`, {}, { headers });
+      await API.patch('/api/reviews/mark-all-read', {}, { headers });
       setReviews((prev) => prev.map((r) => ({ ...r, isRead: true, readAt: new Date().toISOString() })));
       try {
         localStorage.setItem('unread_feedback_count', '0');
@@ -123,8 +124,8 @@ function MarketingCustomerFeedback() {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const trimmed = replyText.trim();
-      await axios.put(
-        `${API_BASE_URL}/api/reviews/${selectedReview._id}/status`,
+      await API.put(
+        `/api/reviews/${selectedReview._id}/status`,
         { adminReply: trimmed },
         { headers }
       );
@@ -160,45 +161,53 @@ function MarketingCustomerFeedback() {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const [revRes, fgRes, catRes] = await Promise.allSettled([
-        axios.get(`${API_BASE_URL}/api/reviews`, { headers }),
+        API.get('/api/reviews', { headers }),
         API.get('/api/inventory-products', { headers }),
-        axios.get(`${API_BASE_URL}/api/collections/catalog`, { headers }),
+        API.get('/api/collections/catalog', { headers }),
       ]);
 
       if (revRes.status === 'fulfilled') {
-        const fetchedReviews = revRes.value.data || [];
+        const rawReviews = revRes.value?.data;
+        const fetchedReviews = Array.isArray(rawReviews)
+          ? rawReviews
+          : Array.isArray(rawReviews?.data)
+          ? rawReviews.data
+          : Array.isArray(rawReviews?.reviews)
+          ? rawReviews.reviews
+          : [];
         setReviews(fetchedReviews);
         const unread = fetchedReviews.filter(
-          (r) => !r.isRead && (!r.adminReply || String(r.adminReply).trim() === '')
+          (r) => !r?.isRead && (!r?.adminReply || String(r?.adminReply).trim() === '')
         ).length;
         try {
           localStorage.setItem('unread_feedback_count', String(unread));
         } catch (e) { }
         window.dispatchEvent(new CustomEvent('reviewsUpdated', { detail: unread }));
       } else {
-        showErrorToast('Failed to load customer reviews.');
+        console.error('Failed to load reviews:', revRes.reason);
+        setReviews([]);
       }
 
       if (fgRes.status === 'fulfilled') {
-        const rawFg = Array.isArray(fgRes.value.data)
+        const rawFg = Array.isArray(fgRes.value?.data)
           ? fgRes.value.data
-          : fgRes.value.data?.data || fgRes.value.data?.products || [];
+          : fgRes.value?.data?.data || fgRes.value?.data?.products || [];
         if (Array.isArray(rawFg) && rawFg.length > 0) {
           setFinishedGoods(rawFg);
         }
       }
 
       if (catRes.status === 'fulfilled') {
-        const rawCat = Array.isArray(catRes.value.data)
+        const rawCat = Array.isArray(catRes.value?.data)
           ? catRes.value.data
-          : catRes.value.data?.products || catRes.value.data?.data || [];
+          : catRes.value?.data?.products || catRes.value?.data?.data || [];
         if (Array.isArray(rawCat) && rawCat.length > 0) {
           setCatalogProducts(rawCat);
         }
       }
     } catch (err) {
       console.error('Error fetching reviews:', err);
-      showErrorToast('Failed to load customer reviews.');
+      setReviews([]);
     } finally {
       setLoading(false);
     }
@@ -303,37 +312,42 @@ function MarketingCustomerFeedback() {
   }, []);
 
   // Summary Metrics
-  const totalCount = reviews.length;
+  const totalCount = Array.isArray(reviews) ? reviews.length : 0;
 
   const unreadCount = useMemo(() => {
+    if (!Array.isArray(reviews)) return 0;
     return reviews.filter(
-      (r) => !r.isRead && (!r.adminReply || String(r.adminReply).trim() === '')
+      (r) => !r?.isRead && (!r?.adminReply || String(r?.adminReply).trim() === '')
     ).length;
   }, [reviews]);
 
   const averageRating = useMemo(() => {
-    if (totalCount === 0) return '5.0';
-    const sum = reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+    if (!Array.isArray(reviews) || totalCount === 0) return '5.0';
+    const sum = reviews.reduce((acc, r) => acc + (Number(r?.rating) || 5), 0);
     return (sum / totalCount).toFixed(1);
   }, [reviews, totalCount]);
 
   const fiveStarCount = useMemo(() => {
-    return reviews.filter((r) => Number(r.rating) === 5).length;
+    if (!Array.isArray(reviews)) return 0;
+    return reviews.filter((r) => Number(r?.rating) === 5).length;
   }, [reviews]);
 
   const satisfactionRate = useMemo(() => {
-    if (totalCount === 0) return '100%';
-    const positive = reviews.filter((r) => (Number(r.rating) || 5) >= 4).length;
+    if (!Array.isArray(reviews) || totalCount === 0) return '100%';
+    const positive = reviews.filter((r) => (Number(r?.rating) || 5) >= 4).length;
     return `${Math.round((positive / totalCount) * 100)}%`;
   }, [reviews, totalCount]);
 
   const lowRatingCount = useMemo(() => {
-    return reviews.filter((r) => (Number(r.rating) || 5) <= 3).length;
+    if (!Array.isArray(reviews)) return 0;
+    return reviews.filter((r) => (Number(r?.rating) || 5) <= 3).length;
   }, [reviews]);
 
   // Filtered & Sorted dataset
   const filteredReviews = useMemo(() => {
+    if (!Array.isArray(reviews)) return [];
     const list = reviews.filter((r) => {
+      if (!r) return false;
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
@@ -356,16 +370,16 @@ function MarketingCustomerFeedback() {
     });
 
     // Sorting
-    return list.sort((a, b) => {
+    return [...list].sort((a, b) => {
       if (sortOrder === 'highest') {
-        return (Number(b.rating) || 5) - (Number(a.rating) || 5);
+        return (Number(b?.rating) || 5) - (Number(a?.rating) || 5);
       }
       if (sortOrder === 'lowest') {
-        return (Number(a.rating) || 5) - (Number(b.rating) || 5);
+        return (Number(a?.rating) || 5) - (Number(b?.rating) || 5);
       }
       // default newest
-      const dateA = new Date(a.createdAt || 0).getTime();
-      const dateB = new Date(b.createdAt || 0).getTime();
+      const dateA = new Date(a?.createdAt || 0).getTime();
+      const dateB = new Date(b?.createdAt || 0).getTime();
       return dateB - dateA;
     });
   }, [reviews, searchQuery, ratingFilter, sortOrder]);

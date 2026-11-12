@@ -11,6 +11,7 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Menu,
   X,
   FileSpreadsheet,
@@ -36,6 +37,46 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
     }
   });
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [openDropdowns, setOpenDropdowns] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sidebar_open_dropdowns");
+      return saved !== null
+        ? JSON.parse(saved)
+        : {
+            "inv-rawmat": true,
+            "inv-products": true,
+            "product-catalog": true,
+            "advertisement": true,
+            "sales-orders": true,
+            "admin-users": true,
+            "system-settings": true,
+          };
+    } catch (e) {
+      return {
+        "inv-rawmat": true,
+        "inv-products": true,
+        "product-catalog": true,
+        "advertisement": true,
+        "sales-orders": true,
+        "admin-users": true,
+        "system-settings": true,
+      };
+    }
+  });
+
+  const toggleDropdown = (itemId, e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setOpenDropdowns((prev) => {
+      const next = { ...prev, [itemId]: !prev[itemId] };
+      try {
+        localStorage.setItem("sidebar_open_dropdowns", JSON.stringify(next));
+      } catch (err) {}
+      return next;
+    });
+  };
 
   const isExpanded = !isCollapsed;
 
@@ -367,53 +408,114 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
   const menuItems = [
     // LOGISTICS (Logistic Role Only)
     { id: "logistic-dashboard", name: "Dashboard", icon: LayoutDashboard, section: "sales", group: "Dashboard", roles: ["Logistic", "Logistics"] },
-    // Process
-    { id: "sales-support", name: "Customer Support", icon: History, section: "sales", group: "Process", roles: ["Logistic", "Logistics"] },
-    { id: "sales-orders", name: "Order Management", icon: Package, section: "sales", group: "Process", roles: ["Logistic", "Logistics"] },
-    { id: "sales-returns", name: "Return Management", icon: Layers, section: "sales", group: "Process", roles: ["Logistic", "Logistics"] },
-    { id: "sales-analytics", name: "Customer Analytics", icon: TrendingUp, section: "sales", group: "Process", roles: ["Logistic", "Logistics"] },
-    { id: "shipping-rates", name: "Shipping Rates & Fees", icon: Truck, section: "sales", group: "Process", roles: ["Logistic", "Logistics"] },
+    // Records
+    {
+      id: "sales-orders",
+      name: "Order Management",
+      icon: Package,
+      section: "sales",
+      group: "Records",
+      roles: ["Logistic", "Logistics"],
+      children: [
+        { id: "sales-support", name: "Customer Support", icon: History, roles: ["Logistic", "Logistics"] },
+        { id: "sales-returns", name: "Return Management", icon: Layers, roles: ["Logistic", "Logistics"] },
+      ],
+    },
+    { id: "shipping-rates", name: "Shipping Rates & Fees", icon: Truck, section: "sales", group: "Records", roles: ["Logistic", "Logistics"] },
+    { id: "sales-analytics", name: "Customer Analytics", icon: TrendingUp, section: "sales", group: "Records", roles: ["Logistic", "Logistics"] },
     // Settings
     { id: "logistic-reports", name: "Reports", icon: FileSpreadsheet, section: "sales", group: "Settings", roles: ["Logistic", "Logistics"] },
 
     // INVENTORY (Inventory Role Only)
     { id: "inventory-dashboard", name: "Dashboard", icon: LayoutDashboard, section: "inventory", group: "Dashboard", roles: ["Inventory"] },
     // Records
-    { id: "inv-rawmat", name: "Raw Materials", icon: Layers, section: "inventory", group: "Records", roles: ["Inventory"] },
-    { id: "inv-products", name: "Finished Goods", icon: Package, section: "inventory", group: "Records", roles: ["Inventory"] },
+    {
+      id: "inv-rawmat",
+      name: "Raw Materials",
+      icon: Layers,
+      section: "inventory",
+      group: "Records",
+      roles: ["Inventory"],
+      children: [
+        { id: "inv-inbound", name: "Delivery Receiving", icon: ArrowDownCircle, roles: ["Inventory"] },
+        { id: "material-requests", name: "Purchase Request", icon: FileSpreadsheet, roles: ["Inventory"] },
+      ],
+    },
+    {
+      id: "inv-products",
+      name: "Finished Goods",
+      icon: Package,
+      section: "inventory",
+      group: "Records",
+      roles: ["Inventory"],
+      children: [
+        { id: "inv-wip", name: "Work in Progress (WIP)", icon: TrendingUp, roles: ["Inventory"] },
+      ],
+    },
     { id: "inv-expiry", name: "Expiry Monitoring", icon: AlertTriangle, section: "inventory", group: "Records", roles: ["Inventory"] },
-    { id: "material-requests", name: "Purchase Request", icon: FileSpreadsheet, section: "inventory", group: "Records", roles: ["Inventory"] },
     { id: "inv-supplier", name: "Suppliers", icon: Truck, section: "inventory", group: "Records", roles: ["Inventory"] },
-    // Process
-    { id: "inv-inbound", name: "Delivery Receiving", icon: ArrowDownCircle, section: "inventory", group: "Process", roles: ["Inventory"] },
-    { id: "inv-wip", name: "Work in Progress (WIP)", icon: TrendingUp, section: "inventory", group: "Process", roles: ["Inventory"] },
 
     // Settings
     { id: "inv-reports", name: "Reports", icon: FileSpreadsheet, section: "inventory", group: "Settings", roles: ["Inventory"] },
 
     // ADMIN (Admin Role Only - Strictly Report, System Settings, User Activity, User Management)
     { id: "admin-dashboard", name: "Dashboard", icon: LayoutDashboard, section: "admin", group: "Dashboard", roles: ["Admin"] },
-    // Process / Components
-    { id: "admin-appearance", name: "Appearance", icon: Palette, section: "admin", group: "Process", roles: ["Admin"] },
-    { id: "admin-users", name: "User Management", icon: Users, section: "admin", group: "Process", roles: ["Admin"] },
-    { id: "admin-activity", name: "User Activity", icon: Activity, section: "admin", group: "Process", roles: ["Admin"] },
-    { id: "admin-formula-access", name: "Formula Authorization", icon: ShieldCheck, section: "admin", group: "Process", roles: ["Admin"] },
-    { id: "system-settings", name: "System Maintenance", icon: Layers, section: "admin", group: "Process", roles: ["Admin"] },
-    { id: "admin-database", name: "Data Backup", icon: Database, section: "admin", group: "Process", roles: ["Admin"] },
+    // Records
+    {
+      id: "admin-users",
+      name: "User Management",
+      icon: Users,
+      section: "admin",
+      group: "Records",
+      roles: ["Admin"],
+      children: [
+        { id: "admin-activity", name: "User Activity", icon: Activity, roles: ["Admin"] },
+      ],
+    },
+    {
+      id: "system-settings",
+      name: "System Maintenance",
+      icon: Layers,
+      section: "admin",
+      group: "Records",
+      roles: ["Admin"],
+      children: [
+        { id: "admin-appearance", name: "Appearance", icon: Palette, roles: ["Admin"] },
+        { id: "admin-formula-access", name: "Formula Authorization", icon: ShieldCheck, roles: ["Admin"] },
+        { id: "admin-database", name: "Data Backup", icon: Database, roles: ["Admin"] },
+      ],
+    },
     // Settings
     { id: "admin-reports", name: "Reports", icon: FileSpreadsheet, section: "admin", group: "Settings", roles: ["Admin"] },
 
     // MARKETING (Marketing Role Only)
     { id: "marketing-dashboard", name: "Dashboard", icon: LayoutDashboard, section: "marketing", group: "Dashboard", roles: ["Marketing"] },
     // Records
-    { id: "product-catalog", name: "Products Catalog", icon: Package, section: "marketing", group: "Records", roles: ["Marketing"] },
-    { id: "coupons", name: "Products Vouchers", icon: Layers, section: "marketing", group: "Records", roles: ["Marketing"] },
-    { id: "customer-feedback", name: "Customer Feedback", icon: Activity, section: "marketing", group: "Records", roles: ["Marketing"] },
-    // Process
-    { id: "advertisement", name: "Marketing Content", icon: Activity, section: "marketing", group: "Process", roles: ["Marketing"] },
-    { id: "announcement", name: "Events Management", icon: AlertTriangle, section: "marketing", group: "Process", roles: ["Marketing"] },
-    { id: "marketing-our-story", name: "Our Story Management", icon: BookOpen, section: "marketing", group: "Process", roles: ["Marketing"] },
-    { id: "marketing-notification-desk", name: "Products Promotions", icon: Mail, section: "marketing", group: "Process", roles: ["Marketing"] },
+    {
+      id: "product-catalog",
+      name: "Products Catalog",
+      icon: Package,
+      section: "marketing",
+      group: "Records",
+      roles: ["Marketing"],
+      children: [
+        { id: "coupons", name: "Products Vouchers", icon: Layers, roles: ["Marketing"] },
+        { id: "marketing-notification-desk", name: "Products Promotions", icon: Mail, roles: ["Marketing"] },
+        { id: "customer-feedback", name: "Customer Feedback", icon: Activity, roles: ["Marketing"] },
+      ],
+    },
+    {
+      id: "advertisement",
+      name: "Marketing Content",
+      icon: Activity,
+      section: "marketing",
+      group: "Records",
+      roles: ["Marketing"],
+      children: [
+        { id: "announcement", name: "Events Management", icon: AlertTriangle, roles: ["Marketing"] },
+        { id: "marketing-our-story", name: "Our Story Management", icon: BookOpen, roles: ["Marketing"] },
+      ],
+    },
     // Settings
     { id: "marketing-reports", name: "Reports", icon: FileSpreadsheet, section: "marketing", group: "Settings", roles: ["Marketing"] },
 
@@ -429,6 +531,19 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
       return normalizedItemRole.toLowerCase() === userRole.toLowerCase();
     });
   });
+
+  useEffect(() => {
+    if (!activeTab) return;
+    visibleMenuItems.forEach((item) => {
+      if (item.children && item.children.length > 0) {
+        const isChild = item.children.some((c) => c.id === activeTab);
+        const isSelf = item.id === activeTab;
+        if (isChild || isSelf) {
+          setOpenDropdowns((prev) => (prev[item.id] ? prev : { ...prev, [item.id]: true }));
+        }
+      }
+    });
+  }, [activeTab, visibleMenuItems]);
 
   const handleDesktopCollapse = () => {
     setIsCollapsed(prev => {
@@ -528,6 +643,19 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
     return null;
   };
 
+  const getDisplayBadge = (item, isDropdownOpen) => {
+    const directBadge = getItemBadge(item.id);
+    if (directBadge) return directBadge;
+
+    if (item.children && !isDropdownOpen) {
+      for (const child of item.children) {
+        const childBadge = getItemBadge(child.id);
+        if (childBadge) return childBadge;
+      }
+    }
+    return null;
+  };
+
   return (
     <>
       <div className="fixed top-2.5 left-2.5 z-50 md:hidden">
@@ -611,60 +739,174 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
           <nav className="overflow-y-auto no-scrollbar scrollbar-none py-2 space-y-1 px-3 flex-1 pb-8 md:pb-4">
             {visibleMenuItems.map((item, index) => {
               const IconComponent = item.icon;
-              const isActive = activeTab === item.id;
-              const badge = getItemBadge(item.id);
+              const hasChildren = Boolean(item.children && item.children.length > 0);
+              const isDropdownOpen = Boolean(openDropdowns[item.id]);
+              const isExactActive = activeTab === item.id;
+              const isChildActive = hasChildren && item.children.some((c) => c.id === activeTab);
+              const badge = getDisplayBadge(item, isDropdownOpen);
 
               return (
                 <React.Fragment key={item.id}>
                   {renderSectionHeader(item.group, index)}
 
-                  <button
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setIsMobileOpen(false);
-                    }}
-                    title={!isExpanded ? `${item.name}${badge ? ` (${badge.label})` : ''}` : ''}
-                    className={`sidebar-nav-btn w-full whitespace-nowrap flex items-center gap-3 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all relative cursor-pointer group ${!isExpanded ? 'md:justify-center' : ''} ${isActive
-                      ? 'is-active bg-[#153E97]/40 text-white font-bold shadow-xs border border-[#153E97]/60'
-                      : 'bg-transparent text-white/90 hover:text-white hover:bg-white/10'
+                  <div className="w-full">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        if (hasChildren && !isDropdownOpen) {
+                          setOpenDropdowns((prev) => ({ ...prev, [item.id]: true }));
+                        } else if (hasChildren && isExactActive) {
+                          toggleDropdown(item.id);
+                        }
+                        setIsMobileOpen(false);
+                      }}
+                      title={!isExpanded ? `${item.name}${badge ? ` (${badge.label})` : ''}` : ''}
+                      className={`sidebar-nav-btn w-full whitespace-nowrap flex items-center gap-3 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all relative cursor-pointer group ${
+                        !isExpanded ? 'md:justify-center' : ''
+                      } ${
+                        isExactActive
+                          ? 'is-active bg-[#153E97]/40 text-white font-bold shadow-xs border border-[#153E97]/60'
+                          : isChildActive
+                          ? 'bg-white/10 text-white font-semibold border border-white/20'
+                          : 'bg-transparent text-white/90 hover:text-white hover:bg-white/10'
                       }`}
-                  >
-                    {isActive && (
-                      <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-[#153E97] rounded-r-full shadow-[0_0_8px_rgba(21,62,151,0.6)]" />
-                    )}
+                    >
+                      {isExactActive && (
+                        <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-[#153E97] rounded-r-full shadow-[0_0_8px_rgba(21,62,151,0.6)]" />
+                      )}
 
-                    <div className="relative shrink-0 flex items-center justify-center">
-                      <IconComponent size={16} className={`transition-transform ${isActive ? 'text-white scale-105' : 'text-white/85 group-hover:text-white group-hover:scale-105'}`} />
-                      {!isExpanded && badge && (
+                      <div className="relative shrink-0 flex items-center justify-center">
+                        <IconComponent
+                          size={16}
+                          className={`transition-transform ${
+                            isExactActive || isChildActive
+                              ? 'text-white scale-105'
+                              : 'text-white/85 group-hover:text-white group-hover:scale-105'
+                          }`}
+                        />
+                        {!isExpanded && badge && (
+                          badge.isRedDot ? (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c81e1e]" />
+                          ) : (
+                            <span className={`absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center shadow-xs ${badge.dotClass}`}>
+                              {badge.count > 99 ? '99+' : badge.count}
+                            </span>
+                          )
+                        )}
+                      </div>
+
+                      <span className={`truncate text-left ${!isExpanded ? 'md:hidden block' : 'block'} whitespace-nowrap flex-1 text-white flex items-center gap-1.5`}>
+                        <span>{item.name}</span>
+                        {isExpanded && badge?.isRedDot && (
+                          <span className="w-1.5 h-1.5 bg-[#c81e1e] rounded-full shrink-0" />
+                        )}
+                      </span>
+
+                      {isExpanded && badge && (
                         badge.isRedDot ? (
-                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c81e1e]" />
+                          <span className="ml-auto text-white font-semibold text-xs tracking-tight shrink-0 select-none mr-1.5">
+                            {badge.label}
+                          </span>
                         ) : (
-                          <span className={`absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center shadow-xs ${badge.dotClass}`}>
-                            {badge.count > 99 ? '99+' : badge.count}
+                          <span className={`ml-auto min-w-5 h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs mr-1.5 ${badge.pillClass}`}>
+                            {badge.label}
                           </span>
                         )
                       )}
-                    </div>
 
-                    <span className={`truncate text-left ${!isExpanded ? 'md:hidden block' : 'block'} whitespace-nowrap flex-1 text-white flex items-center gap-1.5`}>
-                      <span>{item.name}</span>
-                      {isExpanded && badge?.isRedDot && (
-                        <span className="w-1.5 h-1.5 bg-[#c81e1e] rounded-full shrink-0" />
+                      {hasChildren && isExpanded && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => toggleDropdown(item.id, e)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              toggleDropdown(item.id, e);
+                            }
+                          }}
+                          className={`${badge ? '' : 'ml-auto'} p-1 -mr-1 rounded-md hover:bg-white/20 text-white/80 hover:text-white transition-all cursor-pointer flex items-center justify-center shrink-0`}
+                          title={isDropdownOpen ? `Collapse ${item.name}` : `Expand ${item.name}`}
+                        >
+                          <ChevronDown
+                            size={14}
+                            className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
+                          />
+                        </span>
                       )}
-                    </span>
+                    </button>
 
-                    {isExpanded && badge && (
-                      badge.isRedDot ? (
-                        <span className="ml-auto text-white font-semibold text-xs tracking-tight shrink-0 select-none">
-                          {badge.label}
-                        </span>
-                      ) : (
-                        <span className={`ml-auto min-w-5 h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs ${badge.pillClass}`}>
-                          {badge.label}
-                        </span>
-                      )
+                    {/* Dropdown Children */}
+                    {hasChildren && isDropdownOpen && (
+                      <div className={`space-y-1 ${!isExpanded ? 'md:pl-0' : 'pl-3.5'} pt-1`}>
+                        {item.children.map((child) => {
+                          const ChildIcon = child.icon;
+                          const isChildTabActive = activeTab === child.id;
+                          const childBadge = getItemBadge(child.id);
+
+                          return (
+                            <button
+                              key={child.id}
+                              type="button"
+                              onClick={() => {
+                                setActiveTab(child.id);
+                                setIsMobileOpen(false);
+                              }}
+                              title={!isExpanded ? `${child.name}${childBadge ? ` (${childBadge.label})` : ''}` : ''}
+                              className={`sidebar-nav-btn w-full whitespace-nowrap flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all relative cursor-pointer group ${
+                                !isExpanded ? 'md:justify-center' : ''
+                              } ${
+                                isChildTabActive
+                                  ? 'is-active bg-[#153E97]/60 text-white font-bold shadow-xs border border-[#153E97]/80'
+                                  : 'bg-transparent text-white/80 hover:text-white hover:bg-white/10'
+                              }`}
+                            >
+                              {isChildTabActive && (
+                                <div className="absolute left-0 top-1 bottom-1 w-1 bg-[#153E97] rounded-r-full shadow-[0_0_8px_rgba(21,62,151,0.6)]" />
+                              )}
+
+                              <div className="relative shrink-0 flex items-center justify-center">
+                                <ChildIcon
+                                  size={14}
+                                  className={`transition-transform ${
+                                    isChildTabActive ? 'text-white scale-105' : 'text-white/75 group-hover:text-white group-hover:scale-105'
+                                  }`}
+                                />
+                                {!isExpanded && childBadge && (
+                                  childBadge.isRedDot ? (
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c81e1e]" />
+                                  ) : (
+                                    <span className={`absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center shadow-xs ${childBadge.dotClass}`}>
+                                      {childBadge.count > 99 ? '99+' : childBadge.count}
+                                    </span>
+                                  )
+                                )}
+                              </div>
+
+                              <span className={`truncate text-left ${!isExpanded ? 'md:hidden block' : 'block'} whitespace-nowrap flex-1 text-white/95 flex items-center gap-1.5 text-[11.5px]`}>
+                                <span>{child.name}</span>
+                                {isExpanded && childBadge?.isRedDot && (
+                                  <span className="w-1.5 h-1.5 bg-[#c81e1e] rounded-full shrink-0" />
+                                )}
+                              </span>
+
+                              {isExpanded && childBadge && (
+                                childBadge.isRedDot ? (
+                                  <span className="ml-auto text-white font-semibold text-xs tracking-tight shrink-0 select-none">
+                                    {childBadge.label}
+                                  </span>
+                                ) : (
+                                  <span className={`ml-auto min-w-4 h-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 shadow-xs ${childBadge.pillClass}`}>
+                                    {childBadge.label}
+                                  </span>
+                                )
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
-                  </button>
+                  </div>
                 </React.Fragment>
               );
             })}

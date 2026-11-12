@@ -38,7 +38,8 @@ import {
   Copy,
   Lock,
   Unlock,
-  ShieldCheck
+  ShieldCheck,
+  Info
 } from "lucide-react";
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';

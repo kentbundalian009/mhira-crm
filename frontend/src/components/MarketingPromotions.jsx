@@ -30,6 +30,7 @@ import {
   Archive,
   FileSpreadsheet,
   Hash,
+  Info,
 } from 'lucide-react';
 import axios from '../axios';
 import { jsPDF } from 'jspdf';

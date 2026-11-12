@@ -33,7 +33,8 @@ import {
   FileSpreadsheet,
   Truck,
   Minus,
-  ExternalLink
+  ExternalLink,
+  Info
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';

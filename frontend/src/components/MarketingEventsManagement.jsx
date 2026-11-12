@@ -19,8 +19,9 @@ import {
   Sparkles,
   Archive,
   Layers,
+  Info,
 } from 'lucide-react';
-import axios from '../axios';
+import axios, { API, API_BASE_URL } from '../axios';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
@@ -69,15 +70,10 @@ function MarketingEventsManagement() {
   const [formData, setFormData] = useState(initialFormState);
   const [submitting, setSubmitting] = useState(false);
 
-  const API_BASE_URL =
-    import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
-
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE_URL}/api/events`);
+      const res = await API.get('/api/events');
       const safeData = Array.isArray(res.data)
         ? res.data
         : res.data?.events || res.data?.items || res.data?.data || [];
