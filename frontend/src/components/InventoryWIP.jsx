@@ -1680,6 +1680,7 @@ function InventoryWIP() {
                         <input
                           type="date"
                           required
+                          placeholder="mm/dd/yyyy"
                           max={new Date().toISOString().split("T")[0]}
                           value={mfgDate}
                           onChange={(e) => setMfgDate(e.target.value)}
@@ -1688,8 +1689,12 @@ function InventoryWIP() {
                               e.currentTarget.showPicker();
                             } catch (err) { }
                           }}
-                          onKeyDown={(e) => e.preventDefault()}
-                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer transition-colors"
+                          onFocus={(e) => {
+                            try {
+                              e.currentTarget.showPicker();
+                            } catch (err) { }
+                          }}
+                          className="w-full h-[34px] bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 cursor-pointer transition-colors [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         />
                       </div>
                     </div>
@@ -1704,6 +1709,7 @@ function InventoryWIP() {
                         <input
                           type="date"
                           required
+                          placeholder="mm/dd/yyyy"
                           min={mfgDate || new Date().toISOString().split("T")[0]}
                           value={expDate}
                           onChange={(e) => setExpDate(e.target.value)}
@@ -1712,8 +1718,12 @@ function InventoryWIP() {
                               e.currentTarget.showPicker();
                             } catch (err) { }
                           }}
-                          onKeyDown={(e) => e.preventDefault()}
-                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer transition-colors"
+                          onFocus={(e) => {
+                            try {
+                              e.currentTarget.showPicker();
+                            } catch (err) { }
+                          }}
+                          className="w-full h-[34px] bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 cursor-pointer transition-colors [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         />
                       </div>
                     </div>

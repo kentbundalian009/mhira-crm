@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
   Edit2,
@@ -68,6 +68,7 @@ function MarketingEventsManagement() {
   };
 
   const [formData, setFormData] = useState(initialFormState);
+  const eventDateInputRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchEvents = async () => {
@@ -460,12 +461,12 @@ function MarketingEventsManagement() {
                   setCurrentPage(1);
                 }}
                 className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${viewMode === tab.id
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg'
+                  ? 'border-[#153E97] text-[#153E97] bg-slate-50 rounded-t-lg'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
                   }`}
               >
                 {tab.id === 'active' ? (
-                  <Layers className="w-3.5 h-3.5 text-[#01390f]" />
+                  <Layers className="w-3.5 h-3.5 text-[#153E97]" />
                 ) : (
                   <Archive className="w-3.5 h-3.5 text-slate-500" />
                 )}
@@ -488,11 +489,11 @@ function MarketingEventsManagement() {
                 <button
                   type="button"
                   onClick={openAddModal}
-                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#153E97]"
                   title="Create a new storefront announcement"
                 >
                   <Plus
-                    className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5"
+                    className="w-5.5 h-5.5 text-[#153E97] group-hover:scale-110 transition-transform mb-0.5"
                     strokeWidth={2.5}
                   />
                   <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
@@ -513,7 +514,7 @@ function MarketingEventsManagement() {
                   className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap"
                   title="Export Announcements Audit PDF"
                 >
-                  <FileDown className="w-3.5 h-3.5 text-[#01390f] shrink-0" />
+                  <FileDown className="w-3.5 h-3.5 text-[#153E97] shrink-0" />
                   <span className="whitespace-nowrap">Export PDF</span>
                 </button>
 
@@ -554,7 +555,7 @@ function MarketingEventsManagement() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search announcement title, location, description..."
-                  className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] h-[38px] font-normal shadow-2xs transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#153E97] h-[38px] font-normal shadow-2xs transition-colors"
                 />
                 {searchQuery && (
                   <button
@@ -575,7 +576,7 @@ function MarketingEventsManagement() {
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
                   >
                     <option value="All">All Categories</option>
                     {uniqueCategories.map((cat) => (
@@ -593,7 +594,7 @@ function MarketingEventsManagement() {
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
                   >
                     <option value="All">All Broadcast Statuses</option>
                     <option value="published">Published (Live)</option>
@@ -608,7 +609,7 @@ function MarketingEventsManagement() {
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
+                    className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate"
                   >
                     <option value="All">Preset: All Broadcasts</option>
                     <option value="Announcement">Preset: Announcements</option>
@@ -627,7 +628,7 @@ function MarketingEventsManagement() {
                     setSelectedStatus(selectedStatus === 'published' ? 'All' : 'published')
                   }
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedStatus === 'published'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-[#153E97] text-[#153E97] font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -653,7 +654,7 @@ function MarketingEventsManagement() {
                     )
                   }
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedCategory === 'Announcement'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-[#153E97] text-[#153E97] font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -687,7 +688,7 @@ function MarketingEventsManagement() {
           <div className="overflow-x-auto relative custom-scrollbar">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
+                <tr className="bg-[#153E97] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[260px]">
                     ANNOUNCEMENT TITLE &amp; BANNER
                   </th>
@@ -695,7 +696,7 @@ function MarketingEventsManagement() {
                   <th className="py-3.5 px-4 whitespace-nowrap">EVENT DATE</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">LOCATION / VENUE</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap">STOREFRONT STATUS</th>
-                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-28 min-w-[110px]">
+                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#153E97] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-28 min-w-[110px]">
                     ACTION
                   </th>
                 </tr>
@@ -705,7 +706,7 @@ function MarketingEventsManagement() {
                   <tr>
                     <td
                       colSpan="6"
-                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                      className="text-center py-12 text-[#153E97] font-medium italic whitespace-nowrap"
                     >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -742,7 +743,7 @@ function MarketingEventsManagement() {
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
                         {/* 1. TITLE & BANNER */}
-                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[260px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[260px] bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           <div className="flex items-center gap-3">
                             {evt.bannerImage ? (
                               <img
@@ -772,15 +773,15 @@ function MarketingEventsManagement() {
                           </div>
                         </td>
 
-                        {/* 2. CATEGORY (Standard Emerald Pill Badge) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                        {/* 2. CATEGORY (Standard Pill Badge) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-[#153E97] border border-blue-200">
                             {evt.category || 'Announcement'}
                           </span>
                         </td>
 
                         {/* 3. EVENT DATE */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           {evt.eventDate && !isNaN(new Date(evt.eventDate).getTime())
                             ? new Date(evt.eventDate).toLocaleDateString([], {
                               month: 'short',
@@ -791,7 +792,7 @@ function MarketingEventsManagement() {
                         </td>
 
                         {/* 4. LOCATION */}
-                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="truncate max-w-[200px]" title={evt.location}>
@@ -805,7 +806,7 @@ function MarketingEventsManagement() {
                           className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${isItemArchived
                               ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
                               : isLive
-                                ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                                ? 'bg-blue-500/15 group-hover:bg-blue-500/25 text-[#153E97]'
                                 : 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
                             }`}
                         >
@@ -824,13 +825,13 @@ function MarketingEventsManagement() {
                         </td>
 
                         {/* 6. ACTION (Sticky Right) */}
-                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
+                        <td className="py-3 px-3 bg-slate-50/80 group-hover:bg-blue-50/40 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
                             {/* Eye (View) */}
                             <button
                               type="button"
                               onClick={() => setViewEventModal(evt)}
-                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#153E97] hover:text-white hover:border-[#153E97] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               title="View Announcement Details"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -842,7 +843,7 @@ function MarketingEventsManagement() {
                                 <button
                                   type="button"
                                   onClick={() => openEditModal(evt)}
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#153E97] hover:text-white hover:border-[#153E97] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   title="Edit Announcement"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
@@ -944,7 +945,7 @@ function MarketingEventsManagement() {
                   <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
                     <label
                       title="Upload Banner Image"
-                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
+                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#153E97] hover:text-white hover:border-[#153E97] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <input
@@ -962,7 +963,7 @@ function MarketingEventsManagement() {
                           alt="Banner Preview"
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                        <span className="absolute bottom-1.5 left-1.5 bg-[#153E97] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
                           Banner
                         </span>
                         <button
@@ -995,7 +996,7 @@ function MarketingEventsManagement() {
                     value={formData.title}
                     onChange={handleInputChange}
                     placeholder="e.g. Grand Anniversary Sale & New Product Launch"
-                    className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                    className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors"
                   />
                 </div>
 
@@ -1013,23 +1014,57 @@ function MarketingEventsManagement() {
                         value={formData.category}
                         onChange={handleInputChange}
                         placeholder="e.g. Promo / Event / Announcement"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Event Date
-                    </label>
-                    <div className="relative">
-                      <Calendar className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
+                        Event Date
+                      </label>
+                      {formData.eventDate ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, eventDate: '' }))}
+                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-0.5 transition-colors"
+                          title="Clear event date"
+                        >
+                          <X className="w-3 h-3" /> Clear (Ongoing)
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium">Optional</span>
+                      )}
+                    </div>
+                    <div
+                      onClick={() => {
+                        try {
+                          eventDateInputRef.current?.showPicker();
+                          eventDateInputRef.current?.focus();
+                        } catch (err) {}
+                      }}
+                      className="relative cursor-pointer flex items-center"
+                    >
+                      <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-[#153E97] pointer-events-none z-10" />
                       <input
+                        ref={eventDateInputRef}
                         type="date"
                         name="eventDate"
-                        value={formData.eventDate}
+                        placeholder="mm/dd/yyyy"
+                        value={formData.eventDate || ''}
                         onChange={handleInputChange}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer transition-colors"
+                        onClick={(e) => {
+                          try {
+                            e.currentTarget.showPicker();
+                          } catch (err) {}
+                        }}
+                        onFocus={(e) => {
+                          try {
+                            e.currentTarget.showPicker();
+                          } catch (err) {}
+                        }}
+                        className="w-full h-[34px] bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:ring-1 focus:ring-[#153E97]/20 cursor-pointer transition-colors [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                       />
                     </div>
                   </div>
@@ -1049,7 +1084,7 @@ function MarketingEventsManagement() {
                         value={formData.location}
                         onChange={handleInputChange}
                         placeholder="e.g. Online Store / SM Mall"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors"
                       />
                     </div>
                   </div>
@@ -1068,7 +1103,7 @@ function MarketingEventsManagement() {
                             isPublished: e.target.value === 'published',
                           }))
                         }
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white cursor-pointer appearance-none transition-colors"
                       >
                         <option value="published">Published (Live on Storefront)</option>
                         <option value="draft">Draft (Hidden from Storefront)</option>
@@ -1090,7 +1125,7 @@ function MarketingEventsManagement() {
                     value={formData.description}
                     onChange={handleInputChange}
                     placeholder="Enter full details of the announcement or event..."
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors resize-none"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors resize-none"
                   />
                 </div>
 
@@ -1109,14 +1144,14 @@ function MarketingEventsManagement() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                  className="px-5 py-2.5 sm:py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                  className="px-6 py-2.5 sm:py-3 rounded-full bg-[#153E97] hover:bg-[#11327c] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
                 >
                   {submitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1179,7 +1214,7 @@ function MarketingEventsManagement() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">Category:</span>
-                  <span className="font-bold text-[#01390f]">{viewEventModal.category}</span>
+                  <span className="font-bold text-[#153E97]">{viewEventModal.category}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">Status:</span>
@@ -1187,7 +1222,7 @@ function MarketingEventsManagement() {
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${viewEventModal.isArchived
                       ? 'bg-slate-100 text-slate-600 border-slate-300'
                       : viewEventModal.isPublished
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        ? 'bg-blue-50 text-[#153E97] border-blue-200'
                         : 'bg-slate-100 text-slate-600 border-slate-200'
                       }`}
                   >
@@ -1219,7 +1254,7 @@ function MarketingEventsManagement() {
                   setArchiveTargetEvent(target);
                 }}
                 className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${viewEventModal.isArchived
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white'
+                  ? 'bg-blue-50 border-blue-200 text-[#153E97] hover:bg-[#153E97] hover:text-white'
                   : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white'
                   }`}
                 title={viewEventModal.isArchived ? 'Restore Announcement' : 'Move to Archive Vault'}
@@ -1235,7 +1270,7 @@ function MarketingEventsManagement() {
                 <button
                   type="button"
                   onClick={() => setViewEventModal(null)}
-                  className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] border border-[#d5ead7] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                  className="px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
                 >
                   Close
                 </button>
@@ -1247,7 +1282,7 @@ function MarketingEventsManagement() {
                       setViewEventModal(null);
                       openEditModal(toEdit);
                     }}
-                    className="px-5 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
+                    className="px-5 py-2.5 rounded-full bg-[#153E97] hover:bg-[#11327c] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Edit</span>
@@ -1306,7 +1341,7 @@ function MarketingEventsManagement() {
                   {archiveTargetEvent.title || 'Untitled Announcement'}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
-                  <span className="inline-block px-2 py-0.5 rounded bg-emerald-100/70 text-[#01390f] font-semibold text-[10px]">
+                  <span className="inline-block px-2 py-0.5 rounded bg-blue-50 text-[#153E97] font-semibold text-[10px] border border-blue-200">
                     {archiveTargetEvent.category || 'Announcement'}
                   </span>
                   <span>&bull;</span>
@@ -1325,7 +1360,7 @@ function MarketingEventsManagement() {
                 type="button"
                 onClick={() => setArchiveTargetEvent(null)}
                 disabled={isArchiving}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap disabled:opacity-50"
+                className="px-5 py-2.5 sm:py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1334,7 +1369,7 @@ function MarketingEventsManagement() {
                 onClick={handleExecuteToggleArchive}
                 disabled={isArchiving}
                 className={`px-6 py-2.5 sm:py-3 rounded-full text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap ${archiveTargetEvent.isArchived
-                  ? 'bg-[#01390f] hover:bg-[#0a5219]'
+                  ? 'bg-[#153E97] hover:bg-[#11327c]'
                   : 'bg-amber-600 hover:bg-amber-700'
                   }`}
               >
@@ -1393,7 +1428,7 @@ function MarketingEventsManagement() {
                   {deleteTargetEvent.title || 'Untitled Announcement'}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
-                  <span className="inline-block px-2 py-0.5 rounded bg-emerald-100/70 text-[#01390f] font-semibold text-[10px]">
+                  <span className="inline-block px-2 py-0.5 rounded bg-blue-50 text-[#153E97] font-semibold text-[10px] border border-blue-200">
                     {deleteTargetEvent.category || 'Announcement'}
                   </span>
                   <span>&bull;</span>
@@ -1412,7 +1447,7 @@ function MarketingEventsManagement() {
                 type="button"
                 onClick={() => setDeleteTargetEvent(null)}
                 disabled={isDeleting}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap disabled:opacity-50"
+                className="px-5 py-2.5 sm:py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap disabled:opacity-50"
               >
                 Cancel
               </button>

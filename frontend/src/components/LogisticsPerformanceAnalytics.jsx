@@ -27,7 +27,13 @@ import {
   Sparkles,
   Star,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  MapPin,
+  Phone,
+  Mail,
+  Copy,
+  Check,
+  User
 } from 'lucide-react';
 import axios, { API } from '../axios';
 import { jsPDF } from 'jspdf';
@@ -65,6 +71,57 @@ function LogisticsPerformanceAnalytics() {
 
   // Selected Sale Receipt Modal State
   const [selectedSale, setSelectedSale] = useState(null);
+
+  // Selected Customer Quick Profile Modal State
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
+
+  // Helper: Address Formatter
+  const formatAddress = (addr) => {
+    if (!addr) return '';
+    if (typeof addr === 'string') return addr.trim();
+    if (typeof addr === 'object') {
+      return [
+        addr.streetAddress || addr.street,
+        addr.apartment,
+        addr.barangay ? `Brgy. ${String(addr.barangay).replace(/^Brgy\.?\s*/i, '')}` : '',
+        addr.city,
+        addr.province || addr.region,
+        addr.postalCode,
+        addr.country || 'Philippines',
+      ]
+        .filter(Boolean)
+        .join(', ');
+    }
+    return '';
+  };
+
+  // Helper: Copy with feedback
+  const handleCopyText = (text, key, successMsg = 'Copied to clipboard!') => {
+    if (!text) return;
+    try {
+      navigator.clipboard.writeText(String(text).trim());
+      setCopiedKey(key);
+      showSuccessToast(successMsg);
+      setTimeout(() => {
+        setCopiedKey((prev) => (prev === key ? null : prev));
+      }, 2000);
+    } catch (e) {
+      // Fallback
+    }
+  };
+
+  // Listen to Escape key to close open modals
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedCustomer(null);
+        setSelectedSale(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const API_BASE_URL =
     import.meta.env.MODE === 'production'
@@ -144,10 +201,15 @@ function LogisticsPerformanceAnalytics() {
         customerMap.set(key, {
           name: custName,
           username: cleanUsername,
+          email: s.email || '',
+          phoneNumber: s.phoneNumber || '',
+          address: s.address || (typeof s.shippingAddress === 'string' ? s.shippingAddress : '') || '',
+          shippingAddress: s.shippingAddress || null,
           totalSpent: 0,
           orderCount: 0,
           tier: s.tier || 'Bronze',
           lastOrderDate: s.date || '',
+          recentOrders: [],
         });
       }
 
@@ -157,7 +219,19 @@ function LogisticsPerformanceAnalytics() {
       if (!existing.lastOrderDate || (s.date && s.date > existing.lastOrderDate)) {
         existing.lastOrderDate = s.date;
       }
-      existing.tier = getTierFromAmount(existing.totalSpent);
+      if (!existing.address && s.address) existing.address = s.address;
+      if (!existing.phoneNumber && s.phoneNumber) existing.phoneNumber = s.phoneNumber;
+      if (!existing.email && s.email) existing.email = s.email;
+      if (existing.recentOrders && existing.recentOrders.length < 5) {
+        existing.recentOrders.push({
+          orderId: s.orderId,
+          date: s.date,
+          amount: s.amount,
+          status: s.status,
+          items: s.items,
+        });
+      }
+      existing.tier = getTierFromAmount(existing.totalSpent, existing.orderCount);
     });
 
     const list = Array.from(customerMap.values())
@@ -166,15 +240,129 @@ function LogisticsPerformanceAnalytics() {
         rank: index + 1,
         name: c.name,
         username: c.username,
+        email: c.email,
+        phoneNumber: c.phoneNumber,
+        address: c.address,
+        shippingAddress: c.shippingAddress,
         totalSpent: c.totalSpent,
         orderCount: c.orderCount,
         tier: c.tier,
-        badgeLabel: getBadgeLabel(c.tier, c.totalSpent),
+        badgeLabel: getBadgeLabel(c.tier, c.totalSpent, c.orderCount),
         lastOrderDate: c.lastOrderDate,
+        recentOrders: c.recentOrders || [],
       }));
 
     return list;
   }, [customerRankingsData, salesData]);
+
+  // Helper: Open Customer Info Modal when clicking a transaction
+  const handleOpenCustomerFromSale = (sale) => {
+    if (!sale) return;
+    const cleanUname = (sale.username || (sale.customer ? sale.customer.toLowerCase().replace(/[^a-z0-9]/g, '') : '')).toLowerCase();
+
+    const matched = fullCustomerRankings.find(
+      (c) =>
+        (c.username && c.username.toLowerCase() === cleanUname) ||
+        (c.name && sale.customer && c.name.toLowerCase() === sale.customer.toLowerCase()) ||
+        (c._id && sale.userId && String(c._id) === String(sale.userId))
+    );
+
+    const saleAddr = (sale.address && sale.address !== 'No address on file')
+      ? sale.address
+      : formatAddress(sale.shippingAddress);
+
+    if (matched) {
+      setSelectedCustomer({
+        ...matched,
+        address: (matched.address && matched.address !== 'No address on file') ? matched.address : (saleAddr || 'Storefront Delivery Address'),
+        phoneNumber: matched.phoneNumber || sale.phoneNumber || '',
+        email: matched.email || sale.email || '',
+        shippingAddress: matched.shippingAddress || sale.shippingAddress || null,
+      });
+    } else {
+      setSelectedCustomer({
+        name: sale.customer || 'Customer',
+        username: cleanUname || 'customer',
+        email: sale.email || '',
+        phoneNumber: sale.phoneNumber || '',
+        address: saleAddr || 'Storefront Delivery Address',
+        shippingAddress: sale.shippingAddress || null,
+        totalSpent: Number(sale.amount || 0),
+        orderCount: 1,
+        totalDiscounts: Number(sale.voucherDiscount || 0),
+        rewardPoints: Number(sale.pointsRedeemed || 0),
+        tier: sale.tier || 'Bronze',
+        badgeLabel: getBadgeLabel(sale.tier, sale.amount, 1),
+        lastOrderDate: sale.date || 'Recent',
+        recentOrders: [
+          {
+            orderId: sale.orderId,
+            date: sale.date,
+            amount: sale.amount,
+            status: sale.status,
+            items: sale.items,
+          },
+        ],
+      });
+    }
+  };
+
+  // Helper: Compute clean customer address text with multi-level fallback
+  const customerAddressText = useMemo(() => {
+    if (!selectedCustomer) return '';
+    if (selectedCustomer.address && selectedCustomer.address !== 'No address on file') {
+      return selectedCustomer.address;
+    }
+    if (selectedCustomer.shippingAddress) {
+      const formatted = formatAddress(selectedCustomer.shippingAddress);
+      if (formatted) return formatted;
+    }
+    if (Array.isArray(selectedCustomer.addresses) && selectedCustomer.addresses.length > 0) {
+      const def = selectedCustomer.addresses.find((a) => a.isDefault) || selectedCustomer.addresses[0];
+      const formatted = formatAddress(def);
+      if (formatted) return formatted;
+    }
+    const uname = (selectedCustomer.username || '').toLowerCase();
+    const cname = (selectedCustomer.name || '').toLowerCase();
+    const matchedSale = salesData.find((s) => {
+      const sUname = (s.username || '').toLowerCase();
+      const sName = (s.customer || '').toLowerCase();
+      return (uname && sUname === uname) || (cname && sName === cname);
+    });
+    if (matchedSale) {
+      if (matchedSale.address && matchedSale.address !== 'No address on file') {
+        return matchedSale.address;
+      }
+      if (matchedSale.shippingAddress) {
+        return formatAddress(matchedSale.shippingAddress);
+      }
+    }
+    return '';
+  }, [selectedCustomer, salesData]);
+
+  // Helper: Compute recent orders for customer quick info modal
+  const selectedCustomerRecentOrders = useMemo(() => {
+    if (!selectedCustomer) return [];
+    if (Array.isArray(selectedCustomer.recentOrders) && selectedCustomer.recentOrders.length > 0) {
+      return selectedCustomer.recentOrders;
+    }
+    const uname = (selectedCustomer.username || '').toLowerCase();
+    const cname = (selectedCustomer.name || '').toLowerCase();
+    return salesData
+      .filter((s) => {
+        const sUname = (s.username || '').toLowerCase();
+        const sName = (s.customer || '').toLowerCase();
+        return (uname && sUname === uname) || (cname && sName === cname);
+      })
+      .slice(0, 5)
+      .map((s) => ({
+        orderId: s.orderId,
+        date: s.date,
+        amount: s.amount,
+        status: s.status,
+        items: s.items,
+      }));
+  }, [selectedCustomer, salesData]);
 
   // Filtered & Sorted Customer Rankings for Leaderboard
   const filteredCustomerRankings = useMemo(() => {
@@ -752,8 +940,12 @@ function LogisticsPerformanceAnalytics() {
               <span>#1 Top Customer</span>
             </div>
             {topThreeCustomers[0] ? (
-              <div className="mt-1 truncate">
-                <p className="text-sm font-black text-slate-800 truncate" title={topThreeCustomers[0].name}>
+              <div
+                onClick={() => setSelectedCustomer(topThreeCustomers[0])}
+                className="mt-1 truncate cursor-pointer group/topCust"
+                title="Click to view customer details & address"
+              >
+                <p className="text-sm font-black text-slate-800 truncate group-hover/topCust:text-[#01390f] group-hover/topCust:underline transition-colors" title={topThreeCustomers[0].name}>
                   {topThreeCustomers[0].name}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -821,13 +1013,17 @@ function LogisticsPerformanceAnalytics() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-4">
             {/* 1st Place Champion */}
             {topThreeCustomers[0] && (
-              <div className="relative bg-gradient-to-b from-amber-50/60 to-white border-2 border-amber-300 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div
+                onClick={() => setSelectedCustomer(topThreeCustomers[0])}
+                className="relative bg-gradient-to-b from-amber-50/60 to-white border-2 border-amber-300 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
+                title="Click to view customer details & address"
+              >
                 <div className="absolute -top-3 right-4 bg-amber-500 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
                   <GoldMedal className="w-3.5 h-3.5" size={14} />
                   <span>Gold</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 font-black text-lg shrink-0 shadow-2xs overflow-hidden">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 font-black text-lg shrink-0 shadow-2xs overflow-hidden group-hover:border-[#01390f] transition-colors">
                     {topThreeCustomers[0].profileImage ? (
                       <img
                         src={topThreeCustomers[0].profileImage}
@@ -842,7 +1038,7 @@ function LogisticsPerformanceAnalytics() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-800 text-sm truncate" title={topThreeCustomers[0].name}>
+                    <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#01390f] group-hover:underline transition-colors" title={topThreeCustomers[0].name}>
                       {topThreeCustomers[0].name}
                     </h3>
                     <p className="text-xs font-mono text-emerald-800 font-bold truncate">
@@ -872,13 +1068,17 @@ function LogisticsPerformanceAnalytics() {
 
             {/* 2nd Place Runner-Up */}
             {topThreeCustomers[1] && (
-              <div className="relative bg-gradient-to-b from-slate-50 to-white border border-slate-300 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div
+                onClick={() => setSelectedCustomer(topThreeCustomers[1])}
+                className="relative bg-gradient-to-b from-slate-50 to-white border border-slate-300 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
+                title="Click to view customer details & address"
+              >
                 <div className="absolute -top-3 right-4 bg-slate-500 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
                   <SilverMedal className="w-3.5 h-3.5" size={14} />
                   <span>Silver</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-700 font-black text-lg shrink-0 shadow-2xs overflow-hidden">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-700 font-black text-lg shrink-0 shadow-2xs overflow-hidden group-hover:border-[#01390f] transition-colors">
                     {topThreeCustomers[1].profileImage ? (
                       <img
                         src={topThreeCustomers[1].profileImage}
@@ -893,7 +1093,7 @@ function LogisticsPerformanceAnalytics() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-800 text-sm truncate" title={topThreeCustomers[1].name}>
+                    <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#01390f] group-hover:underline transition-colors" title={topThreeCustomers[1].name}>
                       {topThreeCustomers[1].name}
                     </h3>
                     <p className="text-xs font-mono text-emerald-800 font-bold truncate">
@@ -923,13 +1123,17 @@ function LogisticsPerformanceAnalytics() {
 
             {/* 3rd Place */}
             {topThreeCustomers[2] && (
-              <div className="relative bg-gradient-to-b from-orange-50/40 to-white border border-amber-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div
+                onClick={() => setSelectedCustomer(topThreeCustomers[2])}
+                className="relative bg-gradient-to-b from-orange-50/40 to-white border border-amber-200/80 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
+                title="Click to view customer details & address"
+              >
                 <div className="absolute -top-3 right-4 bg-amber-700 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
                   <BronzeMedal className="w-3.5 h-3.5" size={14} />
                   <span>Bronze</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-100/60 border border-amber-200 flex items-center justify-center text-amber-900 font-black text-lg shrink-0 shadow-2xs overflow-hidden">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-100/60 border border-amber-200 flex items-center justify-center text-amber-900 font-black text-lg shrink-0 shadow-2xs overflow-hidden group-hover:border-[#01390f] transition-colors">
                     {topThreeCustomers[2].profileImage ? (
                       <img
                         src={topThreeCustomers[2].profileImage}
@@ -944,7 +1148,7 @@ function LogisticsPerformanceAnalytics() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-800 text-sm truncate" title={topThreeCustomers[2].name}>
+                    <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#01390f] group-hover:underline transition-colors" title={topThreeCustomers[2].name}>
                       {topThreeCustomers[2].name}
                     </h3>
                     <p className="text-xs font-mono text-emerald-800 font-bold truncate">
@@ -1221,10 +1425,14 @@ function LogisticsPerformanceAnalytics() {
                               </div>
                             </td>
 
-                            {/* 2. CUSTOMER PROFILE */}
-                            <td className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                            {/* 2. CUSTOMER PROFILE - CLICKABLE FOR QUICK INFO & ADDRESS */}
+                            <td
+                              onClick={() => setSelectedCustomer(c)}
+                              className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] hover:!bg-emerald-50/80 transition-all cursor-pointer select-none group/cust"
+                              title="Click to view customer details & address"
+                            >
                               <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 group-hover:border-[#01390f] transition-colors overflow-hidden">
+                                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 group-hover:border-[#01390f] group-hover/cust:border-[#01390f] group-hover/cust:shadow-xs transition-colors overflow-hidden">
                                   {c.profileImage ? (
                                     <img
                                       src={c.profileImage}
@@ -1239,9 +1447,14 @@ function LogisticsPerformanceAnalytics() {
                                   )}
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="font-semibold text-xs text-slate-900 truncate" title={c.name}>
-                                    {c.name}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-xs text-slate-900 group-hover/cust:text-[#01390f] group-hover/cust:underline underline-offset-2 transition-colors truncate" title={c.name}>
+                                      {c.name}
+                                    </span>
+                                    <span className="text-[10px] text-emerald-700 font-semibold opacity-0 group-hover/cust:opacity-100 transition-opacity bg-emerald-50 px-1 rounded border border-emerald-200/50">
+                                      View Info
+                                    </span>
+                                  </div>
                                   <span className="font-mono text-[11px] text-slate-500 font-semibold truncate mt-0.5">
                                     @{c.username}
                                   </span>
@@ -1405,6 +1618,7 @@ function LogisticsPerformanceAnalytics() {
                       <input
                         ref={dateInputRef}
                         type="date"
+                        placeholder="mm/dd/yyyy"
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
                         onClick={(e) => {
@@ -1427,7 +1641,7 @@ function LogisticsPerformanceAnalytics() {
                             } catch (err) { }
                           }
                         }}
-                        className={`w-full h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer ${selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
+                        className={`w-full h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer ${selectedDate ? 'border-[#153E97] bg-blue-50/30 font-semibold text-[#153E97]' : 'border-slate-200'
                           }`}
                       />
                       {selectedDate && (
@@ -1591,18 +1805,36 @@ function LogisticsPerformanceAnalytics() {
                               {sale.orderId}
                             </td>
 
-                            {/* Customer Name, Username & Badge */}
-                            <td className="py-3 px-4 min-w-[210px]">
+                            {/* Customer Name, Username & Badge - CLICKABLE FOR QUICK INFO & ADDRESS */}
+                            <td
+                              onClick={() => handleOpenCustomerFromSale(sale)}
+                              className="py-3 px-4 min-w-[210px] hover:!bg-emerald-50/80 transition-all cursor-pointer select-none group/cust"
+                              title="Click to view customer details & address"
+                            >
                               <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 group-hover:border-[#01390f] transition-colors">
-                                  {sale.customer ? sale.customer.charAt(0).toUpperCase() : 'C'}
+                                <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 group-hover:border-[#01390f] group-hover/cust:border-[#01390f] group-hover/cust:shadow-xs transition-colors overflow-hidden">
+                                  {sale.profileImage ? (
+                                    <img
+                                      src={sale.profileImage}
+                                      alt={sale.customer}
+                                      className="w-full h-full object-cover rounded-lg"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    sale.customer ? sale.customer.charAt(0).toUpperCase() : 'C'
+                                  )}
                                 </div>
                                 <div className="flex flex-col min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-bold text-slate-800 text-xs">
+                                    <span className="font-bold text-slate-800 text-xs group-hover/cust:text-[#01390f] group-hover/cust:underline underline-offset-2 transition-colors">
                                       {sale.customer}
                                     </span>
                                     {renderCustomerBadge(sale.tier, sale.tier ? `${sale.tier} VIP` : 'Customer')}
+                                    <span className="text-[10px] text-emerald-700 font-semibold opacity-0 group-hover/cust:opacity-100 transition-opacity bg-emerald-50 px-1 rounded border border-emerald-200/50">
+                                      View Info
+                                    </span>
                                   </div>
                                   <span className="font-mono text-[11px] text-[#01390f] font-semibold">
                                     @{cleanUname}
@@ -1689,8 +1921,12 @@ function LogisticsPerformanceAnalytics() {
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70 space-y-2.5">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">Customer:</span>
-                  <div className="text-right">
-                    <span className="font-bold text-slate-900 block">
+                  <div
+                    onClick={() => handleOpenCustomerFromSale(selectedSale)}
+                    className="text-right cursor-pointer group/rcust"
+                    title="Click to view full customer profile & address"
+                  >
+                    <span className="font-bold text-slate-900 block group-hover/rcust:text-[#01390f] group-hover/rcust:underline transition-colors">
                       {selectedSale.customer}
                     </span>
                     <span className="font-mono text-xs text-[#01390f] font-semibold block">
@@ -1754,6 +1990,269 @@ function LogisticsPerformanceAnalytics() {
               <button
                 type="button"
                 onClick={() => setSelectedSale(null)}
+                className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 transition-all cursor-pointer whitespace-nowrap"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER QUICK PROFILE & ADDRESS MODAL */}
+      {selectedCustomer && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedCustomer(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-[#01390f]/[0.06] via-emerald-50/40 to-transparent shrink-0">
+              <div className="flex items-center gap-2.5">
+
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800 whitespace-nowrap">
+                    Customer Profile & Information
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {selectedCustomer.customerCode ? `ID: ${selectedCustomer.customerCode} • ` : ''}Customer Analytics
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCustomer(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+                title="Close (Esc)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
+              {/* Customer Identity Card */}
+              <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200/70 flex items-center gap-3.5">
+                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xl shrink-0 overflow-hidden shadow-xs">
+                  {selectedCustomer.profileImage ? (
+                    <img
+                      src={selectedCustomer.profileImage}
+                      alt={selectedCustomer.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="text-[#01390f] font-black text-xl">
+                      {selectedCustomer.name ? selectedCustomer.name.charAt(0).toUpperCase() : 'C'}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-base font-bold text-slate-900 truncate" title={selectedCustomer.name}>
+                    {selectedCustomer.name}
+                  </h4>
+                  <p className="text-xs font-mono font-semibold text-[#01390f]">
+                    @{selectedCustomer.username}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    {renderCustomerBadge(selectedCustomer.tier, selectedCustomer.badgeLabel)}
+                    {selectedCustomer.rank && (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">
+                        Rank #{selectedCustomer.rank}
+                      </span>
+                    )}
+                    {selectedCustomer.accountType && (
+                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded-md">
+                        {selectedCustomer.accountType}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Shipping Address Card */}
+              <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#01390f] flex items-center gap-1.5 uppercase tracking-wider">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                    Delivery Shipping Address
+                  </span>
+                  {customerAddressText && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(customerAddressText, 'address', 'Address copied to clipboard!')}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white/90 hover:bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs transition-all cursor-pointer"
+                    >
+                      {copiedKey === 'address' ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy Address</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs font-medium text-slate-700 leading-relaxed bg-white/95 p-3 rounded-xl border border-emerald-100 shadow-2xs">
+                  {customerAddressText || 'No delivery address recorded on file for this customer account.'}
+                </p>
+              </div>
+
+              {/* Contact Details (Phone & Email) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Phone */}
+                <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/70">
+                  <div className="flex items-center justify-between text-slate-500 mb-1">
+                    <span className="text-[11px] font-bold flex items-center gap-1 uppercase tracking-wider">
+                      <Phone className="w-3 h-3 text-slate-400" />
+                      Contact Number
+                    </span>
+                    {selectedCustomer.phoneNumber && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(selectedCustomer.phoneNumber, 'phone', 'Phone number copied!')}
+                        className="text-[10px] font-semibold text-slate-500 hover:text-[#01390f] cursor-pointer"
+                      >
+                        {copiedKey === 'phone' ? 'Copied!' : 'Copy'}
+                      </button>
+                    )}
+                  </div>
+                  <p className="font-mono text-xs font-semibold text-slate-800 truncate">
+                    {selectedCustomer.phoneNumber || 'Not provided'}
+                  </p>
+                </div>
+
+                {/* Email */}
+                <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/70">
+                  <div className="flex items-center justify-between text-slate-500 mb-1">
+                    <span className="text-[11px] font-bold flex items-center gap-1 uppercase tracking-wider">
+                      <Mail className="w-3 h-3 text-slate-400" />
+                      Email Address
+                    </span>
+                    {selectedCustomer.email && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(selectedCustomer.email, 'email', 'Email copied!')}
+                        className="text-[10px] font-semibold text-slate-500 hover:text-[#01390f] cursor-pointer"
+                      >
+                        {copiedKey === 'email' ? 'Copied!' : 'Copy'}
+                      </button>
+                    )}
+                  </div>
+                  <p className="font-mono text-xs font-semibold text-slate-800 truncate" title={selectedCustomer.email}>
+                    {selectedCustomer.email || 'Not provided'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Purchasing & Loyalty Overview */}
+              <div>
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">
+                  Purchasing Activity & Metrics
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Spent</span>
+                    <span className="font-mono font-bold text-xs sm:text-sm text-[#01390f] mt-0.5 block">
+                      ₱{Number(selectedCustomer.totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Orders</span>
+                    <span className="font-mono font-bold text-xs sm:text-sm text-slate-800 mt-0.5 block">
+                      {selectedCustomer.orderCount || 0}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Discounts</span>
+                    <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700 mt-0.5 block">
+                      ₱{Number(selectedCustomer.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Reward Points</span>
+                    <span className="font-mono font-bold text-xs sm:text-sm text-purple-700 mt-0.5 block">
+                      {selectedCustomer.rewardPoints || 0} pts
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Orders Breakdown Mini-List */}
+              {selectedCustomerRecentOrders && selectedCustomerRecentOrders.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                      Recent Orders ({selectedCustomerRecentOrders.length})
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Last Order: {selectedCustomer.lastOrderDate || 'Recent'}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                    {selectedCustomerRecentOrders.map((ord, idx) => (
+                      <div
+                        key={ord._id || ord.orderId || idx}
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/60 text-xs"
+                      >
+                        <div className="min-w-0 flex-1 mr-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[#01390f]">
+                              {ord.orderId}
+                            </span>
+                            <span className="text-slate-400 font-mono text-[11px]">
+                              {ord.date}
+                            </span>
+                          </div>
+                          {ord.items && (
+                            <p className="text-slate-500 text-[11px] truncate mt-0.5" title={ord.items}>
+                              {ord.items}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-bold text-slate-800 block">
+                            ₱{Number(ord.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </span>
+                          <div className="mt-0.5">
+                            {getStatusBadge(ord.status)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-between gap-3 shrink-0 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => {
+                  handleFilterByCustomer(selectedCustomer);
+                  setSelectedCustomer(null);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-[#01390f] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer shadow-2xs"
+              >
+                <Search className="w-3.5 h-3.5 text-[#01390f]" />
+                <span>Filter Transactions</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedCustomer(null)}
                 className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 transition-all cursor-pointer whitespace-nowrap"
               >
                 Close

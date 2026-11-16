@@ -43,6 +43,7 @@ import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { notifyLiveSync, subscribeLiveSync } from '../utils/liveSync';
 import { compressImageToBase64 } from '../utils/imageCompressor';
 import TablePagination from './common/TablePagination';
+import ItemImageModal from './common/ItemImageModal';
 
 function MarketingAllProductsCatalog() {
   const [catalogProducts, setCatalogProducts] = useState(() => {
@@ -82,6 +83,7 @@ function MarketingAllProductsCatalog() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState(null);
   const [viewProductModal, setViewProductModal] = useState(null);
+  const [selectedImageItem, setSelectedImageItem] = useState(null);
 
   // Package Set Modal States
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
@@ -1406,8 +1408,8 @@ function MarketingAllProductsCatalog() {
                   onClick={handleClearAllFilters}
                   disabled={activeFiltersCount === 0}
                   className={`flex items-center justify-center sm:justify-start gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-center sm:text-left w-full h-[32px] sm:h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap shadow-2xs sm:shadow-none ${activeFiltersCount > 0
-                      ? 'bg-emerald-50/80 border-emerald-200/90 text-[#01390f] hover:bg-emerald-100/90'
-                      : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent text-slate-700 hover:bg-slate-100'
+                    ? 'bg-emerald-50/80 border-emerald-200/90 text-[#01390f] hover:bg-emerald-100/90'
+                    : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent text-slate-700 hover:bg-slate-100'
                     }`}
                   title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                 >
@@ -1692,11 +1694,18 @@ function MarketingAllProductsCatalog() {
                         >
                           {/* 1. ITEM NAME */}
                           <td
-                            className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-xs truncate"
-                            title={displayName}
+                            onClick={() => {
+                              if (isPkg) {
+                                setViewPackageModal(row);
+                              } else {
+                                handleOpenViewModal(row);
+                              }
+                            }}
+                            className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] hover:!bg-emerald-50/70 transition-colors max-w-xs truncate cursor-pointer group/name"
+                            title="Click to view product details & specs"
                           >
                             <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-xs text-slate-900 truncate">
+                              <span className="font-semibold text-xs text-slate-900 group-hover/name:text-[#01390f] group-hover/name:underline underline-offset-2 transition-colors truncate">
                                 {displayName}
                               </span>
                               {(isPkg || row.isOnSale) && (
@@ -1717,20 +1726,14 @@ function MarketingAllProductsCatalog() {
                             </div>
                           </td>
 
-                          {/* 2. IMAGE */}
+                          {/* 2. IMAGE - PURE IMAGE PREVIEW (NO INFO) */}
                           <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                             <div className="flex justify-center items-center">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (isPkg) {
-                                    setViewPackageModal(row);
-                                  } else {
-                                    handleOpenViewModal(row);
-                                  }
-                                }}
+                                onClick={() => setSelectedImageItem(row)}
                                 className="relative group/img cursor-pointer rounded-lg overflow-hidden border border-slate-200 hover:border-[#01390f] focus:outline-none focus:ring-2 focus:ring-[#01390f]/30 shadow-2xs transition-all hover:scale-105 active:scale-95 bg-slate-50"
-                                title="Click to view full product image & specs"
+                                title="Click to view image"
                                 aria-label={`View photo of ${displayName}`}
                               >
                                 <img
@@ -1793,8 +1796,8 @@ function MarketingAllProductsCatalog() {
                           {/* 10. STATUS (Tinted cell matching the Expiry status style) */}
                           <td
                             className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${row.isPublished
-                                ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
-                                : 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                              ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                              : 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
                               }`}
                           >
                             <span>{row.isPublished ? 'Live' : 'Draft'}</span>
@@ -1805,6 +1808,21 @@ function MarketingAllProductsCatalog() {
                             <div className="flex items-center justify-center gap-1.5">
                               {viewMode !== 'archived' ? (
                                 <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isPkg) {
+                                        setViewPackageModal(row);
+                                      } else {
+                                        handleOpenViewModal(row);
+                                      }
+                                    }}
+                                    title={isPkg ? 'View Package Set Details' : 'View Product Details'}
+                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -3324,6 +3342,13 @@ function MarketingAllProductsCatalog() {
           </div>
         </div>
       )}
+
+      {/* PURE IMAGE PREVIEW MODAL (IMAGE ONLY - NO INFO) */}
+      <ItemImageModal
+        isOpen={Boolean(selectedImageItem)}
+        onClose={() => setSelectedImageItem(null)}
+        item={selectedImageItem}
+      />
     </div>
   );
 }

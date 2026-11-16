@@ -1345,48 +1345,40 @@ function CustomerAccount({ initialTab }) {
                       <label className="block text-sm font-medium text-slate-900">
                         Date of Birth
                       </label>
-                      <div className="flex items-center gap-2 max-w-sm">
-                        <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white flex-1 text-center">
-                          <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-[11px] font-medium text-slate-500">
-                            MM
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={2}
-                            value={dobMonth}
-                            onChange={(e) => setDobMonth(e.target.value.replace(/\D/g, ""))}
-                            placeholder="10"
-                            className="w-full bg-transparent outline-none text-sm text-slate-900 font-medium text-center"
-                          />
-                        </div>
-                        <span className="text-slate-400 font-light text-lg">/</span>
-                        <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white flex-1 text-center">
-                          <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-[11px] font-medium text-slate-500">
-                            DD
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={2}
-                            value={dobDay}
-                            onChange={(e) => setDobDay(e.target.value.replace(/\D/g, ""))}
-                            placeholder="25"
-                            className="w-full bg-transparent outline-none text-sm text-slate-900 font-medium text-center"
-                          />
-                        </div>
-                        <span className="text-slate-400 font-light text-lg">/</span>
-                        <div className="relative border border-slate-300 rounded-xl px-4 py-3 focus-within:border-slate-800 transition-colors bg-white flex-1 text-center">
-                          <label className="absolute -top-2.5 left-3.5 bg-white px-1.5 text-[11px] font-medium text-slate-500">
-                            YYYY
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={4}
-                            value={dobYear}
-                            onChange={(e) => setDobYear(e.target.value.replace(/\D/g, ""))}
-                            placeholder="2005"
-                            className="w-full bg-transparent outline-none text-sm text-slate-900 font-medium text-center"
-                          />
-                        </div>
+                      <div className="relative max-w-sm">
+                        <input
+                          type="date"
+                          placeholder="mm/dd/yyyy"
+                          max={new Date().toISOString().split("T")[0]}
+                          value={
+                            dobYear && dobMonth && dobDay
+                              ? `${String(dobYear).padStart(4, '0')}-${String(dobMonth).padStart(2, '0')}-${String(dobDay).padStart(2, '0')}`
+                              : ''
+                          }
+                          onChange={(e) => {
+                            if (!e.target.value) {
+                              setDobYear('');
+                              setDobMonth('');
+                              setDobDay('');
+                            } else {
+                              const [y, m, d] = e.target.value.split('-');
+                              setDobYear(y || '');
+                              setDobMonth(m || '');
+                              setDobDay(d || '');
+                            }
+                          }}
+                          onClick={(e) => {
+                            try {
+                              e.currentTarget.showPicker();
+                            } catch (err) {}
+                          }}
+                          onFocus={(e) => {
+                            try {
+                              e.currentTarget.showPicker();
+                            } catch (err) {}
+                          }}
+                          className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 font-medium focus:outline-none focus:border-slate-800 cursor-pointer bg-white transition-colors [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        />
                       </div>
                     </div>
                   )}

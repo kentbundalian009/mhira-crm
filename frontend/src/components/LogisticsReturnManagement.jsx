@@ -866,6 +866,7 @@ function LogisticsReturnManagement() {
                   <input
                     ref={dateInputRef}
                     type="date"
+                    placeholder="mm/dd/yyyy"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                     onClick={(e) => {
@@ -888,7 +889,7 @@ function LogisticsReturnManagement() {
                         } catch (err) { }
                       }
                     }}
-                    className={`w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer shadow-2xs ${selectedDate ? 'border-[#01390f] bg-emerald-50/30 font-semibold text-[#01390f]' : 'border-slate-200'
+                    className={`w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer shadow-2xs ${selectedDate ? 'border-[#153E97] bg-blue-50/30 font-semibold text-[#153E97]' : 'border-slate-200'
                       }`}
                   />
                   {selectedDate && (

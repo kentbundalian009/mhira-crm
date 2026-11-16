@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
   Tag,
@@ -75,6 +75,18 @@ function MarketingPromotions() {
     expiry: '',
     targetSegment: 'All',
   });
+
+  const expiryInputRef = useRef(null);
+
+  const getTodayLocalDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayDate = useMemo(() => getTodayLocalDate(), []);
 
   const API_BASE_URL =
     import.meta.env.MODE === 'production'
@@ -339,12 +351,12 @@ function MarketingPromotions() {
                     setCurrentPage(1);
                   }}
                   className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${isActive
-                    ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
+                    ? 'border-[#153E97] text-[#153E97] bg-slate-50 rounded-t-lg font-bold'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
                     }`}
                 >
                   {mod.id === 'active' ? (
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#153E97]" />
                   ) : (
                     <Archive className="w-3.5 h-3.5 text-slate-500" />
                   )}
@@ -365,10 +377,10 @@ function MarketingPromotions() {
                 <button
                   type="button"
                   onClick={handleOpenAddModal}
-                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#01390f]"
+                  className="w-[84px] sm:w-[90px] lg:w-[74px] shrink-0 flex flex-col items-center justify-center px-1.5 py-1.5 lg:py-1 rounded-md bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer group text-slate-700 hover:text-[#153E97]"
                   title="Create a new promotional coupon code"
                 >
-                  <Plus className="w-5.5 h-5.5 text-[#01390f] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
+                  <Plus className="w-5.5 h-5.5 text-[#153E97] group-hover:scale-110 transition-transform mb-0.5" strokeWidth={2.5} />
                   <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">
                     New<br />Coupon
                   </span>
@@ -410,7 +422,7 @@ function MarketingPromotions() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search Coupon Code, Target Audience..."
-                  className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] h-[38px] font-normal shadow-2xs transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#153E97] h-[38px] font-normal shadow-2xs transition-colors"
                 />
                 {searchQuery && (
                   <button
@@ -431,7 +443,7 @@ function MarketingPromotions() {
                   <select
                     value={selectedSegment}
                     onChange={(e) => setSelectedSegment(e.target.value)}
-                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs font-medium"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs font-medium"
                   >
                     <option value="All">All Customer Segments</option>
                     <option value="Gold Tier">Gold Tier</option>
@@ -447,7 +459,7 @@ function MarketingPromotions() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="All">All Coupon Statuses</option>
                     <option value="Active">Active Coupons</option>
@@ -462,7 +474,7 @@ function MarketingPromotions() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
+                    className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
                     <option value="newest">Sort: Newest First</option>
                     <option value="discount-desc">Sort: Highest Discount</option>
@@ -479,7 +491,7 @@ function MarketingPromotions() {
                   type="button"
                   onClick={() => setStatusFilter(statusFilter === 'Active' ? 'All' : 'Active')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${statusFilter === 'Active'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-[#153E97] text-[#153E97] font-semibold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -546,7 +558,7 @@ function MarketingPromotions() {
           <div className="overflow-x-auto relative custom-scrollbar">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
+                <tr className="bg-[#153E97] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
                   <th className="py-3.5 px-4">PROMO CODE</th>
                   <th className="py-3.5 px-4 text-center">DISCOUNT RATE</th>
                   <th className="py-3.5 px-4 text-right">MINIMUM SPEND</th>
@@ -554,7 +566,7 @@ function MarketingPromotions() {
                   <th className="py-3.5 px-4">TARGET AUDIENCE</th>
                   <th className="py-3.5 px-4 text-center">EXPIRY DATE</th>
                   <th className="py-3.5 px-4 text-center">STATUS</th>
-                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">
+                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#153E97] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">
                     ACTION
                   </th>
                 </tr>
@@ -565,7 +577,7 @@ function MarketingPromotions() {
                   <tr>
                     <td
                       colSpan="8"
-                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                      className="text-center py-12 text-[#153E97] font-medium italic whitespace-nowrap"
                     >
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -603,7 +615,7 @@ function MarketingPromotions() {
 
                     // Status text & style categorization
                     let statusLabel = 'Active';
-                    let statusStyle = 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900';
+                    let statusStyle = 'bg-blue-500/15 group-hover:bg-blue-500/25 text-[#153E97]';
 
                     if (c.isArchived) {
                       statusLabel = 'Archived';
@@ -622,26 +634,26 @@ function MarketingPromotions() {
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
                         {/* 1. PROMO CODE */}
-                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
                             {c.code || 'N/A'}
                           </span>
                         </td>
 
                         {/* 2. DISCOUNT RATE (Volume / Accent Blue Column) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/20 group-hover:bg-blue-600/30 text-slate-800 font-mono font-bold text-xs transition-colors">
                           {rawDiscount.includes('%') || rawDiscount.includes('₱')
                             ? `${rawDiscount} OFF`
                             : `${rawDiscount}% OFF`}
                         </td>
 
                         {/* 3. MIN SPEND */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           {minSpendNum > 0 ? `₱${minSpendNum.toFixed(2)}` : 'No Minimum'}
                         </td>
 
                         {/* 4. USAGE LIMIT */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           {limitNum > 0 ? (
                             <span
                               className={`font-bold ${isLimitReached ? 'text-rose-600' : 'text-slate-800'
@@ -657,19 +669,19 @@ function MarketingPromotions() {
                         </td>
 
                         {/* 5. TARGET AUDIENCE (Standardized Pill Badges) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${(c.targetSegment || '').includes('Gold') ||
-                                (c.targetSegment || '').includes('Loyal') ||
-                                (c.targetSegment || '') === 'VIP'
-                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                : (c.targetSegment || '').includes('Silver') ||
-                                  (c.targetSegment || '') === 'Regular'
-                                  ? 'bg-slate-100 text-slate-800 border border-slate-300'
-                                  : (c.targetSegment || '').includes('Bronze') ||
-                                    (c.targetSegment || '') === 'New'
-                                    ? 'bg-orange-50 text-orange-800 border border-orange-200'
-                                    : 'bg-emerald-50 text-[#01390f] border border-emerald-200'
+                              (c.targetSegment || '').includes('Loyal') ||
+                              (c.targetSegment || '') === 'VIP'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : (c.targetSegment || '').includes('Silver') ||
+                                (c.targetSegment || '') === 'Regular'
+                                ? 'bg-slate-100 text-slate-800 border border-slate-300'
+                                : (c.targetSegment || '').includes('Bronze') ||
+                                  (c.targetSegment || '') === 'New'
+                                  ? 'bg-orange-50 text-orange-800 border border-orange-200'
+                                  : 'bg-blue-50 text-[#153E97] border border-blue-200'
                               }`}
                           >
                             {c.targetSegment || 'All Shoppers'}
@@ -677,7 +689,7 @@ function MarketingPromotions() {
                         </td>
 
                         {/* 6. EXPIRY DATE */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           {c.expiry && !isNaN(new Date(c.expiry).getTime())
                             ? new Date(c.expiry).toLocaleDateString()
                             : 'No Expiry'}
@@ -691,7 +703,7 @@ function MarketingPromotions() {
                         </td>
 
                         {/* 8. ACTION (Sticky Right) */}
-                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                        <td className="py-3 px-3 bg-slate-50/80 group-hover:bg-blue-50/40 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
                             {viewMode !== 'archived' ? (
                               <>
@@ -699,7 +711,7 @@ function MarketingPromotions() {
                                   type="button"
                                   onClick={() => handleOpenEditModal(c)}
                                   title="Edit Coupon"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#153E97] hover:text-white hover:border-[#153E97] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
@@ -792,7 +804,7 @@ function MarketingPromotions() {
                           placeholder="e.g. MHIRA20OFF"
                           value={newCoupon.code}
                           onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
-                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-[#01390f] rounded-l-lg pl-8 pr-3 text-xs font-bold font-mono focus:outline-none focus:border-[#01390f] focus:bg-white uppercase transition-colors"
+                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-[#153E97] rounded-l-lg pl-8 pr-3 text-xs font-bold font-mono focus:outline-none focus:border-[#153E97] focus:bg-white uppercase transition-colors"
                         />
                       </div>
                       <button
@@ -804,7 +816,7 @@ function MarketingPromotions() {
                         className="h-[34px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-3 text-xs font-semibold text-slate-700 cursor-pointer flex items-center justify-center shrink-0 transition-colors select-none"
                         title="Auto-generate promo code"
                       >
-                        <span className="text-[10px] font-bold text-[#01390f] uppercase">Auto</span>
+                        <span className="text-[10px] font-bold text-[#153E97] uppercase">Auto</span>
                       </button>
                     </div>
                   </div>
@@ -824,7 +836,7 @@ function MarketingPromotions() {
                         placeholder="0 (Unlimited)"
                         value={newCoupon.usageLimit}
                         onChange={(e) => setNewCoupon({ ...newCoupon, usageLimit: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white font-mono transition-colors"
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white font-mono transition-colors"
                       />
                     </div>
                   </div>
@@ -849,7 +861,7 @@ function MarketingPromotions() {
                         placeholder="e.g. 20"
                         value={newCoupon.discount}
                         onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white font-mono transition-colors"
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white font-mono transition-colors"
                       />
                     </div>
                   </div>
@@ -869,7 +881,7 @@ function MarketingPromotions() {
                         placeholder="0 (No minimum)"
                         value={newCoupon.minSpend}
                         onChange={(e) => setNewCoupon({ ...newCoupon, minSpend: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white font-mono transition-colors"
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white font-mono transition-colors"
                       />
                     </div>
                   </div>
@@ -887,7 +899,7 @@ function MarketingPromotions() {
                       <select
                         value={newCoupon.targetSegment}
                         onChange={(e) => setNewCoupon({ ...newCoupon, targetSegment: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
+                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white cursor-pointer appearance-none transition-colors"
                       >
                         <option value="All">All Shoppers (Public)</option>
                         <option value="Gold Tier">Gold Tier (3+ orders or ₱5k+ spend)</option>
@@ -900,16 +912,51 @@ function MarketingPromotions() {
 
                   {/* EXPIRATION DATE */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Expiration Date
-                    </label>
-                    <div className="relative">
-                      <Calendar className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
+                        Expiration Date
+                      </label>
+                      {newCoupon.expiry ? (
+                        <button
+                          type="button"
+                          onClick={() => setNewCoupon({ ...newCoupon, expiry: '' })}
+                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-0.5 transition-colors"
+                          title="Clear expiration date"
+                        >
+                          <X className="w-3 h-3" /> Clear (No Expiry)
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium">Optional</span>
+                      )}
+                    </div>
+                    <div
+                      onClick={() => {
+                        try {
+                          expiryInputRef.current?.showPicker();
+                          expiryInputRef.current?.focus();
+                        } catch (err) {}
+                      }}
+                      className="relative cursor-pointer flex items-center"
+                    >
+                      <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-[#153E97] pointer-events-none z-10" />
                       <input
+                        ref={expiryInputRef}
                         type="date"
-                        value={newCoupon.expiry}
+                        placeholder="mm/dd/yyyy"
+                        min={todayDate}
+                        value={newCoupon.expiry || ''}
                         onChange={(e) => setNewCoupon({ ...newCoupon, expiry: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer transition-colors"
+                        onClick={(e) => {
+                          try {
+                            e.currentTarget.showPicker();
+                          } catch (err) {}
+                        }}
+                        onFocus={(e) => {
+                          try {
+                            e.currentTarget.showPicker();
+                          } catch (err) {}
+                        }}
+                        className="w-full h-[34px] bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:ring-1 focus:ring-[#153E97]/20 cursor-pointer transition-colors [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                       />
                     </div>
                   </div>
@@ -933,14 +980,14 @@ function MarketingPromotions() {
                     setIsModalOpen(false);
                     setEditingCoupon(null);
                   }}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                  className="px-5 py-2.5 sm:py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
+                  className="px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap bg-[#153E97] hover:bg-[#11327c] text-white cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   <span className="whitespace-nowrap">

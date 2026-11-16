@@ -1273,6 +1273,7 @@ function InventoryDeliveryReceiving() {
                         type="date"
                         required
                         max={todayDate}
+                        placeholder="mm/dd/yyyy"
                         value={dateReceived}
                         onChange={handleDateReceivedChange}
                         onClick={(e) => {
@@ -1280,7 +1281,12 @@ function InventoryDeliveryReceiving() {
                             e.currentTarget.showPicker();
                           } catch (err) { }
                         }}
-                        className="w-full bg-slate-50/50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs font-semibold font-mono focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 cursor-pointer transition-all h-[34px]"
+                        onFocus={(e) => {
+                          try {
+                            e.currentTarget.showPicker();
+                          } catch (err) { }
+                        }}
+                        className="w-full bg-slate-50/50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs font-semibold font-mono focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 cursor-pointer transition-all h-[34px] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                       />
                     </div>
                   </div>
@@ -1598,6 +1604,7 @@ function InventoryDeliveryReceiving() {
                                 <input
                                   type="date"
                                   min={todayDate}
+                                  placeholder="mm/dd/yyyy"
                                   value={item.expiryDate || ''}
                                   onChange={(e) => handleItemExpiryChange(index, e.target.value)}
                                   onClick={(e) => {
@@ -1605,8 +1612,12 @@ function InventoryDeliveryReceiving() {
                                       e.currentTarget.showPicker();
                                     } catch (err) { }
                                   }}
-                                  onKeyDown={(e) => e.preventDefault()}
-                                  className={`bg-white border rounded-lg px-2.5 py-1 text-xs font-mono text-slate-700 focus:outline-none focus:border-[#01390f] cursor-pointer shadow-2xs transition-all ${!item.expiryDate
+                                  onFocus={(e) => {
+                                    try {
+                                      e.currentTarget.showPicker();
+                                    } catch (err) { }
+                                  }}
+                                  className={`bg-white border rounded-lg px-2.5 py-1 text-xs font-mono text-slate-700 focus:outline-none focus:border-[#01390f] cursor-pointer shadow-2xs transition-all [&::-webkit-calendar-picker-indicator]:cursor-pointer ${!item.expiryDate
                                     ? 'border-amber-300 ring-1 ring-amber-300/60 bg-amber-50/20'
                                     : 'border-slate-200'
                                     }`}

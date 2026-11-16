@@ -31,11 +31,97 @@ export const mapFulfillmentStatus = (status) => {
   return "Processing";
 };
 
+// Helper: Format primary address for customer quick info
+export const formatCustomerAddress = (user, fallbackOrder) => {
+  // 1. Check user.addresses
+  if (Array.isArray(user?.addresses) && user.addresses.length > 0) {
+    const defaultAddr = user.addresses.find((a) => a.isDefault) || user.addresses[0];
+    const parts = [
+      defaultAddr.streetAddress,
+      defaultAddr.barangay ? `Brgy. ${String(defaultAddr.barangay).replace(/^Brgy\.?\s*/i, "")}` : "",
+      defaultAddr.city,
+      defaultAddr.province || defaultAddr.region,
+      defaultAddr.postalCode,
+      defaultAddr.country || "Philippines",
+    ].filter(Boolean);
+    if (parts.length > 0) return parts.join(", ");
+  }
+
+  // 2. Check fallbackOrder.shippingAddress
+  if (fallbackOrder?.shippingAddress) {
+    if (typeof fallbackOrder.shippingAddress === "string" && fallbackOrder.shippingAddress.trim()) {
+      return fallbackOrder.shippingAddress.trim();
+    }
+    if (typeof fallbackOrder.shippingAddress === "object") {
+      const parts = [
+        fallbackOrder.shippingAddress.streetAddress || fallbackOrder.shippingAddress.street,
+        fallbackOrder.shippingAddress.barangay ? `Brgy. ${String(fallbackOrder.shippingAddress.barangay).replace(/^Brgy\.?\s*/i, "")}` : "",
+        fallbackOrder.shippingAddress.city,
+        fallbackOrder.shippingAddress.province || fallbackOrder.shippingAddress.region,
+        fallbackOrder.shippingAddress.postalCode,
+        fallbackOrder.shippingAddress.country || "Philippines",
+      ].filter(Boolean);
+      if (parts.length > 0) return parts.join(", ");
+    }
+  }
+
+  // 3. Check user.shippingAddress
+  if (user?.shippingAddress) {
+    if (typeof user.shippingAddress === "string" && user.shippingAddress.trim()) {
+      return user.shippingAddress.trim();
+    }
+    if (typeof user.shippingAddress === "object") {
+      const parts = [
+        user.shippingAddress.street,
+        user.shippingAddress.city,
+        user.shippingAddress.province,
+        user.shippingAddress.postalCode,
+        user.shippingAddress.country || "Philippines",
+      ].filter(Boolean);
+      if (parts.length > 0) return parts.join(", ");
+    }
+  }
+
+  // 4. Check user.billingAddress
+  if (user?.billingAddress) {
+    if (typeof user.billingAddress === "string" && user.billingAddress.trim()) {
+      return user.billingAddress.trim();
+    }
+    if (typeof user.billingAddress === "object") {
+      const parts = [
+        user.billingAddress.street,
+        user.billingAddress.city,
+        user.billingAddress.province,
+        user.billingAddress.postalCode,
+        user.billingAddress.country || "Philippines",
+      ].filter(Boolean);
+      if (parts.length > 0) return parts.join(", ");
+    }
+  }
+
+  return "No address on file";
+};
+
+// Helper: Extract contact phone number
+export const getCustomerPhone = (user, fallbackOrder) => {
+  if (user?.phoneNumber && String(user.phoneNumber).trim()) return String(user.phoneNumber).trim();
+  if (Array.isArray(user?.addresses) && user.addresses.length > 0) {
+    const defaultAddr = user.addresses.find((a) => a.isDefault) || user.addresses[0];
+    if (defaultAddr?.phoneNumber && String(defaultAddr.phoneNumber).trim()) {
+      return String(defaultAddr.phoneNumber).trim();
+    }
+  }
+  if (fallbackOrder?.shippingAddress && typeof fallbackOrder.shippingAddress === "object" && fallbackOrder.shippingAddress.phoneNumber) {
+    return String(fallbackOrder.shippingAddress.phoneNumber).trim();
+  }
+  return "";
+};
+
 export const getSalesReport = async (req, res) => {
   try {
     // 1. Fetch real customer accounts
     const customerUsers = await User.find({ role: { $in: ["Customer", "customer"] } })
-      .select("fullName username email totalSpent tier rewardPoints profileImage customerNo customerCode empNo createdAt updatedAt")
+      .select("fullName username email phoneNumber gender billingAddress shippingAddress addresses totalSpent tier rewardPoints profileImage customerNo customerCode empNo accountType createdAt updatedAt")
       .lean()
       .catch(() => []);
 
@@ -80,7 +166,7 @@ export const getSalesReport = async (req, res) => {
           { email: { $in: missingIds } },
         ],
       })
-        .select("fullName username email totalSpent tier rewardPoints profileImage customerNo customerCode empNo createdAt updatedAt")
+        .select("fullName username email phoneNumber gender billingAddress shippingAddress addresses totalSpent tier rewardPoints profileImage customerNo customerCode empNo accountType createdAt updatedAt")
         .lean()
         .catch(() => []);
 
@@ -139,6 +225,9 @@ export const getSalesReport = async (req, res) => {
         order.orderNumber ||
         (order._id ? `ORD-${String(order._id).slice(-8).toUpperCase()}` : "ORD-0000");
 
+      const resolvedAddress = formatCustomerAddress(matchedUser, order);
+      const resolvedPhone = getCustomerPhone(matchedUser, order);
+
       return {
         _id: order._id,
         orderId: displayOrderId,
@@ -157,6 +246,12 @@ export const getSalesReport = async (req, res) => {
         shippingFee: Number(order.shippingFee || 0),
         paymentMethod: order.paymentMethod || "Cash on Delivery",
         paymentStatus: order.paymentStatus || "Paid",
+        shippingAddress: order.shippingAddress || null,
+        address: resolvedAddress,
+        phoneNumber: resolvedPhone,
+        email: matchedUser?.email || "",
+        profileImage: matchedUser?.profileImage || "",
+        customerCode: matchedUser?.customerCode || matchedUser?.customerNo || "",
         createdAt: order.createdAt || new Date(),
         updatedAt: order.updatedAt || new Date(),
       };
@@ -178,6 +273,10 @@ export const getSalesReport = async (req, res) => {
           items: ms.items || "Order Items",
           amount: Number(ms.amount || 0),
           status: ms.status || "Delivered",
+          shippingAddress: ms.shippingAddress || null,
+          address: ms.address || "No address on file",
+          phoneNumber: ms.phoneNumber || "",
+          email: ms.email || "",
           createdAt: ms.createdAt || new Date(),
         });
       }
@@ -228,11 +327,33 @@ export const getSalesReport = async (req, res) => {
       });
 
       const tier = calculateMhiraTier(totalSpent, orderCount);
+      const formattedAddress = formatCustomerAddress(u, customerOrders[0]);
+      const phone = getCustomerPhone(u, customerOrders[0]);
+
+      const recentOrders = customerOrders.slice(0, 5).map((o) => ({
+        _id: o._id,
+        orderId: o.orderNumber || (o._id ? `ORD-${String(o._id).slice(-8).toUpperCase()}` : "ORD-0000"),
+        date: o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : "",
+        amount: Number(o.totalAmount || 0),
+        status: mapFulfillmentStatus(o.status),
+        items: Array.isArray(o.items) && o.items.length > 0
+          ? o.items.map((i) => `${i.name || "Item"} (x${i.quantity || 1})`).join(", ")
+          : "Order Items",
+      }));
 
       uniqueCustomers.push({
+        _id: u._id,
         name: u.fullName || u.username,
         username: u.username || (u.fullName ? u.fullName.toLowerCase().replace(/[^a-z0-9]/g, "") : "customer"),
         email: u.email || "",
+        phoneNumber: phone,
+        address: formattedAddress,
+        addresses: u.addresses || [],
+        shippingAddress: u.shippingAddress || null,
+        billingAddress: u.billingAddress || null,
+        customerCode: u.customerCode || u.customerNo || u.empNo || "",
+        accountType: u.accountType || "Shopper",
+        gender: u.gender || "",
         totalSpent,
         orderCount,
         totalDiscounts,
@@ -243,6 +364,7 @@ export const getSalesReport = async (req, res) => {
         profileImage: u.profileImage || "",
         lastOrderDate: lastOrderDate || (orderCount > 0 ? "Recent" : "No orders yet"),
         createdAt: u.createdAt,
+        recentOrders,
       });
     });
 
@@ -255,19 +377,29 @@ export const getSalesReport = async (req, res) => {
       })
       .map((c, index) => ({
         rank: index + 1,
+        _id: c._id,
         name: c.name,
         username: c.username,
         email: c.email,
+        phoneNumber: c.phoneNumber,
+        address: c.address,
+        addresses: c.addresses,
+        shippingAddress: c.shippingAddress,
+        billingAddress: c.billingAddress,
+        customerCode: c.customerCode,
+        accountType: c.accountType,
+        gender: c.gender,
         totalSpent: c.totalSpent,
         orderCount: c.orderCount,
         totalDiscounts: c.totalDiscounts || 0,
         discountCount: c.discountCount || 0,
         rewardPoints: c.rewardPoints,
         tier: c.tier,
-        badgeLabel: getMhiraBadgeLabel(c.tier),
+        badgeLabel: c.badgeLabel,
         lastOrderDate: c.lastOrderDate,
         profileImage: c.profileImage,
         createdAt: c.createdAt,
+        recentOrders: c.recentOrders || [],
       }));
 
     // 6. Calculate Aggregated Metrics & Stats

@@ -32,7 +32,7 @@ function InventoryDashboard({ setActiveTab }) {
     try {
       const cached = localStorage.getItem("cached_inventory_products") || localStorage.getItem("mhira_db_products");
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return INITIAL_DEFAULT_PRODUCTS;
   });
 
@@ -40,7 +40,7 @@ function InventoryDashboard({ setActiveTab }) {
     try {
       const cached = localStorage.getItem("cached_inventory_raw_materials");
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
 
@@ -48,7 +48,7 @@ function InventoryDashboard({ setActiveTab }) {
     try {
       const cached = localStorage.getItem("cached_inventory_inbounds");
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
 
@@ -56,7 +56,7 @@ function InventoryDashboard({ setActiveTab }) {
     try {
       const cached = localStorage.getItem("cached_inventory_wip");
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
 
@@ -64,7 +64,7 @@ function InventoryDashboard({ setActiveTab }) {
     try {
       const cached = localStorage.getItem("cached_inventory_expiry");
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
 
@@ -72,7 +72,7 @@ function InventoryDashboard({ setActiveTab }) {
     try {
       const cached = localStorage.getItem("cached_inventory_suppliers");
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
 
@@ -142,7 +142,7 @@ function InventoryDashboard({ setActiveTab }) {
 
       if (prods.length > 0) {
         setProducts(prods);
-        try { localStorage.setItem("cached_inventory_products", JSON.stringify(prods)); } catch (e) {}
+        try { localStorage.setItem("cached_inventory_products", JSON.stringify(prods)); } catch (e) { }
       } else {
         try {
           const cached = JSON.parse(localStorage.getItem("cached_inventory_products") || "[]");
@@ -155,27 +155,27 @@ function InventoryDashboard({ setActiveTab }) {
 
       if (raws.length > 0) {
         setRawMaterials(raws);
-        try { localStorage.setItem("cached_inventory_raw_materials", JSON.stringify(raws)); } catch (e) {}
+        try { localStorage.setItem("cached_inventory_raw_materials", JSON.stringify(raws)); } catch (e) { }
       }
 
       if (inbs.length > 0) {
         setInbounds(inbs);
-        try { localStorage.setItem("cached_inventory_inbounds", JSON.stringify(inbs)); } catch (e) {}
+        try { localStorage.setItem("cached_inventory_inbounds", JSON.stringify(inbs)); } catch (e) { }
       }
 
       if (wips.length > 0) {
         setWipLogs(wips);
-        try { localStorage.setItem("cached_inventory_wip", JSON.stringify(wips)); } catch (e) {}
+        try { localStorage.setItem("cached_inventory_wip", JSON.stringify(wips)); } catch (e) { }
       }
 
       if (exps.length > 0) {
         setExpiryItems(exps);
-        try { localStorage.setItem("cached_inventory_expiry", JSON.stringify(exps)); } catch (e) {}
+        try { localStorage.setItem("cached_inventory_expiry", JSON.stringify(exps)); } catch (e) { }
       }
 
       if (sups.length > 0) {
         setSuppliers(sups);
-        try { localStorage.setItem("cached_inventory_suppliers", JSON.stringify(sups)); } catch (e) {}
+        try { localStorage.setItem("cached_inventory_suppliers", JSON.stringify(sups)); } catch (e) { }
       }
     } catch (err) {
       console.error("Failed to load inventory dashboard data:", err);
@@ -793,9 +793,10 @@ function InventoryDashboard({ setActiveTab }) {
           title="Click to view Material Purchase Requests"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-              dashboardStats.purchaseRequestsNeeded > 0 ? "bg-rose-50 text-rose-600 border border-rose-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200"
-            }`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${dashboardStats.purchaseRequestsNeeded > 0
+              ? "bg-rose-50 text-rose-600 border border-rose-200"
+              : "bg-emerald-50 text-[#01390f] border border-emerald-200"
+              }`}>
               <FileSpreadsheet className="w-4 h-4" />
             </div>
             <div className="flex flex-col min-w-0">
@@ -815,13 +816,16 @@ function InventoryDashboard({ setActiveTab }) {
         {/* Expiry Alerts */}
         <div
           onClick={() => setActiveTab && setActiveTab("inv-expiry")}
-          className="bg-white border border-slate-200/80 rounded-xl p-3 flex items-center justify-between shadow-2xs hover:border-amber-600 hover:shadow-xs transition-all cursor-pointer group"
+          className="bg-white border border-slate-200/80 rounded-xl p-3 flex items-center justify-between shadow-2xs hover:border-[#01390f] hover:shadow-xs transition-all cursor-pointer group"
           title="Click to view Expiry Monitoring"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-              dashboardStats.expiredCount > 0 ? "bg-rose-50 text-rose-600 border border-rose-200" : dashboardStats.expiringSoonCount > 0 ? "bg-amber-50 text-amber-600 border border-amber-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200"
-            }`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${dashboardStats.expiredCount > 0
+              ? "bg-rose-50 text-rose-600 border border-rose-200"
+              : dashboardStats.expiringSoonCount > 0
+                ? "bg-amber-50 text-amber-600 border border-amber-200"
+                : "bg-emerald-50 text-[#01390f] border border-emerald-200"
+              }`}>
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div className="flex flex-col min-w-0">
@@ -832,22 +836,22 @@ function InventoryDashboard({ setActiveTab }) {
                 {dashboardStats.expiredCount > 0
                   ? `${dashboardStats.expiredCount} Expired Batches`
                   : dashboardStats.expiringSoonCount > 0
-                  ? `${dashboardStats.expiringSoonCount} Expiring Soon`
-                  : "All Batches Fresh"}
+                    ? `${dashboardStats.expiringSoonCount} Expiring Soon`
+                    : "All Batches Fresh"}
               </span>
             </div>
           </div>
-          <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+          <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#01390f] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
         </div>
 
         {/* Active Suppliers */}
         <div
           onClick={() => setActiveTab && setActiveTab("inv-supplier")}
-          className="bg-white border border-slate-200/80 rounded-xl p-3 flex items-center justify-between shadow-2xs hover:border-[#153E97] hover:shadow-xs transition-all cursor-pointer group"
+          className="bg-white border border-slate-200/80 rounded-xl p-3 flex items-center justify-between shadow-2xs hover:border-[#01390f] hover:shadow-xs transition-all cursor-pointer group"
           title="Click to view Suppliers Directory"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#153E97] border border-blue-200 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#01390f] border border-emerald-200 flex items-center justify-center shrink-0">
               <Truck className="w-4 h-4" />
             </div>
             <div className="flex flex-col min-w-0">
@@ -859,7 +863,7 @@ function InventoryDashboard({ setActiveTab }) {
               </span>
             </div>
           </div>
-          <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#153E97] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+          <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#01390f] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
         </div>
 
         {/* Inventory Reports */}
@@ -870,7 +874,7 @@ function InventoryDashboard({ setActiveTab }) {
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#01390f] border border-emerald-200 flex items-center justify-center shrink-0">
-              <BarChart3 className="w-4 h-4 text-[#01390f]" />
+              <BarChart3 className="w-4 h-4" />
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
@@ -902,9 +906,8 @@ function InventoryDashboard({ setActiveTab }) {
             <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-xs shrink-0 whitespace-nowrap">
               <button
                 onClick={() => setStockFlowView("chart")}
-                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                  stockFlowView === "chart" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
-                }`}
+                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${stockFlowView === "chart" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                  }`}
                 title="Graph View (Donut)"
                 aria-label="Graph View"
               >
@@ -912,9 +915,8 @@ function InventoryDashboard({ setActiveTab }) {
               </button>
               <button
                 onClick={() => setStockFlowView("table")}
-                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                  stockFlowView === "table" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
-                }`}
+                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${stockFlowView === "table" ? "bg-white text-[#0284c7] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                  }`}
                 title="Table View (Data Breakdown)"
                 aria-label="Table View"
               >
@@ -953,18 +955,18 @@ function InventoryDashboard({ setActiveTab }) {
                   onMouseLeave={() => setHoveredSegment(null)}
                 />
 
-                {/* WIP Segment (#0284c7 - Ocean Sky Blue) */}
+                {/* WIP Segment (#38bdf8 - Light Sky Blue) */}
                 <circle
                   cx="80"
                   cy="80"
                   r={donutData.radius}
-                  stroke="#0284c7"
+                  stroke="#38bdf8"
                   strokeWidth="18"
                   fill="transparent"
                   strokeDasharray={`${donutData.wipStroke} ${donutData.circumference}`}
                   strokeDashoffset={donutData.wipOffset}
                   strokeLinecap="round"
-                  className="transition-all duration-500 hover:stroke-[#0369a1] cursor-pointer"
+                  className="transition-all duration-500 hover:stroke-[#0284c7] cursor-pointer"
                   onMouseEnter={() => setHoveredSegment(`WIP: ${donutData.wip} (${donutData.wipPct}%)`)}
                   onMouseLeave={() => setHoveredSegment(null)}
                 />
@@ -1018,7 +1020,7 @@ function InventoryDashboard({ setActiveTab }) {
                     </td>
                     <td className="py-3 text-center whitespace-nowrap">
                       <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-50 text-[#0284c7] border border-sky-200 whitespace-nowrap">
-                        #0284c7
+                        #38bdf8
                       </span>
                     </td>
                     <td className="py-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
@@ -1033,88 +1035,78 @@ function InventoryDashboard({ setActiveTab }) {
             </div>
           )}
 
-          {/* LEGEND BADGES (#153E97 & #0284c7) */}
-          <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-100 text-xs font-bold gap-2 whitespace-nowrap">
+          {/* LEGEND BADGES (#153E97 & #38bdf8) & TELEMETRY */}
+          <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-100 gap-2 whitespace-nowrap text-xs">
             <div className="flex items-center gap-4 whitespace-nowrap">
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                <span className="w-3.5 h-3.5 rounded-full bg-[#153E97] shadow-xs shrink-0" />
-                <span className="text-slate-800 whitespace-nowrap">Inbound ({donutData.inb})</span>
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#153E97] ring-2 ring-white shadow-2xs shrink-0" />
+                <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                  Inbound <span className="font-mono font-bold text-slate-500">({donutData.inb})</span>
+                </span>
               </div>
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                <span className="w-3.5 h-3.5 rounded-full bg-[#0284c7] shadow-xs shrink-0" />
-                <span className="text-slate-800 whitespace-nowrap">Active WIP ({donutData.wip})</span>
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#38bdf8] ring-2 ring-white shadow-2xs shrink-0" />
+                <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                  Active WIP <span className="font-mono font-bold text-slate-500">({donutData.wip})</span>
+                </span>
               </div>
             </div>
-            <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">Total Operations: {donutData.inb + donutData.wip}</span>
+            <div className="flex items-center gap-3 whitespace-nowrap">
+              <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap">
+                Total Operations: <span className="font-bold text-slate-700">{donutData.inb + donutData.wip}</span>
+              </span>
+            </div>
           </div>
         </div>
 
         {/* 2. FINISHED GOODS VS RAW MATERIALS STOCK DENSITY (GROUPED BAR & TABLE GRAPH) */}
         <div className="lg:col-span-6 bg-white p-4 sm:p-5 lg:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-2">
             <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
-              <BarChart3 className="w-4 h-4 text-[#01390f] shrink-0" />
+              <BarChart3 className="w-4 h-4 text-[#153E97] shrink-0" />
               <h3 className="text-sm font-bold text-slate-900 truncate whitespace-nowrap">
                 Stock Density Distribution
               </h3>
             </div>
 
-            {/* Header controls: Legends + Icon-Only View Toggle */}
-            <div className="flex items-center gap-3 whitespace-nowrap">
-              <div className="flex items-center gap-3 text-xs font-bold whitespace-nowrap">
-                <div className="flex items-center gap-1.5 whitespace-nowrap">
-                  <span className="w-3 h-3 rounded bg-[#01390f] shrink-0"></span>
-                  <span className="text-slate-800 font-mono text-[11px] whitespace-nowrap">Finished Goods</span>
-                </div>
-                <div className="flex items-center gap-1.5 whitespace-nowrap">
-                  <span className="w-3 h-3 rounded bg-[#153E97] shrink-0"></span>
-                  <span className="text-slate-800 font-mono text-[11px] whitespace-nowrap">Raw Materials</span>
-                </div>
-              </div>
-
-              {/* View Toggle (Curve Line, Hybrid, Bar Graph, Table) */}
-              <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-xs shrink-0 whitespace-nowrap">
-                <button
-                  onClick={() => setDensityView("curve")}
-                  className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                    densityView === "curve" ? "bg-white text-[#01390f] shadow-xs" : "text-slate-400 hover:text-slate-700"
+            {/* Toolbar: Icon-Only View Toggle (Curve Line, Hybrid, Bar Graph, Table) */}
+            <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-xs shrink-0 whitespace-nowrap">
+              <button
+                onClick={() => setDensityView("curve")}
+                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${densityView === "curve" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
                   }`}
-                  title="Curved Line View (Smooth Spline Wave)"
-                  aria-label="Curved Line View"
-                >
-                  <LineChart className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setDensityView("hybrid")}
-                  className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                    densityView === "hybrid" ? "bg-white text-[#01390f] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                title="Curved Line View (Smooth Spline Wave)"
+                aria-label="Curved Line View"
+              >
+                <LineChart className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setDensityView("hybrid")}
+                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${densityView === "hybrid" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
                   }`}
-                  title="Hybrid View (Curve Line + Bars)"
-                  aria-label="Hybrid View"
-                >
-                  <Layers className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setDensityView("chart")}
-                  className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                    densityView === "chart" ? "bg-white text-[#01390f] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                title="Hybrid View (Curve Line + Bars)"
+                aria-label="Hybrid View"
+              >
+                <Layers className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setDensityView("chart")}
+                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${densityView === "chart" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
                   }`}
-                  title="Graph View (Grouped Bars)"
-                  aria-label="Graph View"
-                >
-                  <BarChart3 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setDensityView("table")}
-                  className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                    densityView === "table" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                title="Graph View (Grouped Bars)"
+                aria-label="Graph View"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setDensityView("table")}
+                className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${densityView === "table" ? "bg-white text-[#0284c7] shadow-xs" : "text-slate-400 hover:text-slate-700"
                   }`}
-                  title="Table View (Comparison Metrics)"
-                  aria-label="Table View"
-                >
-                  <TableIcon className="w-4 h-4" />
-                </button>
-              </div>
+                title="Table View (Comparison Metrics)"
+                aria-label="Table View"
+              >
+                <TableIcon className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -1127,25 +1119,25 @@ function InventoryDashboard({ setActiveTab }) {
                   className="w-full h-52 sm:h-60 overflow-visible select-none"
                 >
                   <defs>
-                    {/* Finished Goods Gradient (#01390f Green) */}
+                    {/* Finished Goods Gradient (#153E97 Royal Blue) */}
                     <linearGradient id="densityFgGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#01390f" stopOpacity="0.25" />
-                      <stop offset="70%" stopColor="#01390f" stopOpacity="0.05" />
-                      <stop offset="100%" stopColor="#01390f" stopOpacity="0" />
-                    </linearGradient>
-
-                    {/* Raw Materials Gradient (#153E97 Royal Blue) */}
-                    <linearGradient id="densityRmGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#153E97" stopOpacity="0.30" />
-                      <stop offset="70%" stopColor="#153E97" stopOpacity="0.06" />
+                      <stop offset="0%" stopColor="#153E97" stopOpacity="0.25" />
+                      <stop offset="70%" stopColor="#153E97" stopOpacity="0.05" />
                       <stop offset="100%" stopColor="#153E97" stopOpacity="0" />
                     </linearGradient>
 
+                    {/* Raw Materials Gradient (#0284c7 Sky Blue) */}
+                    <linearGradient id="densityRmGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0284c7" stopOpacity="0.25" />
+                      <stop offset="70%" stopColor="#0284c7" stopOpacity="0.05" />
+                      <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
+                    </linearGradient>
+
                     <filter id="fgGlow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#01390f" floodOpacity="0.35" />
+                      <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#153E97" floodOpacity="0.35" />
                     </filter>
                     <filter id="rmGlow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#153E97" floodOpacity="0.35" />
+                      <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#0284c7" floodOpacity="0.35" />
                     </filter>
                   </defs>
 
@@ -1167,14 +1159,14 @@ function InventoryDashboard({ setActiveTab }) {
                   {/* In Hybrid Mode: Grouped pillar bars */}
                   {densityView === "hybrid" && (
                     <g className="transition-opacity duration-500">
-                      <rect x="80" y={densityChartData.fg.y1} width="16" height={Math.max(4, 175 - densityChartData.fg.y1)} rx="4" fill="#01390f" opacity="0.18" />
-                      <rect x="104" y={densityChartData.rm.y1} width="16" height={Math.max(4, 175 - densityChartData.rm.y1)} rx="4" fill="#153E97" opacity="0.18" />
+                      <rect x="80" y={densityChartData.fg.y1} width="16" height={Math.max(4, 175 - densityChartData.fg.y1)} rx="4" fill="#153E97" opacity="0.18" />
+                      <rect x="104" y={densityChartData.rm.y1} width="16" height={Math.max(4, 175 - densityChartData.rm.y1)} rx="4" fill="#0284c7" opacity="0.18" />
 
-                      <rect x="280" y={densityChartData.fg.y2} width="16" height={Math.max(4, 175 - densityChartData.fg.y2)} rx="4" fill="#01390f" opacity="0.18" />
-                      <rect x="304" y={densityChartData.rm.y2} width="16" height={Math.max(4, 175 - densityChartData.rm.y2)} rx="4" fill="#153E97" opacity="0.18" />
+                      <rect x="280" y={densityChartData.fg.y2} width="16" height={Math.max(4, 175 - densityChartData.fg.y2)} rx="4" fill="#153E97" opacity="0.18" />
+                      <rect x="304" y={densityChartData.rm.y2} width="16" height={Math.max(4, 175 - densityChartData.rm.y2)} rx="4" fill="#0284c7" opacity="0.18" />
 
-                      <rect x="480" y={densityChartData.fg.y3} width="16" height={Math.max(4, 175 - densityChartData.fg.y3)} rx="4" fill="#01390f" opacity="0.18" />
-                      <rect x="504" y={densityChartData.rm.y3} width="16" height={Math.max(4, 175 - densityChartData.rm.y3)} rx="4" fill="#153E97" opacity="0.18" />
+                      <rect x="480" y={densityChartData.fg.y3} width="16" height={Math.max(4, 175 - densityChartData.fg.y3)} rx="4" fill="#153E97" opacity="0.18" />
+                      <rect x="504" y={densityChartData.rm.y3} width="16" height={Math.max(4, 175 - densityChartData.rm.y3)} rx="4" fill="#0284c7" opacity="0.18" />
                     </g>
                   )}
 
@@ -1194,7 +1186,7 @@ function InventoryDashboard({ setActiveTab }) {
                   <path
                     d={densityChartData.rm.curvePath}
                     fill="none"
-                    stroke="#153E97"
+                    stroke="#0284c7"
                     strokeWidth="3.2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1205,7 +1197,7 @@ function InventoryDashboard({ setActiveTab }) {
                   <path
                     d={densityChartData.fg.curvePath}
                     fill="none"
-                    stroke="#01390f"
+                    stroke="#153E97"
                     strokeWidth="3.2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1213,56 +1205,11 @@ function InventoryDashboard({ setActiveTab }) {
                     className="transition-all duration-700 ease-out"
                   />
 
-                  {/* Nodes: Finished Goods (#01390f) */}
+                  {/* Nodes: Finished Goods (#153E97) */}
                   {[
                     { x: 100, y: densityChartData.fg.y1, val: `${dashboardStats.totalFgItems} SKUs`, id: "fg1" },
                     { x: 300, y: densityChartData.fg.y2, val: `${dashboardStats.availableFgItems} Nominal`, id: "fg2" },
                     { x: 500, y: densityChartData.fg.y3, val: `${dashboardStats.criticalFgItems + dashboardStats.restockFgItems} Low`, id: "fg3" }
-                  ].map((pt) => (
-                    <g key={pt.id} className="cursor-pointer group">
-                      <circle cx={pt.x} cy={pt.y} r="9" fill="#01390f" opacity="0.15" />
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r="5"
-                        fill="#01390f"
-                        stroke="#ffffff"
-                        strokeWidth="2.5"
-                        className="transition-transform group-hover:scale-125"
-                      />
-                      <g transform={`translate(${pt.x}, ${pt.y - 12})`} className="transition-all">
-                        <rect
-                          x="-28"
-                          y="-16"
-                          width="56"
-                          height="16"
-                          rx="4"
-                          fill="#ffffff"
-                          stroke="#01390f"
-                          strokeWidth="1"
-                          strokeOpacity="0.3"
-                          filter="drop-shadow(0 2px 3px rgba(0,0,0,0.08))"
-                        />
-                        <text
-                          x="0"
-                          y="-4"
-                          textAnchor="middle"
-                          fill="#01390f"
-                          fontSize="9"
-                          fontWeight="700"
-                          fontFamily="ui-monospace, monospace"
-                        >
-                          {pt.val}
-                        </text>
-                      </g>
-                    </g>
-                  ))}
-
-                  {/* Nodes: Raw Materials (#153E97) */}
-                  {[
-                    { x: 100, y: densityChartData.rm.y1, val: `${dashboardStats.totalRmItems} Items`, id: "rm1" },
-                    { x: 300, y: densityChartData.rm.y2, val: `${dashboardStats.availableRmItems} Nominal`, id: "rm2" },
-                    { x: 500, y: densityChartData.rm.y3, val: `${dashboardStats.criticalRmItems + dashboardStats.restockRmItems} Low`, id: "rm3" }
                   ].map((pt) => (
                     <g key={pt.id} className="cursor-pointer group">
                       <circle cx={pt.x} cy={pt.y} r="9" fill="#153E97" opacity="0.15" />
@@ -1275,12 +1222,56 @@ function InventoryDashboard({ setActiveTab }) {
                         strokeWidth="2.5"
                         className="transition-transform group-hover:scale-125"
                       />
+                      <g transform={`translate(${pt.x}, ${pt.y - 12})`} className="transition-all">
+                        <rect
+                          x="-28"
+                          y="-16"
+                          width="56"
+                          height="16"
+                          rx="4"
+                          fill="#ffffff"
+                          stroke="#153E97"
+                          strokeWidth="1"
+                          strokeOpacity="0.3"
+                          filter="drop-shadow(0 2px 3px rgba(0,0,0,0.08))"
+                        />
+                        <text
+                          x="0"
+                          y="-4"
+                          textAnchor="middle"
+                          fill="#153E97"
+                          fontSize="9"
+                          fontWeight="700"
+                          fontFamily="ui-monospace, monospace"
+                        >
+                          {pt.val}
+                        </text>
+                      </g>
+                    </g>
+                  ))}
+
+                  {/* Nodes: Raw Materials (#0284c7) */}
+                  {[
+                    { x: 100, y: densityChartData.rm.y1, val: `${dashboardStats.totalRmItems} Items`, id: "rm1" },
+                    { x: 300, y: densityChartData.rm.y2, val: `${dashboardStats.availableRmItems} Nominal`, id: "rm2" },
+                    { x: 500, y: densityChartData.rm.y3, val: `${dashboardStats.criticalRmItems + dashboardStats.restockRmItems} Low`, id: "rm3" }
+                  ].map((pt) => (
+                    <g key={pt.id} className="cursor-pointer group">
+                      <circle cx={pt.x} cy={pt.y} r="9" fill="#0284c7" opacity="0.15" />
+                      <circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r="5"
+                        fill="#0284c7"
+                        stroke="#ffffff"
+                        strokeWidth="2.5"
+                        className="transition-transform group-hover:scale-125"
+                      />
                       <g
-                        transform={`translate(${pt.x}, ${
-                          Math.abs(pt.y - densityChartData.fg[pt.id.replace("rm", "y")]) < 24
-                            ? pt.y + 22
-                            : pt.y - 12
-                        })`}
+                        transform={`translate(${pt.x}, ${Math.abs(pt.y - densityChartData.fg[pt.id.replace("rm", "y")]) < 24
+                          ? pt.y + 22
+                          : pt.y - 12
+                          })`}
                         className="transition-all"
                       >
                         <rect
@@ -1289,7 +1280,7 @@ function InventoryDashboard({ setActiveTab }) {
                           width="56"
                           height="16"
                           rx="4"
-                          fill="#153E97"
+                          fill="#0284c7"
                           filter="drop-shadow(0 2px 3px rgba(0,0,0,0.12))"
                         />
                         <text
@@ -1347,7 +1338,7 @@ function InventoryDashboard({ setActiveTab }) {
                   <div className="w-full flex items-end justify-center gap-2 sm:gap-3 h-full">
                     <div
                       style={{ height: `${Math.max(14, (dashboardStats.totalFgItems / maxBarVal) * 100)}%` }}
-                      className="w-7 sm:w-11 md:w-14 bg-[#01390f] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
+                      className="w-7 sm:w-11 md:w-14 bg-[#153E97] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
                     >
                       <span className="absolute -top-7 text-[10px] font-mono font-black text-slate-900 opacity-0 group-hover:opacity-100 bg-white px-1.5 py-0.5 rounded shadow-xs transition-opacity whitespace-nowrap border border-slate-200 z-20">
                         {dashboardStats.totalFgItems} SKUs
@@ -1355,7 +1346,7 @@ function InventoryDashboard({ setActiveTab }) {
                     </div>
                     <div
                       style={{ height: `${Math.max(14, (dashboardStats.totalRmItems / maxBarVal) * 100)}%` }}
-                      className="w-7 sm:w-11 md:w-14 bg-[#153E97] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
+                      className="w-7 sm:w-11 md:w-14 bg-[#38bdf8] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
                     >
                       <span className="absolute -top-7 text-[10px] font-mono font-black text-slate-900 opacity-0 group-hover:opacity-100 bg-white px-1.5 py-0.5 rounded shadow-xs transition-opacity whitespace-nowrap border border-slate-200 z-20">
                         {dashboardStats.totalRmItems} Items
@@ -1373,7 +1364,7 @@ function InventoryDashboard({ setActiveTab }) {
                   <div className="w-full flex items-end justify-center gap-2 sm:gap-3 h-full">
                     <div
                       style={{ height: `${Math.max(14, (dashboardStats.availableFgItems / maxBarVal) * 100)}%` }}
-                      className="w-7 sm:w-11 md:w-14 bg-[#01390f] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
+                      className="w-7 sm:w-11 md:w-14 bg-[#153E97] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
                     >
                       <span className="absolute -top-7 text-[10px] font-mono font-black text-slate-900 opacity-0 group-hover:opacity-100 bg-white px-1.5 py-0.5 rounded shadow-xs transition-opacity whitespace-nowrap border border-slate-200 z-20">
                         {dashboardStats.availableFgItems} Active
@@ -1381,7 +1372,7 @@ function InventoryDashboard({ setActiveTab }) {
                     </div>
                     <div
                       style={{ height: `${Math.max(14, (dashboardStats.availableRmItems / maxBarVal) * 100)}%` }}
-                      className="w-7 sm:w-11 md:w-14 bg-[#153E97] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
+                      className="w-7 sm:w-11 md:w-14 bg-[#38bdf8] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
                     >
                       <span className="absolute -top-7 text-[10px] font-mono font-black text-slate-900 opacity-0 group-hover:opacity-100 bg-white px-1.5 py-0.5 rounded shadow-xs transition-opacity whitespace-nowrap border border-slate-200 z-20">
                         {dashboardStats.availableRmItems} Active
@@ -1399,7 +1390,7 @@ function InventoryDashboard({ setActiveTab }) {
                   <div className="w-full flex items-end justify-center gap-2 sm:gap-3 h-full">
                     <div
                       style={{ height: `${Math.max(14, ((dashboardStats.criticalFgItems + dashboardStats.restockFgItems) / maxBarVal) * 100)}%` }}
-                      className="w-7 sm:w-11 md:w-14 bg-[#01390f] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
+                      className="w-7 sm:w-11 md:w-14 bg-[#153E97] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
                     >
                       <span className="absolute -top-7 text-[10px] font-mono font-black text-slate-900 opacity-0 group-hover:opacity-100 bg-white px-1.5 py-0.5 rounded shadow-xs transition-opacity whitespace-nowrap border border-slate-200 z-20">
                         {dashboardStats.criticalFgItems + dashboardStats.restockFgItems} Alerts
@@ -1407,7 +1398,7 @@ function InventoryDashboard({ setActiveTab }) {
                     </div>
                     <div
                       style={{ height: `${Math.max(14, ((dashboardStats.criticalRmItems + dashboardStats.restockRmItems) / maxBarVal) * 100)}%` }}
-                      className="w-7 sm:w-11 md:w-14 bg-[#153E97] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
+                      className="w-7 sm:w-11 md:w-14 bg-[#38bdf8] hover:brightness-110 rounded-t-xl transition-all shadow-xs relative group flex justify-center cursor-pointer"
                     >
                       <span className="absolute -top-7 text-[10px] font-mono font-black text-slate-900 opacity-0 group-hover:opacity-100 bg-white px-1.5 py-0.5 rounded shadow-xs transition-opacity whitespace-nowrap border border-slate-200 z-20">
                         {dashboardStats.criticalRmItems + dashboardStats.restockRmItems} Alerts
@@ -1429,18 +1420,18 @@ function InventoryDashboard({ setActiveTab }) {
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 text-[11px] font-bold uppercase whitespace-nowrap">
                     <th className="pb-2 whitespace-nowrap">Threshold Metric</th>
-                    <th className="pb-2 text-right whitespace-nowrap">Finished Goods (#01390f)</th>
-                    <th className="pb-2 text-right whitespace-nowrap">Raw Materials (#153E97)</th>
+                    <th className="pb-2 text-right whitespace-nowrap">Finished Goods (#153E97)</th>
+                    <th className="pb-2 text-right whitespace-nowrap">Raw Materials (#0284c7)</th>
                     <th className="pb-2 text-center whitespace-nowrap">Condition</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   <tr className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 font-bold text-slate-800 whitespace-nowrap">Total Active Catalog</td>
-                    <td className="py-3 text-right font-mono font-bold text-[#01390f] whitespace-nowrap">
+                    <td className="py-3 text-right font-mono font-bold text-[#153E97] whitespace-nowrap">
                       {dashboardStats.totalFgItems} SKUs
                     </td>
-                    <td className="py-3 text-right font-mono font-bold text-[#153E97] whitespace-nowrap">
+                    <td className="py-3 text-right font-mono font-bold text-[#0284c7] whitespace-nowrap">
                       {dashboardStats.totalRmItems} Items
                     </td>
                     <td className="py-3 text-center whitespace-nowrap">
@@ -1451,14 +1442,14 @@ function InventoryDashboard({ setActiveTab }) {
                   </tr>
                   <tr className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 font-bold text-slate-800 whitespace-nowrap">Healthy / Nominal Stock</td>
-                    <td className="py-3 text-right font-mono font-bold text-[#01390f] whitespace-nowrap">
+                    <td className="py-3 text-right font-mono font-bold text-[#153E97] whitespace-nowrap">
                       {dashboardStats.availableFgItems} Nominal
                     </td>
-                    <td className="py-3 text-right font-mono font-bold text-[#153E97] whitespace-nowrap">
+                    <td className="py-3 text-right font-mono font-bold text-[#0284c7] whitespace-nowrap">
                       {dashboardStats.availableRmItems} Nominal
                     </td>
                     <td className="py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 whitespace-nowrap">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 whitespace-nowrap">
                         Nominal
                       </span>
                     </td>
@@ -1496,9 +1487,27 @@ function InventoryDashboard({ setActiveTab }) {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-100 gap-1 whitespace-nowrap">
-            <span className="whitespace-nowrap">Scale: 0 to {maxBarVal} items</span>
-            <span className="font-semibold text-[#01390f] whitespace-nowrap">Dynamically synced with Master Thresholds</span>
+          {/* LEGEND BADGES (#153E97 & #0284c7) & TELEMETRY */}
+          <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-100 gap-2 whitespace-nowrap text-xs">
+            <div className="flex items-center gap-4 whitespace-nowrap">
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#153E97] ring-2 ring-white shadow-2xs shrink-0" />
+                <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                  Finished Goods <span className="font-mono font-bold text-slate-500">({dashboardStats.totalFgItems})</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0284c7] ring-2 ring-white shadow-2xs shrink-0" />
+                <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                  Raw Materials <span className="font-mono font-bold text-slate-500">({dashboardStats.totalRmItems})</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 whitespace-nowrap">
+              <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap">
+                Scale: <span className="font-bold text-slate-700">0 to {maxBarVal} items</span>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1508,9 +1517,9 @@ function InventoryDashboard({ setActiveTab }) {
       <div className="bg-white p-4 sm:p-5 lg:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-2">
           <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
-            <Boxes className="w-4 h-4 text-[#01390f] shrink-0" />
+            <Boxes className="w-4 h-4 text-[#153E97] shrink-0" />
             <h3 className="text-sm font-bold text-slate-900 truncate whitespace-nowrap">
-              Live Inventory Stock & Density Audit
+              Live Inventory Stock &amp; Density Audit
             </h3>
           </div>
 
@@ -1518,9 +1527,8 @@ function InventoryDashboard({ setActiveTab }) {
           <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-xs shrink-0 whitespace-nowrap">
             <button
               onClick={() => setAuditGraphMode("radar")}
-              className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                auditGraphMode === "radar" ? "bg-white text-[#01390f] shadow-xs" : "text-slate-400 hover:text-slate-700"
-              }`}
+              className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${auditGraphMode === "radar" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                }`}
               title="Radar Spider Web Chart"
               aria-label="Radar Web"
             >
@@ -1528,9 +1536,8 @@ function InventoryDashboard({ setActiveTab }) {
             </button>
             <button
               onClick={() => setAuditGraphMode("radial")}
-              className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                auditGraphMode === "radial" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
-              }`}
+              className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${auditGraphMode === "radial" ? "bg-white text-[#0284c7] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                }`}
               title="Concentric Radial Arc Gauges"
               aria-label="Radial Gauges"
             >
@@ -1538,9 +1545,8 @@ function InventoryDashboard({ setActiveTab }) {
             </button>
             <button
               onClick={() => setAuditGraphMode("spectrum")}
-              className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                auditGraphMode === "spectrum" ? "bg-white text-slate-900 shadow-xs" : "text-slate-400 hover:text-slate-700"
-              }`}
+              className={`p-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${auditGraphMode === "spectrum" ? "bg-white text-[#153E97] shadow-xs" : "text-slate-400 hover:text-slate-700"
+                }`}
               title="Density Spectrum"
               aria-label="Density Spectrum"
             >
@@ -1554,55 +1560,52 @@ function InventoryDashboard({ setActiveTab }) {
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => setTableFilter("all")}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                tableFilter === "all"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${tableFilter === "all"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
             >
               All Categories ({categoryAuditData.length})
             </button>
             <button
               onClick={() => setTableFilter("fg")}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                tableFilter === "fg"
-                  ? "bg-[#01390f] text-white shadow-xs"
-                  : "bg-emerald-50 text-[#01390f] hover:bg-emerald-100"
-              }`}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${tableFilter === "fg"
+                ? "bg-[#153E97] text-white shadow-xs"
+                : "bg-blue-50 text-[#153E97] hover:bg-blue-100"
+                }`}
             >
               Finished Goods
             </button>
             <button
               onClick={() => setTableFilter("rm")}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                tableFilter === "rm"
-                  ? "bg-[#153E97] text-white shadow-xs"
-                  : "bg-blue-50 text-[#153E97] hover:bg-blue-100"
-              }`}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${tableFilter === "rm"
+                ? "bg-[#0284c7] text-white shadow-xs"
+                : "bg-sky-50 text-[#0284c7] hover:bg-sky-100"
+                }`}
             >
               Raw Materials
             </button>
             <button
               onClick={() => setTableFilter("critical")}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                tableFilter === "critical"
-                  ? "bg-amber-700 text-white shadow-xs"
-                  : "bg-amber-50 text-amber-800 hover:bg-amber-100"
-              }`}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${tableFilter === "critical"
+                ? "bg-amber-700 text-white shadow-xs"
+                : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                }`}
             >
               Low Stock Alerts
             </button>
           </div>
 
           {/* Legends */}
-          <div className="flex items-center gap-3 text-xs font-bold">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#01390f]" />
-              <span className="text-slate-700 font-mono text-[11px]">Finished Goods</span>
+          <div className="flex items-center gap-3 whitespace-nowrap">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Series:</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#153E97] ring-2 ring-white shadow-2xs shrink-0" />
+              <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">Finished Goods</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#153E97]" />
-              <span className="text-slate-700 font-mono text-[11px]">Raw Materials</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#38bdf8] ring-2 ring-white shadow-2xs shrink-0" />
+              <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">Raw Materials</span>
             </div>
           </div>
         </div>
@@ -1621,10 +1624,10 @@ function InventoryDashboard({ setActiveTab }) {
               <svg viewBox="0 0 540 330" className="w-full max-h-[340px] overflow-visible select-none">
                 <defs>
                   <filter id="radarFgGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#01390f" floodOpacity="0.3" />
+                    <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#153E97" floodOpacity="0.3" />
                   </filter>
                   <filter id="radarRmGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#153E97" floodOpacity="0.3" />
+                    <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0284c7" floodOpacity="0.3" />
                   </filter>
                 </defs>
 
@@ -1636,13 +1639,13 @@ function InventoryDashboard({ setActiveTab }) {
                   const levels = [0.25, 0.5, 0.75, 1.0];
 
                   const fgPts = categoryAuditData.map((c, i) => {
-                    const a = (i * 2 * Math.PI / N) - Math.PI / 2;
+                    const a = (i * 2 * Math.PI) / N - Math.PI / 2;
                     const r = (Math.max(15, c.fgScore) / 100) * radius;
                     return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
                   }).join(" ");
 
                   const rmPts = categoryAuditData.map((c, i) => {
-                    const a = (i * 2 * Math.PI / N) - Math.PI / 2;
+                    const a = (i * 2 * Math.PI) / N - Math.PI / 2;
                     const r = (Math.max(15, c.rmScore) / 100) * radius;
                     return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
                   }).join(" ");
@@ -1651,7 +1654,7 @@ function InventoryDashboard({ setActiveTab }) {
                     <g>
                       {levels.map((lvl) => {
                         const pts = categoryAuditData.map((_, i) => {
-                          const a = (i * 2 * Math.PI / N) - Math.PI / 2;
+                          const a = (i * 2 * Math.PI) / N - Math.PI / 2;
                           const r = radius * lvl;
                           return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
                         }).join(" ");
@@ -1667,7 +1670,7 @@ function InventoryDashboard({ setActiveTab }) {
                             />
                             <text
                               x={cx}
-                              y={cy - (radius * lvl) + 10}
+                              y={cy - radius * lvl + 10}
                               textAnchor="middle"
                               className="fill-slate-300 font-mono text-[8px] font-bold"
                             >
@@ -1679,7 +1682,7 @@ function InventoryDashboard({ setActiveTab }) {
 
                       {/* Axes */}
                       {categoryAuditData.map((c, i) => {
-                        const a = (i * 2 * Math.PI / N) - Math.PI / 2;
+                        const a = (i * 2 * Math.PI) / N - Math.PI / 2;
                         const sx = cx + radius * Math.cos(a);
                         const sy = cy + radius * Math.sin(a);
                         const lx = cx + (radius + 24) * Math.cos(a);
@@ -1720,23 +1723,23 @@ function InventoryDashboard({ setActiveTab }) {
                         );
                       })}
 
-                      {/* Finished Goods Polygon */}
+                      {/* Finished Goods Polygon (#153E97 Royal Blue) */}
                       <polygon
                         points={fgPts}
-                        fill="#01390f"
+                        fill="#153E97"
                         fillOpacity="0.22"
-                        stroke="#01390f"
+                        stroke="#153E97"
                         strokeWidth="2.8"
                         filter="url(#radarFgGlow)"
                         className="transition-all duration-700 ease-out"
                       />
 
-                      {/* Raw Materials Polygon */}
+                      {/* Raw Materials Polygon (#38bdf8 Sky Blue) */}
                       <polygon
                         points={rmPts}
-                        fill="#153E97"
+                        fill="#38bdf8"
                         fillOpacity="0.22"
-                        stroke="#153E97"
+                        stroke="#0284c7"
                         strokeWidth="2.8"
                         filter="url(#radarRmGlow)"
                         className="transition-all duration-700 ease-out"
@@ -1744,7 +1747,7 @@ function InventoryDashboard({ setActiveTab }) {
 
                       {/* Dots */}
                       {categoryAuditData.map((c, i) => {
-                        const a = (i * 2 * Math.PI / N) - Math.PI / 2;
+                        const a = (i * 2 * Math.PI) / N - Math.PI / 2;
                         const rFg = (Math.max(15, c.fgScore) / 100) * radius;
                         const rRm = (Math.max(15, c.rmScore) / 100) * radius;
                         return (
@@ -1753,7 +1756,7 @@ function InventoryDashboard({ setActiveTab }) {
                               cx={cx + rFg * Math.cos(a)}
                               cy={cy + rFg * Math.sin(a)}
                               r="4.5"
-                              fill="#01390f"
+                              fill="#153E97"
                               stroke="#ffffff"
                               strokeWidth="2"
                               className="transition-all duration-700"
@@ -1762,7 +1765,7 @@ function InventoryDashboard({ setActiveTab }) {
                               cx={cx + rRm * Math.cos(a)}
                               cy={cy + rRm * Math.sin(a)}
                               r="4.5"
-                              fill="#153E97"
+                              fill="#0284c7"
                               stroke="#ffffff"
                               strokeWidth="2"
                               className="transition-all duration-700"
@@ -1786,7 +1789,7 @@ function InventoryDashboard({ setActiveTab }) {
                     <g>
                       {dynamicRings.map((ring) => {
                         const circumference = 2 * Math.PI * ring.r;
-                        const strokeOffset = circumference * (1 - (ring.pct / 100));
+                        const strokeOffset = circumference * (1 - ring.pct / 100);
                         return (
                           <g key={ring.label}>
                             <circle
@@ -1826,7 +1829,7 @@ function InventoryDashboard({ setActiveTab }) {
                       />
                       <text
                         x={cx}
-                        y={cy - 2}
+                        y={cy + 2}
                         textAnchor="middle"
                         className="font-black font-mono text-sm fill-slate-900"
                       >
@@ -1863,15 +1866,13 @@ function InventoryDashboard({ setActiveTab }) {
                     <div className="w-full bg-slate-200/80 rounded-full h-2 relative flex items-center">
                       <div
                         style={{ width: `${c.densityPct}%` }}
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          c.fgQty >= c.rmQty ? "bg-[#01390f]" : "bg-[#153E97]"
-                        }`}
+                        className={`h-full rounded-full transition-all duration-700 ${c.fgQty >= c.rmQty ? "bg-[#153E97]" : "bg-[#0284c7]"
+                          }`}
                       />
                       <div
                         style={{ left: `calc(${c.densityPct}% - 6px)` }}
-                        className={`absolute w-3 h-3 rounded-full border-2 border-white shadow-xs transition-all duration-700 ${
-                          c.fgQty >= c.rmQty ? "bg-[#01390f]" : "bg-[#153E97]"
-                        }`}
+                        className={`absolute w-3 h-3 rounded-full border-2 border-white shadow-xs transition-all duration-700 ${c.fgQty >= c.rmQty ? "bg-[#153E97]" : "bg-[#0284c7]"
+                          }`}
                       />
                     </div>
                   </div>
@@ -1891,9 +1892,8 @@ function InventoryDashboard({ setActiveTab }) {
                   {auditIndexScore}%
                 </span>
               </div>
-              <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border shadow-2xs ${
-                auditIndexScore >= 70 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-amber-700 bg-amber-50 border-amber-200"
-              }`}>
+              <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border shadow-2xs ${auditIndexScore >= 70 ? "text-[#0284c7] bg-sky-50 border-sky-200" : "text-amber-700 bg-amber-50 border-amber-200"
+                }`}>
                 {auditIndexScore >= 70 ? "Stock Health Nominal" : "Restock Attention Needed"}
               </span>
             </div>
@@ -1914,30 +1914,29 @@ function InventoryDashboard({ setActiveTab }) {
                     </span>
                   </div>
 
-                  {/* Dual Capacity Bar (Green vs Blue) */}
+                  {/* Dual Capacity Bar (Royal Blue vs Light Sky Blue) */}
                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
                     <div
                       style={{ width: `${Math.round((c.fgQty / (c.totalQty || 1)) * 100)}%` }}
-                      className="bg-[#01390f] h-full transition-all"
+                      className="bg-[#153E97] h-full transition-all"
                       title={`Finished Goods: ${c.fgQty.toLocaleString()}`}
                     />
                     <div
                       style={{ width: `${Math.round((c.rmQty / (c.totalQty || 1)) * 100)}%` }}
-                      className="bg-[#153E97] h-full transition-all"
+                      className="bg-[#38bdf8] h-full transition-all"
                       title={`Raw Materials: ${c.rmQty.toLocaleString()}`}
                     />
                   </div>
 
                   <div className="flex items-center justify-between text-[10px] text-slate-400">
-                    <span className="font-mono text-[#01390f] font-semibold">
+                    <span className="font-mono text-[#153E97] font-semibold">
                       FG: {c.fgQty.toLocaleString()}
                     </span>
-                    <span className="font-mono text-[#153E97] font-semibold">
+                    <span className="font-mono text-[#0284c7] font-semibold">
                       RM: {c.rmQty.toLocaleString()}
                     </span>
-                    <span className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
-                      c.criticalCount > 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
-                    }`}>
+                    <span className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${c.criticalCount > 0 ? "bg-amber-50 text-amber-700" : "bg-sky-50 text-[#0284c7]"
+                      }`}>
                       {c.criticalCount > 0 ? `${c.criticalCount} Restock` : "Optimal"}
                     </span>
                   </div>
@@ -1947,10 +1946,16 @@ function InventoryDashboard({ setActiveTab }) {
           </div>
         </div>
 
-        {/* Footer Note */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-400 pt-3 border-t border-slate-100 gap-1">
-          <span>Real-time multi-dimensional category audit mapped against active inventory catalog.</span>
-          <span className="font-semibold text-[#01390f]">Live System Telemetry Active</span>
+        {/* Footer Note & Telemetry */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-3 border-t border-slate-100 gap-2 text-xs">
+          <span className="text-[11px] text-slate-500">
+            Real-time multi-dimensional category audit mapped against active inventory catalog.
+          </span>
+          <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
+            <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap">
+              Active Categories: <span className="font-bold text-slate-700">{categoryAuditData.length}</span>
+            </span>
+          </div>
         </div>
       </div>
 
