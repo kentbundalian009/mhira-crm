@@ -1994,30 +1994,22 @@ function LogisticsOrderManagement() {
                             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
                               Payment & Financial Summary
                             </span>
-                            {isCod ? (
-                              isDelivered || isPaid ? (
+                            {!isCod && (
+                              isPaid ? (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                  COD Collected
+                                  Online Paid
                                 </span>
                               ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
-                                  COD
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPaymentVerifyModal(selectedOrder)}
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-pointer flex items-center gap-1"
+                                  title="Verify customer transfer and mark as Paid"
+                                >
+                                  <Check className="w-2.5 h-2.5" />
+                                  <span>Verify E-Payment</span>
+                                </button>
                               )
-                            ) : isPaid ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                Online Paid
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenPaymentVerifyModal(selectedOrder)}
-                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-pointer flex items-center gap-1"
-                                title="Verify customer transfer and mark as Paid"
-                              >
-                                <Check className="w-2.5 h-2.5" />
-                                <span>Verify E-Payment</span>
-                              </button>
                             )}
                           </div>
 
@@ -2075,7 +2067,19 @@ function LogisticsOrderManagement() {
                           )}
                           <div className="flex justify-between items-center text-xs text-slate-600">
                             <span>Payment Method:</span>
-                            <span className="font-bold text-slate-800">{displayMethod}</span>
+                            {isCod ? (
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                                isDelivered || isPaid
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                              }`}>
+                                Cash on Delivery
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                {displayMethod}
+                              </span>
+                            )}
                           </div>
                           <div className="flex justify-between items-center text-xs text-slate-600">
                             <span>Payment Settlement:</span>
@@ -2127,7 +2131,7 @@ function LogisticsOrderManagement() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          Purchased Products & Bundles
+                          Purchased Productss
                         </label>
                         <span className="text-[11px] text-slate-400">
                           {selectedOrder.items?.length || 0} {selectedOrder.items?.length === 1 ? 'item' : 'items'}
