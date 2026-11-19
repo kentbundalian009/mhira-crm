@@ -2269,12 +2269,12 @@ function LogisticsOrderManagement() {
 
 
                         {/* SECTION 1: Assigned Courier & Tracking (Clean Blank/Underline Input Style matching MarketingProductsCatalog) */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200/90 space-y-4">
-                          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                        <div className="bg-white p-4 rounded-xl space-y-4">
+                          <div className="flex items-center justify-between pb-1">
                             <span className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
                               Assigned Courier & Waybill Label
                             </span>
-                            <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                               Thermal 100x150mm
                             </span>
                           </div>
@@ -2337,7 +2337,7 @@ function LogisticsOrderManagement() {
                           </div>
 
                           {/* Warehouse Stock Sync - Compact 1-line layout */}
-                          <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Warehouse Inventory Stock:</span>
                               <span
@@ -2359,8 +2359,8 @@ function LogisticsOrderManagement() {
                         </div>
 
                         {/* SECTION 2: Estimated Delivery Schedule (Clean Blank/Underline Input Style matching MarketingProductsCatalog) */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200/90 space-y-4">
-                          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                        <div className="bg-white p-4 rounded-xl space-y-4">
+                          <div className="flex items-center justify-between pb-1">
                             <div className="flex items-center gap-1.5">
                               <CalendarDays className="w-3.5 h-3.5 text-[#01390f]" />
                               <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
@@ -2416,7 +2416,7 @@ function LogisticsOrderManagement() {
                           </div>
 
                           {/* Weather / Transit Delay Toggle */}
-                          <div className="pt-2 border-t border-slate-100 space-y-2">
+                          <div className="pt-2 space-y-2">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1.5">
                                 <CloudRain className="w-3.5 h-3.5 text-amber-600" />
