@@ -2190,21 +2190,21 @@ function LogisticsOrderManagement() {
                                     </div>
                                   </td>
 
-                                  {/* 3. Ordered Quantity */}
+                                  {/* 3. Ordered Quantity (Green badge, matching font size) */}
                                   <td className="p-2.5 align-middle text-center whitespace-nowrap w-24">
-                                    <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-none inline-block">
+                                    <span className="px-2.5 py-1 text-xs font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-none inline-block whitespace-nowrap">
                                       Qty: {qty}
                                     </span>
                                   </td>
 
-                                  {/* 4. Total Quantity in Inventory */}
+                                  {/* 4. Total Quantity in Inventory (Blue badge, matching font size) */}
                                   <td className="p-2.5 align-middle text-right whitespace-nowrap w-36">
                                     {hasEnoughStock ? (
-                                      <span className="px-2.5 py-1 text-[10px] font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-none inline-flex items-center gap-1">
+                                      <span className="px-2.5 py-1 text-xs font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200 rounded-none inline-block whitespace-nowrap">
                                         Stock: {stockQty}
                                       </span>
                                     ) : (
-                                      <span className="px-2.5 py-1 text-[10px] font-bold font-mono bg-red-50 text-red-700 border border-red-300 rounded-none inline-flex items-center gap-1">
+                                      <span className="px-2.5 py-1 text-xs font-bold font-mono bg-red-50 text-red-700 border border-red-300 rounded-none inline-block whitespace-nowrap">
                                         Low Stock: {stockQty}
                                       </span>
                                     )}
