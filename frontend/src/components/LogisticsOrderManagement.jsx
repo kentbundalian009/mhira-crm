@@ -330,9 +330,9 @@ function LogisticsOrderManagement() {
         setFinishedGoodsList(data);
         try {
           localStorage.setItem('cached_inventory_products', JSON.stringify(data));
-        } catch {}
+        } catch { }
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   useEffect(() => {
@@ -1674,8 +1674,7 @@ function LogisticsOrderManagement() {
                     return (
                       <tr
                         key={order._id}
-                        onClick={() => setSelectedOrder(order)}
-                        className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm cursor-pointer"
+                        className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
                         {/* 1. ORDER ID */}
                         <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
@@ -2733,11 +2732,10 @@ function LogisticsOrderManagement() {
                                 <div key={tIdx} className="relative space-y-1">
                                   {/* Timeline node */}
                                   <div
-                                    className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${
-                                      isCancellation
+                                    className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${isCancellation
                                         ? 'bg-red-500'
                                         : 'bg-blue-600'
-                                    }`}
+                                      }`}
                                   />
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                                     <div className="flex items-center gap-2">
