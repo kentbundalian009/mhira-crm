@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -50,10 +51,6 @@ function CustomerMhiraShoppers() {
   const userId = getUserId();
   const activeUser = currentUserProfile || contextUser;
 
-  const API_BASE_URL =
-    import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
 
   // Fetch Shoppers function (silent option for real-time updates)
   const fetchLeaderboard = useCallback(async (silent = false) => {

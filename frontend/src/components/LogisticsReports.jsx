@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FileSpreadsheet,
@@ -94,7 +95,7 @@ const DEFAULT_RETURNS = [
   { _id: "ret-003", orderId: "ORD-2026-8801", customerName: "Jasmine Soriano", reason: "Customer changed preference", condition: "Opened Bottle", status: "Under Review", createdAt: new Date(Date.now() - 72 * 3600000).toISOString() }
 ];
 
-function LogisticReports() {
+function LogisticsReports() {
   const [reportType, setReportType] = useState("sales-summary"); // 'sales-summary' | 'returns-audit'
   const [dateRange, setDateRange] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -108,9 +109,6 @@ function LogisticReports() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const API_BASE_URL = import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
 
   const fetchLogisticData = useCallback(async () => {
     setLoading(true);
@@ -285,7 +283,7 @@ function LogisticReports() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(5.5);
       doc.setTextColor(21, 62, 151);
-      doc.text("Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy", 36, 30);
+      doc.text("Security Classification: INTERNAL CONFIDENTIAL â€¢ Controlled Executive Copy", 36, 30);
 
       // Top-Right Metadata
       doc.setFont("helvetica", "bold");
@@ -306,7 +304,7 @@ function LogisticReports() {
 
       // 2. 4-Column KPI Summary Table
       let card1Label = "GROSS DISPATCH VALUE";
-      let card1Val = `₱${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      let card1Val = `â‚±${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       let card2Label = "TOTAL ORDERS SHIPPED";
       let card2Val = `${orders.length} Dispatches`;
       let card3Label = "DELIVERY FULFILLMENT RATE";
@@ -449,7 +447,7 @@ function LogisticReports() {
             doc.setFont("helvetica", "bold");
             doc.setFontSize(7.2);
             doc.setTextColor(1, 57, 15);
-            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  •  ${reportTitle}`, 14 + thumbW + 4, 11.5);
+            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  â€¢  ${reportTitle}`, 14 + thumbW + 4, 11.5);
 
             doc.setFont("helvetica", "normal");
             doc.setFontSize(6.2);
@@ -469,7 +467,7 @@ function LogisticReports() {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(5.8);
           doc.setTextColor(100, 116, 139);
-          doc.text("INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY", 14, footerY + 1.2);
+          doc.text("INTERNAL CONFIDENTIAL â€¢ CONTROLLED EXECUTIVE COPY", 14, footerY + 1.2);
         },
       });
 
@@ -793,7 +791,7 @@ function LogisticReports() {
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[11px] font-bold text-slate-500 uppercase block whitespace-nowrap">Gross Sales Revenue</span>
             <span className="text-xl font-extrabold text-[#01390f] block mt-0.5 whitespace-nowrap">
-              ₱{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              â‚±{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
@@ -881,7 +879,7 @@ function LogisticReports() {
                         </td>
                         {/* Signature Raw Materials Blue Accent Cell */}
                         <td className="py-3.5 px-4 font-mono font-black text-right whitespace-nowrap bg-blue-600/25 group-hover:bg-blue-600/40 text-blue-950 transition-colors">
-                          ₱{Number(o.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          â‚±{Number(o.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
                     ))
@@ -966,10 +964,10 @@ function LogisticReports() {
               {getUserFullName("Signature over Printed Name")}
             </div>
             <div className="border-b border-slate-400 w-56 my-1"></div>
-            <div className="text-[10px] text-slate-500 whitespace-nowrap">Logistics & Fulfillment Officer • Supply Chain Operations</div>
+            <div className="text-[10px] text-slate-500 whitespace-nowrap">Logistics & Fulfillment Officer â€¢ Supply Chain Operations</div>
           </div>
           <div className="text-right text-[10px] text-slate-400">
-            Internal Confidential • Verified Logistics Record
+            Internal Confidential â€¢ Verified Logistics Record
           </div>
         </div>
 
@@ -978,4 +976,4 @@ function LogisticReports() {
   );
 }
 
-export default LogisticReports;
+export default LogisticsReports;

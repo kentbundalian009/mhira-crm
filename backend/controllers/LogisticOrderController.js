@@ -7,6 +7,7 @@ import { User } from "../models/AdminUser.js";
 import { calculateTier } from "./AdminAuthController.js";
 import { populateProductsList } from "./CustomerCartController.js";
 import { computeLocationShipping } from "./LogisticsShippingController.js";
+import { findUserByIdentifier } from "../utils/userLookup.js";
 
 export const isTransitOrBeyond = (status) => {
   const s = String(status || "").toLowerCase().trim();
@@ -300,15 +301,7 @@ export const createOrder = async (req, res) => {
 
     // Apply points redemption discount safely
     let discountFromPoints = 0;
-    let user = null;
-    if (userId) {
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId).maxTimeMS(3000).catch(() => null);
-      }
-      if (!user) {
-        user = await User.findOne({ $or: [{ email: userId }, { username: userId }] }).maxTimeMS(3000).catch(() => null);
-      }
-    }
+    const user = await findUserByIdentifier(userId);
 
     if (user && pointsRedeemed && Number(pointsRedeemed) > 0) {
       const actualRedeemed = Math.min(user.rewardPoints || 0, Number(pointsRedeemed));

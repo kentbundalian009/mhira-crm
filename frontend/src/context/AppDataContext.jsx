@@ -6,10 +6,7 @@ import { notifyLiveSync, useLiveSync } from "../utils/liveSync";
 
 const AppDataContext = createContext(null);
 
-const API_BASE_URL =
-  import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
+import { API_BASE_URL } from "../utils/apiConfig";
 
 export function AppDataProvider({ children }) {
   // 1. Initial State Hydration (0ms Instant Load from Storage)

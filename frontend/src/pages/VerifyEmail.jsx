@@ -3,10 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ShieldCheck, CheckCircle2, XCircle, Loader2, ArrowRight, Home } from "lucide-react";
 import axios, { API } from "../axios";
 
-const API_BASE_URL =
-  import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
+import { API_BASE_URL } from "../utils/apiConfig";
 
 function VerifyEmail() {
   const [searchParams] = useSearchParams();

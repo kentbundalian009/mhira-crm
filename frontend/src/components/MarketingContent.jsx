@@ -39,7 +39,7 @@ const resolveMediaSrc = (url = '') => {
   return getBackendMediaUrl(url);
 };
 
-function MarketingMarketingContent() {
+function MarketingContent() {
   const [sections, setSections] = useState(() => {
     try {
       const cached = localStorage.getItem('cached_marketing_sections');
@@ -666,12 +666,12 @@ function MarketingMarketingContent() {
                   {sec.sectionName === 'topbar-announcement' ? (
                     <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 flex flex-col gap-1">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        {sec.isPublished !== false ? 'Live Scrolling Message' : 'Draft — Storefront Showing Default Waiting Announcement'}
+                        {sec.isPublished !== false ? 'Live Scrolling Message' : 'Draft â€” Storefront Showing Default Waiting Announcement'}
                       </span>
                       <p className="text-xs text-slate-800 leading-relaxed font-semibold">
                         {sec.isPublished !== false
-                          ? (sec.text || sec.title || 'Announcement: Current pricing and offers end 8/11/2026 at 11:59 PM ET / 8:59 PM PT — Grab your organic favorites now! 🌿')
-                          : 'Waiting for new announcements — Stay tuned for upcoming Mhira Natural promos & updates!'}
+                          ? (sec.text || sec.title || 'Announcement: Current pricing and offers end 8/11/2026 at 11:59 PM ET / 8:59 PM PT â€” Grab your organic favorites now! ðŸŒ¿')
+                          : 'Waiting for new announcements â€” Stay tuned for upcoming Mhira Natural promos & updates!'}
                       </p>
                     </div>
                   ) : (
@@ -769,7 +769,7 @@ function MarketingMarketingContent() {
                 <h3 className="text-sm sm:text-base font-bold text-slate-800">
                   {modalMode === 'add'
                     ? 'Add Storefront Campaign Media'
-                    : `Manage Content — ${sectionMeta[activeSectionName]?.name || activeSectionName}`}
+                    : `Manage Content â€” ${sectionMeta[activeSectionName]?.name || activeSectionName}`}
                 </h3>
                 <p className="text-xs text-slate-400">
                   {activeSectionName === 'topbar-announcement'
@@ -784,7 +784,7 @@ function MarketingMarketingContent() {
                 onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -954,7 +954,7 @@ function MarketingMarketingContent() {
                                 className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                                 title="Remove photo"
                               >
-                                ✕
+                                âœ•
                               </button>
                             </div>
                           );
@@ -994,7 +994,7 @@ function MarketingMarketingContent() {
                                 className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                                 title="Remove photo"
                               >
-                                ✕
+                                âœ•
                               </button>
                             </div>
                           );
@@ -1162,4 +1162,4 @@ function MarketingMarketingContent() {
   );
 }
 
-export default MarketingMarketingContent;
+export default MarketingContent;

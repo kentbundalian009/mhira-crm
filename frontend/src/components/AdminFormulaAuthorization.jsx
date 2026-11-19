@@ -31,7 +31,7 @@ import {
 import TablePagination from './common/TablePagination';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 
-export default function AdminFormulaAccess() {
+export default function AdminFormulaAuthorization() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -559,7 +559,7 @@ export default function AdminFormulaAccess() {
                         <div className="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 shadow-2xs">
                           <KeyRound className="w-3.5 h-3.5 text-[#01390f]" />
                           <span className="font-mono font-bold text-slate-800 text-xs tracking-wider">
-                            {showCurrentPin ? currentPin : '••••••'}
+                            {showCurrentPin ? currentPin : 'â€¢â€¢â€¢â€¢â€¢â€¢'}
                           </span>
                           <button
                             type="button"

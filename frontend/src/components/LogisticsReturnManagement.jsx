@@ -44,10 +44,7 @@ import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
 
-const API_BASE_URL =
-  import.meta.env.MODE === 'production'
-    ? 'https://mhira-crmsystem.onrender.com/api'
-    : 'http://localhost:5000/api';
+import { API_URL as API_BASE_URL } from "../utils/apiConfig";
 
 function LogisticsReturnManagement() {
   const [returnRequests, setReturnRequests] = useState(() => {

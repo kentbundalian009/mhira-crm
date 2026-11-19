@@ -7,6 +7,7 @@ import { calculateTier } from "./AdminAuthController.js";
 import { populateProductsList } from "./CustomerCartController.js";
 import { handleInventoryStockSync } from "./LogisticOrderController.js";
 import { computeLocationShipping } from "./LogisticsShippingController.js";
+import { findUserByIdentifier, awardLoyaltyPoints } from "../utils/userLookup.js";
 
 // Helper to get active PayMongo Secret Key
 export const getPayMongoSecretKey = () => {
@@ -237,15 +238,7 @@ export const createPayMongoCheckoutSession = async (req, res) => {
 
     // Apply points redemption discount safely
     let discountFromPoints = 0;
-    let user = null;
-    if (userId) {
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId).maxTimeMS(3000).catch(() => null);
-      }
-      if (!user) {
-        user = await User.findOne({ $or: [{ email: userId }, { username: userId }] }).maxTimeMS(3000).catch(() => null);
-      }
-    }
+    const user = await findUserByIdentifier(userId);
 
     if (user && pointsRedeemed && Number(pointsRedeemed) > 0) {
       const actualRedeemed = Math.min(user.rewardPoints || 0, Number(pointsRedeemed));
@@ -526,21 +519,7 @@ export const verifyPayMongoPayment = async (req, res) => {
 
       // Update user loyalty points & tier
       if (order.userId) {
-        let user = null;
-        if (mongoose.Types.ObjectId.isValid(order.userId)) {
-          user = await User.findById(order.userId).maxTimeMS(3000).catch(() => null);
-        }
-        if (!user) {
-          user = await User.findOne({ $or: [{ email: order.userId }, { username: order.userId }] }).maxTimeMS(3000).catch(() => null);
-        }
-
-        if (user) {
-          const pointsEarned = Math.floor(order.totalAmount / 50);
-          user.rewardPoints = (user.rewardPoints || 0) + pointsEarned;
-          user.totalSpent = (user.totalSpent || 0) + order.totalAmount;
-          user.tier = calculateTier(user.totalSpent);
-          await user.save().catch(() => {});
-        }
+        await awardLoyaltyPoints(order.userId, order.totalAmount);
       }
 
       await order.save();
@@ -622,21 +601,7 @@ export const handlePayMongoWebhook = async (req, res) => {
 
           // Update user loyalty points & tier
           if (order.userId) {
-            let user = null;
-            if (mongoose.Types.ObjectId.isValid(order.userId)) {
-              user = await User.findById(order.userId).maxTimeMS(3000).catch(() => null);
-            }
-            if (!user) {
-              user = await User.findOne({ $or: [{ email: order.userId }, { username: order.userId }] }).maxTimeMS(3000).catch(() => null);
-            }
-
-            if (user) {
-              const pointsEarned = Math.floor(order.totalAmount / 50);
-              user.rewardPoints = (user.rewardPoints || 0) + pointsEarned;
-              user.totalSpent = (user.totalSpent || 0) + order.totalAmount;
-              user.tier = calculateTier(user.totalSpent);
-              await user.save().catch(() => {});
-            }
+            await awardLoyaltyPoints(order.userId, order.totalAmount);
           }
 
           await order.save();

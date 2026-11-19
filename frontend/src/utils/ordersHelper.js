@@ -1,14 +1,6 @@
 import axios from "../axios";
 
-const isLocalhost =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1");
-
-const API_BASE_URL =
-  !isLocalhost || import.meta.env.PROD || import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
+import { API_BASE_URL } from "./apiConfig";
 
 /**
  * Checks if an order has been marked as reviewed by the customer.

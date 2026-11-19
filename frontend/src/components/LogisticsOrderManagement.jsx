@@ -56,61 +56,10 @@ import autoTable from 'jspdf-autotable';
 import { useLiveSync, notifyLiveSync } from '../utils/liveSync';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
-
-const getDisplayPaymentMethod = (order) => {
-  if (!order) return 'Cash on Delivery';
-  const rawMethod = String(order.paymentMethod || '').trim();
-  const lowerMethod = rawMethod.toLowerCase();
-  const detailType = String(order.paymentDetails?.paymentMethodType || '').toLowerCase().trim();
-
-  const mapTypeToLabel = (t) => {
-    if (!t) return '';
-    if (t.includes('gcash')) return 'GCash';
-    if (t.includes('paymaya') || t.includes('maya')) return 'Maya';
-    if (t.includes('grab')) return 'GrabPay';
-    if (t.includes('billease')) return 'BillEase';
-    if (t.includes('dob') || t.includes('bpi') || t.includes('online banking')) return 'Online Banking (BPI / UB)';
-    if (t === 'card' || (t.includes('card') && !t.includes('e-wallet'))) return 'Credit / Debit Card';
-    return '';
-  };
-
-  if (
-    !rawMethod ||
-    lowerMethod.includes('e-wallet / card') ||
-    lowerMethod.includes('e-wallet / online') ||
-    lowerMethod === 'paymongo' ||
-    lowerMethod === 'paymongo online payment'
-  ) {
-    const mapped = mapTypeToLabel(detailType);
-    if (mapped) return mapped;
-  }
-
-  return rawMethod || 'Cash on Delivery';
-};
-
-const API_BASE_URL =
-  import.meta.env.MODE === 'production'
-    ? 'https://mhira-crmsystem.onrender.com/api'
-    : 'http://localhost:5000/api';
-
-const formatShippingAddress = (addr) => {
-  if (!addr) return '';
-  if (typeof addr === 'string') return addr.trim();
-  if (typeof addr === 'object') {
-    return [
-      addr.streetAddress || addr.street,
-      addr.apartment,
-      addr.barangay ? `Brgy. ${String(addr.barangay).replace(/^Brgy\.?\s*/i, '')}` : '',
-      addr.city,
-      addr.province || addr.region,
-      addr.postalCode,
-      addr.country,
-    ]
-      .filter(Boolean)
-      .join(', ');
-  }
-  return String(addr || '');
-};
+import { API_URL as API_BASE_URL } from '../utils/apiConfig';
+import { getDisplayPaymentMethod } from '../utils/paymentUtils';
+import { formatShippingAddress } from '../utils/addressUtils';
+import { downloadWaybillPdf } from '../utils/pdfUtils';
 
 const resolveProductImageUrl = (img) => {
   if (!img) return '/mhira_removebg.png';
@@ -936,149 +885,10 @@ function LogisticsOrderManagement() {
   const handleDownloadWaybillPdf = (order) => {
     if (!order) return;
     try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [100, 150] }); // 100x150mm standard thermal sticker format
-      const orderIdShort = order._id?.slice(-8).toUpperCase() || 'ORDER';
       const courierName = (order.courier || selectedCourier || 'J&T Express').trim();
       const trackingNo = order.trackingNumber || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
-      const customerName = order.customerName || order.userId?.name || order.user?.name || 'Customer';
-      const customerPhone = order.userId?.phoneNumber || order.phoneNumber || '0917-000-0000';
-      const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-      const totalAmount = Number(order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
-
-      const isCod = (order.paymentMethod || '').toLowerCase().includes('cod') || (order.paymentMethod || '').toLowerCase().includes('cash on delivery');
-      const isPaid = (order.paymentStatus || '').toLowerCase() === 'paid';
-
-      // 1. Header Box - Courier & Service Type
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 100, 15, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text(courierName.toUpperCase(), 5, 7.5);
-      doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text('AIRWAY BILL & SHIPPING LABEL', 5, 12);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('STANDARD EXP', 72, 7.5);
-      doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(new Date().toLocaleDateString(), 74, 12);
-
-      // 2. Barcode Simulation Box
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 15, 100, 21, 'F');
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(4, 17, 92, 17);
-
-      doc.setFillColor(15, 23, 42);
-      let bx = 9;
-      for (let i = 0; i < 44; i++) {
-        const barWidth = (i % 3 === 0 || i % 7 === 0) ? 1.4 : 0.6;
-        if (i % 6 !== 0) {
-          doc.rect(bx, 19, barWidth, 9.5, 'F');
-        }
-        bx += barWidth + 1.1;
-      }
-      doc.setTextColor(15, 23, 42);
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(8.5);
-      doc.text(`* ${trackingNo} *`, 50, 32, { align: 'center' });
-
-      // 3. Payment Method & Amount Box (Crucial for Courier Rider)
-      doc.setDrawColor(30, 41, 59);
-      if (isCod) {
-        doc.setFillColor(254, 240, 138); // Yellow highlight for COD
-        doc.rect(4, 36, 92, 13, 'FD');
-        doc.setTextColor(113, 63, 18);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.text('CASH ON DELIVERY (COD)', 7, 41);
-        doc.setFontSize(9.5);
-        doc.text(`AMOUNT TO COLLECT: PHP ${totalAmount}`, 7, 46.5);
-      } else {
-        doc.setFillColor(219, 234, 254); // Blue highlight for Prepaid
-        doc.rect(4, 36, 92, 13, 'FD');
-        doc.setTextColor(30, 58, 138);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.text('PREPAID / NON-COD  [ DO NOT COLLECT CASH ]', 7, 41);
-        doc.setFontSize(9);
-        doc.text(`PAID ONLINE (${order.paymentMethod || 'E-PAYMENT'}) - PHP ${totalAmount}`, 7, 46.5);
-      }
-
-      // 4. Consignee (Receiver / TO)
-      doc.setDrawColor(203, 213, 225);
-      doc.setFillColor(248, 250, 252);
-      doc.rect(4, 51, 92, 28, 'FD');
-      doc.setTextColor(71, 85, 105);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      doc.text('RECIPIENT / SHIP TO:', 7, 55);
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(8.5);
-      doc.text(customerName.toUpperCase(), 7, 60);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(`Phone: ${customerPhone}`, 7, 64);
-      const splitAddress = doc.splitTextToSize(formatShippingAddress(order.shippingAddress) || 'Customer Delivery Address', 86);
-      doc.text(splitAddress, 7, 68);
-
-      // 5. Shipper (Sender / FROM)
-      doc.rect(4, 81, 92, 16, 'FD');
-      doc.setTextColor(71, 85, 105);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      doc.text('SENDER / RETURN TO:', 7, 85);
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(7.5);
-      doc.text('MHIRA NATURAL SKINCARE', 7, 89);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.5);
-      doc.text('Logistics & Supply Chain Hub, Manila, Philippines | Tel: 0917-123-4567', 7, 93);
-
-      // 6. Order Contents & Itemized Summary
-      doc.rect(4, 99, 92, 27, 'FD');
-      doc.setTextColor(71, 85, 105);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      doc.text('PARCEL CONTENTS & ORDER INFO:', 7, 103);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.5);
-      doc.text(`Order Ref: #${orderIdShort} | Date Placed: ${orderDate}`, 7, 107);
-
-      let itemY = 111;
-      const itemsList = order.items || [];
-      const totalItemsCount = itemsList.reduce((acc, it) => acc + (it.quantity || 1), 0);
-      itemsList.slice(0, 3).forEach((it) => {
-        const itemLine = `• ${(it.name || 'Product').substring(0, 38)} (x${it.quantity || 1})`;
-        doc.text(itemLine, 7, itemY);
-        itemY += 3.5;
-      });
-      if (itemsList.length > 3) {
-        doc.text(`+ ${itemsList.length - 3} more items...`, 7, itemY);
-      }
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Total Pcs: ${totalItemsCount} units | Declared Value: PHP ${totalAmount}`, 7, 123);
-
-      // 7. Rider Signature & Verification Box
-      doc.rect(4, 128, 92, 17);
-      doc.setFontSize(6.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text('DISPATCH / RIDER HANDOVER:', 7, 132);
-      doc.text('RECIPIENT SIGNATURE:', 54, 132);
-      doc.line(7, 140, 45, 140);
-      doc.line(54, 140, 92, 140);
-      doc.text(`Carrier: ${courierName}`, 7, 143.5);
-      doc.text('Date Received:', 54, 143.5);
-
-      const fileName = `Waybill_${courierName.replace(/\s+/g, '_')}_${trackingNo}.pdf`;
-      doc.save(fileName);
-      showSuccessToast(`Waybill generated & downloaded: ${fileName}`);
+      const fileName = downloadWaybillPdf({ ...order, courier: courierName, trackingNumber: trackingNo });
+      if (fileName) showSuccessToast(`Waybill generated & downloaded: ${fileName}`);
 
       // Log timeline event
       handleLogTimelineEvent(order._id, {
@@ -1820,7 +1630,7 @@ function LogisticsOrderManagement() {
                                   ) : (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300 inline-flex items-center gap-1 shadow-2xs" title="To be collected by courier rider upon delivery">
                                       <Clock className="w-2.5 h-2.5" />
-                                      <span>COD • TO COLLECT</span>
+                                      <span>COD</span>
                                     </span>
                                   )
                                 ) : (
@@ -1962,13 +1772,10 @@ function LogisticsOrderManagement() {
               <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex flex-col gap-2 shrink-0">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight truncate max-w-[280px]">
-                      {selectedOrder.customerName || selectedOrder.userId?.name || 'Customer Order'}
+                    <h2 className="text-base sm:text-lg font-bold font-mono text-slate-900 tracking-tight">
+                      #{selectedOrder._id?.slice(-8).toUpperCase()}
                     </h2>
                     {getStatusBadge(selectedOrder.status)}
-                    <span className="font-mono font-black text-[#01390f] text-sm sm:text-base">
-                      ₱{Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
                   </div>
 
                   <button
@@ -1980,112 +1787,34 @@ function LogisticsOrderManagement() {
                     ✕
                   </button>
                 </div>
-
-                {/* Subtitle & Key Status Badges Inline */}
-                <div className="flex items-center gap-2 text-xs text-slate-500 font-mono flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Tag className="w-3 h-3 text-[#01390f]" />
-                    <span>#{selectedOrder._id?.slice(-8).toUpperCase()}</span>
-                  </span>
-                  <span>•</span>
-                  {/* Payment Badge */}
-                  {(() => {
-                    const isCod = (selectedOrder.paymentMethod || '').toLowerCase().includes('cod') || (selectedOrder.paymentMethod || '').toLowerCase().includes('cash on delivery');
-                    const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid';
-                    const isDelivered = (selectedOrder.status || '').toLowerCase() === 'delivered' || (selectedOrder.status || '').toLowerCase() === 'completed';
-                    if (isCod) {
-                      return isDelivered || isPaid ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                          COD Paid
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
-                          COD Collect
-                        </span>
-                      );
-                    }
-                    return isPaid ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                        Online Paid
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
-                        Pending Pay
-                      </span>
-                    );
-                  })()}
-                  <span>•</span>
-                  {/* Inventory Stock Badge */}
-                  {selectedOrder.inventoryDeducted ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200" title="Deducted from Finished Goods inventory">
-                      ✓ Stock Deducted
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300" title="Will auto-deduct upon courier rider handover">
-                      ⏳ Pending Handover
-                    </span>
-                  )}
-                  <span>•</span>
-                  <span className="text-slate-400">Mhira Natural Store</span>
-                </div>
               </div>
 
-              {/* COMPACT WORKFLOW STAGE TABS (NO BULKY STEPPER BOX) */}
-              <div className="px-6 py-2.5 bg-white border-b border-slate-200/80 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
-                {[
-                  { id: 'review', stageNum: 1, label: 'Order Review' },
-                  { id: 'dispatch', stageNum: 2, label: 'Waiting for Courier & Waybill' },
-                  { id: 'customer', stageNum: 3, label: 'In Transit & POD' },
-                  { id: 'invoice', stageNum: 4, label: 'Delivered & Invoice' },
-                  { id: 'timeline', stageNum: 5, label: 'Process Records', isAlwaysUnlocked: true },
-                ].map((tab) => {
-                  const currentOrderStage = getWorkflowStepIndex(selectedOrder.status);
-                  const isUnlocked = tab.isAlwaysUnlocked || tab.stageNum - 1 <= currentOrderStage;
-                  const isOrderCurrentStage = currentOrderStage === tab.stageNum - 1;
-                  const isActive = activeDrawerTab === tab.id;
-
-                  return (
+              {/* PRODUCT RECORDS TOGGLE BAR */}
+              <div className="px-6 py-2.5 bg-white border-b border-slate-200/80 flex items-center justify-between gap-2 shrink-0">
+                {activeDrawerTab === 'timeline' ? (
+                  <>
+                    <span className="px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shrink-0 bg-[#01390f] text-white shadow-xs select-none cursor-default">
+                      <History className="w-3.5 h-3.5" />
+                      <span>Product Records</span>
+                    </span>
                     <button
-                      key={tab.id}
                       type="button"
-                      disabled={!isUnlocked}
-                      onClick={() => {
-                        if (isUnlocked) setActiveDrawerTab(tab.id);
-                      }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${!isUnlocked
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-40 select-none'
-                        : isActive
-                          ? 'bg-[#01390f] text-white shadow-xs cursor-pointer'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer'
-                        }`}
+                      onClick={() => setActiveDrawerTab(getTabForStatus(selectedOrder.status))}
+                      className="text-xs font-semibold text-[#01390f] hover:underline cursor-pointer"
                     >
-                      <span
-                        className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${!isUnlocked
-                          ? 'bg-slate-200 text-slate-400'
-                          : isActive
-                            ? 'bg-white/20 text-white'
-                            : 'bg-slate-200 text-slate-700'
-                          }`}
-                      >
-                        {!isUnlocked ? (
-                          <Lock className="w-2.5 h-2.5" />
-                        ) : tab.isAlwaysUnlocked ? (
-                          <History className="w-2.5 h-2.5" />
-                        ) : (
-                          tab.stageNum
-                        )}
-                      </span>
-                      <span>{tab.label}</span>
-                      {isOrderCurrentStage && !tab.isAlwaysUnlocked && (
-                        <span
-                          className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${isActive ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}
-                        >
-                          Current
-                        </span>
-                      )}
+                      Back to Order
                     </button>
-                  );
-                })}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveDrawerTab('timeline')}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>Product Records</span>
+                  </button>
+                )}
               </div>
 
               {/* DRAWER SCROLLABLE CONTENT */}
@@ -2146,7 +1875,169 @@ function LogisticsOrderManagement() {
                 {/* TAB 1: ORDER REVIEW WORKSPACE */}
                 {activeDrawerTab === 'review' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
-                    {/* Order Items Table List (Clean Cards styled like MarketingAllProductsCatalog) */}
+                    {/* 1. PAYMENT, CUSTOMER & FINANCIAL SUMMARY (FIRST) */}
+                    {(() => {
+                      const rawAddr = formatShippingAddress(selectedOrder.shippingAddress) || '';
+                      const parsedMatch = rawAddr.match(/^([^(]+?)\s*\(([^)]+)\)\s*-\s*(.+)$/);
+                      const customerName =
+                        selectedOrder.customerName ||
+                        selectedOrder.userId?.name ||
+                        selectedOrder.user?.name ||
+                        (parsedMatch ? parsedMatch[1].trim() : 'Customer');
+                      const contactNumber =
+                        selectedOrder.phone ||
+                        selectedOrder.shippingPhone ||
+                        selectedOrder.contactNumber ||
+                        selectedOrder.phoneNumber ||
+                        selectedOrder.userId?.phoneNumber ||
+                        (parsedMatch ? parsedMatch[2].trim() : 'N/A');
+                      const cleanAddress = (parsedMatch ? parsedMatch[3].trim() : rawAddr) || 'No address provided';
+
+                      const computedItemsSubtotal = (selectedOrder.items || []).reduce(
+                        (acc, it) => acc + Number(it.price || it.product?.price || 0) * Number(it.quantity || 1),
+                        0
+                      );
+                      const actualShippingFee = Number(selectedOrder.shippingFee || 0);
+                      const voucherDiscount = Number(selectedOrder.voucherDiscount || 0);
+                      const pointsDiscount = Number(selectedOrder.pointsRedeemed || 0);
+                      const displayMethod = getDisplayPaymentMethod(selectedOrder);
+                      const isCod =
+                        displayMethod.toLowerCase().includes('cod') ||
+                        displayMethod.toLowerCase().includes('cash on delivery');
+                      const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid';
+                      const isDelivered =
+                        (selectedOrder.status || '').toLowerCase() === 'delivered' ||
+                        (selectedOrder.status || '').toLowerCase() === 'completed';
+
+                      return (
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                              Payment & Financial Summary
+                            </span>
+                            {isCod ? (
+                              isDelivered || isPaid ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                  COD Collected
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
+                                  COD
+                                </span>
+                              )
+                            ) : isPaid ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                Online Paid
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPaymentVerifyModal(selectedOrder)}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-pointer flex items-center gap-1"
+                                title="Verify customer transfer and mark as Paid"
+                              >
+                                <Check className="w-2.5 h-2.5" />
+                                <span>Verify E-Payment</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Customer Delivery Info */}
+                          <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-1.5 text-xs">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-slate-500 shrink-0">Customer Name:</span>
+                              <span className="font-bold text-slate-900 text-right">{customerName}</span>
+                            </div>
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-slate-500 shrink-0">Contact Number:</span>
+                              <span className="font-mono font-semibold text-slate-800 text-right">{contactNumber}</span>
+                            </div>
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-slate-500 shrink-0">Delivery Address:</span>
+                              <span className="font-medium text-slate-700 text-right leading-snug max-w-[260px]">
+                                {cleanAddress}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Financial Breakdown */}
+                          <div className="flex justify-between items-center text-xs text-slate-600">
+                            <span>Items Subtotal:</span>
+                            <span className="font-mono font-bold">
+                              ₱{(computedItemsSubtotal || Number(selectedOrder.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-slate-600">
+                            <span>Shipping / Delivery Fee:</span>
+                            <span className={`font-mono font-bold ${actualShippingFee > 0 ? 'text-slate-800' : 'text-blue-700'}`}>
+                              {actualShippingFee > 0
+                                ? `₱${actualShippingFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                                : 'FREE (₱0.00)'}
+                            </span>
+                          </div>
+                          {voucherDiscount > 0 && (
+                            <div className="flex justify-between items-center text-xs text-emerald-700">
+                              <span>Voucher Discount{selectedOrder.voucherCode ? ` (${selectedOrder.voucherCode})` : ''}:</span>
+                              <span className="font-mono font-bold">-₱{voucherDiscount.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {pointsDiscount > 0 && (
+                            <div className="flex justify-between items-center text-xs text-amber-700">
+                              <span>Points Discount:</span>
+                              <span className="font-mono font-bold">-₱{pointsDiscount.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center text-xs text-slate-600">
+                            <span>Payment Method:</span>
+                            <span className="font-bold text-slate-800">{displayMethod}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-slate-600">
+                            <span>Payment Settlement:</span>
+                            {isCod ? (
+                              <span className="font-bold text-slate-700">
+                                {isDelivered || isPaid
+                                  ? 'Collected by Rider on Delivery'
+                                  : `Collect ₱${Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} on Delivery`}
+                              </span>
+                            ) : (
+                              <span className="font-bold text-slate-700 flex flex-wrap items-center gap-1.5 justify-end">
+                                {isPaid ? (
+                                  <>
+                                    <span>Prepaid via {displayMethod}</span>
+                                    {selectedOrder.paymentDetails?.referenceNumber && (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+                                        Ref: {selectedOrder.paymentDetails.referenceNumber}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Awaiting online transfer confirmation</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAutoFetchPayMongo(selectedOrder)}
+                                      className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer inline-flex items-center gap-1"
+                                      title="Auto-fetch reference from PayMongo"
+                                    >
+                                      <RefreshCw size={9} />
+                                      <span>Sync PayMongo</span>
+                                    </button>
+                                  </>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                          <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
+                            <span>Grand Total:</span>
+                            <span className="font-mono font-black text-[#01390f] text-base">
+                              ₱{Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* 2. PURCHASED PRODUCTS & BUNDLES (BELOW SUMMARY) */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -2220,109 +2111,6 @@ function LogisticsOrderManagement() {
                             </div>
                           );
                         })}
-                      </div>
-                    </div>
-
-                    {/* Order Financial Totals & Payment Verification */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                          Payment & Financial Summary
-                        </span>
-                        {(() => {
-                          const isCod = (selectedOrder.paymentMethod || '').toLowerCase().includes('cod') || (selectedOrder.paymentMethod || '').toLowerCase().includes('cash on delivery');
-                          const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid';
-                          const isDelivered = (selectedOrder.status || '').toLowerCase() === 'delivered' || (selectedOrder.status || '').toLowerCase() === 'completed';
-                          if (isCod) {
-                            return isDelivered || isPaid ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                COD Collected
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
-                                COD To Collect
-                              </span>
-                            );
-                          }
-                          return isPaid ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                              Online Paid
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenPaymentVerifyModal(selectedOrder)}
-                              className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-pointer flex items-center gap-1"
-                              title="Verify customer transfer and mark as Paid"
-                            >
-                              <Check className="w-2.5 h-2.5" />
-                              <span>Verify E-Payment</span>
-                            </button>
-                          );
-                        })()}
-                      </div>
-
-                      <div className="flex justify-between items-center text-xs text-slate-600">
-                        <span>Items Subtotal:</span>
-                        <span className="font-mono font-bold">
-                          ₱{Number(selectedOrder.totalAmount || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs text-slate-600">
-                        <span>Shipping / Delivery Fee:</span>
-                        <span className="font-mono font-bold text-blue-700">FREE / Included</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs text-slate-600">
-                        <span>Payment Method:</span>
-                        <span className="font-bold text-slate-800">{getDisplayPaymentMethod(selectedOrder)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs text-slate-600">
-                        <span>Payment Settlement:</span>
-                        {(() => {
-                          const isCod = (selectedOrder.paymentMethod || '').toLowerCase().includes('cod') || (selectedOrder.paymentMethod || '').toLowerCase().includes('cash on delivery');
-                          const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid';
-                          const isDelivered = (selectedOrder.status || '').toLowerCase() === 'delivered' || (selectedOrder.status || '').toLowerCase() === 'completed';
-                          if (isCod) {
-                            return (
-                              <span className="font-bold text-slate-700">
-                                {isDelivered || isPaid ? 'Collected by Rider on Delivery' : `Collect ₱${Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} on Delivery`}
-                              </span>
-                            );
-                          }
-                          return (
-                            <span className="font-bold text-slate-700 flex flex-wrap items-center gap-1.5 justify-end">
-                              {isPaid ? (
-                                <>
-                                  <span>Prepaid via {selectedOrder.paymentMethod || 'E-Payment'}</span>
-                                  {selectedOrder.paymentDetails?.referenceNumber && (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
-                                      Ref: {selectedOrder.paymentDetails.referenceNumber}
-                                    </span>
-                                  )}
-                                </>
-                              ) : (
-                                <>
-                                  <span>Awaiting online transfer confirmation</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAutoFetchPayMongo(selectedOrder)}
-                                    className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer inline-flex items-center gap-1"
-                                    title="Auto-fetch reference from PayMongo"
-                                  >
-                                    <RefreshCw size={9} />
-                                    <span>Sync PayMongo</span>
-                                  </button>
-                                </>
-                              )}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
-                        <span>Grand Total:</span>
-                        <span className="font-mono font-black text-[#01390f] text-base">
-                          ₱{Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -2814,7 +2602,7 @@ function LogisticsOrderManagement() {
                             <div>
                               <div className="flex items-center gap-1.5">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isPaid ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-300'}`}>
-                                  {isPaid ? (isCod ? 'COD Collected • Paid' : 'Online Paid') : (isCod ? 'COD • To Collect' : 'Payment Pending')}
+                                  {isPaid ? (isCod ? 'COD Collected • Paid' : 'Online Paid') : (isCod ? 'COD' : 'Payment Pending')}
                                 </span>
                               </div>
                               <p className="text-[11px] text-slate-600 mt-1 font-medium">
@@ -2868,60 +2656,6 @@ function LogisticsOrderManagement() {
                           <Printer className="w-3 h-3 text-blue-600" />
                           <span>Download Waybill PDF</span>
                         </button>
-                      </div>
-                    </div>
-
-                    {/* Manual Process Update Entry */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-blue-700" />
-                          <span>Record Process Activity / Internal Note</span>
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-500">Recorded in Order Audit Log</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="e.g. Parcel packed and bubble wrapped • Rider confirmed pickup for 2:00 PM"
-                          value={customNote}
-                          onChange={(e) => setCustomNote(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !isAddingNote) {
-                              e.preventDefault();
-                              handleAddProcessNote();
-                            }
-                          }}
-                          className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f]"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddProcessNote}
-                          disabled={isAddingNote || !customNote.trim()}
-                          className="px-4 py-2 rounded-xl bg-[#01390f] hover:bg-[#051609] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                        >
-                          {isAddingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                          <span>Record Note</span>
-                        </button>
-                      </div>
-                      {/* Quick note presets */}
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        <span className="text-[10px] font-semibold text-slate-400">Quick entries:</span>
-                        {[
-                          'Parcel inspected & bubble wrapped',
-                          'Waiting for courier rider pickup',
-                          'Rider handed parcel • Tracking verified',
-                          'Customer contacted regarding delivery',
-                        ].map((preset) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            onClick={() => setCustomNote(preset)}
-                            className="text-[10px] font-bold bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full cursor-pointer transition-colors"
-                          >
-                            + {preset}
-                          </button>
-                        ))}
                       </div>
                     </div>
 

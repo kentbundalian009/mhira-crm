@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveSync, notifyLiveSync } from '../utils/liveSync';
 import {
@@ -178,10 +179,6 @@ function AdminUserManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
-  const API_BASE_URL =
-    import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
 
   const roleOptions = ['Admin', 'Inventory', 'Logistic', 'Marketing', 'Customer'];
 

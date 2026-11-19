@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../utils/apiConfig";
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield,
@@ -66,10 +67,6 @@ function Settings() {
           '';
         setProfileImage(initialImg);
 
-        const API_BASE_URL =
-          import.meta.env.MODE === 'production'
-            ? 'https://mhira-crmsystem.onrender.com'
-            : 'http://localhost:5000';
 
         if (userId && token) {
           const response = await fetch(`${API_BASE_URL}/api/users/profile/${userId}`, {

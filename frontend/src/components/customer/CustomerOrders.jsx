@@ -46,80 +46,12 @@ import { getUserId } from "../../utils/userId";
 import { useAppData } from "../../context/AppDataContext";
 import { isOrderReviewed, markOrderAsReviewed } from "../../utils/ordersHelper";
 import { useLiveSync, notifyLiveSync } from "../../utils/liveSync";
+import { API_BASE_URL, getImageUrl as resolveImgUrl } from "../../utils/apiConfig";
+import { formatShippingAddress } from "../../utils/addressUtils";
+import { getDisplayPaymentMethod } from "../../utils/paymentUtils";
+import { downloadWaybillPdf } from "../../utils/pdfUtils";
 
-const isLocalhost =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1");
-
-const API_BASE_URL =
-  !isLocalhost || import.meta.env.PROD || import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
-
-const getImageUrl = (url) => {
-  if (!url || typeof url !== "string") return "";
-  let trimmed = url.trim();
-  if (!trimmed || trimmed === "/mhira_removebg.png") return "";
-  if (trimmed.includes("localhost:5000")) {
-    trimmed = trimmed.replace(/^https?:\/\/localhost:5000\/?/, "");
-    return `${API_BASE_URL}/${trimmed.replace(/^\/+/, "")}`;
-  }
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("/")) {
-    return trimmed;
-  }
-  return `${API_BASE_URL}/${trimmed.replace(/^\/+/, "")}`;
-};
-
-const formatShippingAddress = (addr) => {
-  if (!addr) return "";
-  if (typeof addr === "string") return addr.trim();
-  if (typeof addr === "object") {
-    return [
-      addr.streetAddress || addr.street,
-      addr.apartment,
-      addr.barangay ? `Brgy. ${String(addr.barangay).replace(/^Brgy\.?\s*/i, "")}` : "",
-      addr.city,
-      addr.province || addr.region,
-      addr.postalCode,
-      addr.country,
-    ]
-      .filter(Boolean)
-      .join(", ");
-  }
-  return String(addr || "");
-};
-
-const getDisplayPaymentMethod = (order) => {
-  if (!order) return "Cash on Delivery";
-  const rawMethod = String(order.paymentMethod || "").trim();
-  const lowerMethod = rawMethod.toLowerCase();
-  const detailType = String(order.paymentDetails?.paymentMethodType || "").toLowerCase().trim();
-
-  const mapTypeToLabel = (t) => {
-    if (!t) return "";
-    if (t.includes("gcash")) return "GCash";
-    if (t.includes("paymaya") || t.includes("maya")) return "Maya";
-    if (t.includes("grab")) return "GrabPay";
-    if (t.includes("billease")) return "BillEase";
-    if (t.includes("dob") || t.includes("bpi") || t.includes("online banking")) return "Online Banking (BPI / UB)";
-    if (t === "card" || (t.includes("card") && !t.includes("e-wallet"))) return "Credit / Debit Card";
-    return "";
-  };
-
-  if (
-    !rawMethod ||
-    lowerMethod.includes("e-wallet / card") ||
-    lowerMethod.includes("e-wallet / online") ||
-    lowerMethod === "paymongo" ||
-    lowerMethod === "paymongo online payment"
-  ) {
-    const mapped = mapTypeToLabel(detailType);
-    if (mapped) return mapped;
-  }
-
-  return rawMethod || "Cash on Delivery";
-};
+const getImageUrl = (url) => resolveImgUrl(url, "");
 
 // ================= INTERACTIVE STAR RATING WIDGET (DRAG & HOVER GLOW) =================
 function StarRatingWidget({
@@ -1023,149 +955,8 @@ function CustomerOrders() {
   const handleDownloadWaybillPdf = (order) => {
     if (!order) return;
     try {
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [100, 150] }); // 100x150mm standard thermal sticker format
-      const orderIdShort = order._id ? String(order._id).slice(-8).toUpperCase() : "ORDER";
-      const courierName = (order.courier || "J&T Express").trim();
-      const trackingNo = order.trackingNumber || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
-      const customerName = order.customerName || order.userId?.name || order.user?.name || "Customer";
-      const customerPhone = order.phone || order.shippingPhone || order.contactNumber || order.userId?.phoneNumber || order.phoneNumber || "0917-000-0000";
-      const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-      const totalAmount = Number(order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
-
-      const isCod = (order.paymentMethod || "").toLowerCase().includes("cod") || (order.paymentMethod || "").toLowerCase().includes("cash on delivery");
-
-      // 1. Header Box - Courier & Service Type
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 100, 15, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(courierName.toUpperCase(), 5, 7.5);
-      doc.setFontSize(6.5);
-      doc.setFont("helvetica", "normal");
-      doc.text("AIRWAY BILL & SHIPPING LABEL", 5, 12);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.text("STANDARD EXP", 72, 7.5);
-      doc.setFontSize(6.5);
-      doc.setFont("helvetica", "normal");
-      doc.text(new Date().toLocaleDateString(), 74, 12);
-
-      // 2. Barcode Simulation Box
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 15, 100, 21, "F");
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(4, 17, 92, 17);
-
-      doc.setFillColor(15, 23, 42);
-      let bx = 9;
-      for (let i = 0; i < 44; i++) {
-        const barWidth = (i % 3 === 0 || i % 7 === 0) ? 1.4 : 0.6;
-        if (i % 6 !== 0) {
-          doc.rect(bx, 19, barWidth, 9.5, "F");
-        }
-        bx += barWidth + 1.1;
-      }
-      doc.setTextColor(15, 23, 42);
-      doc.setFont("courier", "bold");
-      doc.setFontSize(8.5);
-      doc.text(`* ${trackingNo} *`, 50, 32, { align: "center" });
-
-      // 3. Payment Method & Amount Box (Crucial for Courier Rider)
-      doc.setDrawColor(30, 41, 59);
-      if (isCod) {
-        doc.setFillColor(254, 240, 138); // Yellow highlight for COD
-        doc.rect(4, 36, 92, 13, "FD");
-        doc.setTextColor(113, 63, 18);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
-        doc.text("CASH ON DELIVERY (COD)", 7, 41);
-        doc.setFontSize(9.5);
-        doc.text(`AMOUNT TO COLLECT: PHP ${totalAmount}`, 7, 46.5);
-      } else {
-        doc.setFillColor(219, 234, 254); // Blue highlight for Prepaid
-        doc.rect(4, 36, 92, 13, "FD");
-        doc.setTextColor(30, 58, 138);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
-        doc.text("PREPAID / NON-COD  [ DO NOT COLLECT CASH ]", 7, 41);
-        doc.setFontSize(8);
-        const refStr = order.paymentDetails?.referenceNumber ? ` | Ref: ${order.paymentDetails.referenceNumber}` : "";
-        doc.text(`PAID ONLINE (${getDisplayPaymentMethod(order)}${refStr}) - PHP ${totalAmount}`, 7, 46.5);
-      }
-
-      // 4. Consignee (Receiver / TO)
-      doc.setDrawColor(203, 213, 225);
-      doc.setFillColor(248, 250, 252);
-      doc.rect(4, 51, 92, 28, "FD");
-      doc.setTextColor(71, 85, 105);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.text("RECIPIENT / SHIP TO:", 7, 55);
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(8.5);
-      doc.text(customerName.toUpperCase(), 7, 60);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.text(`Phone: ${customerPhone}`, 7, 64);
-      const splitAddress = doc.splitTextToSize(formatShippingAddress(order.shippingAddress) || "Customer Delivery Address", 86);
-      doc.text(splitAddress, 7, 68);
-
-      // 5. Shipper (Sender / FROM)
-      doc.rect(4, 81, 92, 16, "FD");
-      doc.setTextColor(71, 85, 105);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.text("SENDER / RETURN TO:", 7, 85);
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(7.5);
-      doc.text("MHIRA NATURAL SKINCARE", 7, 89);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.text("Logistics & Supply Chain Hub, Manila, Philippines | Tel: 0917-123-4567", 7, 93);
-
-      // 6. Order Contents & Itemized Summary
-      doc.rect(4, 99, 92, 27, "FD");
-      doc.setTextColor(71, 85, 105);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.text("PARCEL CONTENTS & ORDER INFO:", 7, 103);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.text(`Order Ref: #${orderIdShort} | Date Placed: ${orderDate}`, 7, 107);
-
-      let itemY = 111;
-      const itemsList = order.items || [];
-      const totalItemsCount = itemsList.reduce((acc, it) => acc + (it.quantity || 1), 0);
-      itemsList.slice(0, 3).forEach((it) => {
-        const itemLine = `• ${(it.name || "Product").substring(0, 38)} (x${it.quantity || 1})`;
-        doc.text(itemLine, 7, itemY);
-        itemY += 3.5;
-      });
-      if (itemsList.length > 3) {
-        doc.text(`+ ${itemsList.length - 3} more items...`, 7, itemY);
-      }
-      doc.setFont("helvetica", "bold");
-      doc.text(`Total Pcs: ${totalItemsCount} units | Declared Value: PHP ${totalAmount}`, 7, 123);
-
-      // 7. Rider Signature & Verification Box
-      doc.rect(4, 128, 92, 17);
-      doc.setFontSize(6.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text("DISPATCH / RIDER HANDOVER:", 7, 132);
-      doc.text("RECIPIENT SIGNATURE:", 54, 132);
-      doc.line(7, 140, 45, 140);
-      doc.line(54, 140, 92, 140);
-      doc.text(`Carrier: ${courierName}`, 7, 143.5);
-      doc.text("Date Received:", 54, 143.5);
-
-      const fileName = `Waybill_${courierName.replace(/\s+/g, "_")}_${trackingNo}.pdf`;
-      doc.save(fileName);
-      showSuccessToast(`Waybill generated & downloaded: ${fileName}`);
+      const fileName = downloadWaybillPdf(order);
+      if (fileName) showSuccessToast(`Waybill generated & downloaded: ${fileName}`);
     } catch (err) {
       console.error("Error generating Waybill PDF:", err);
       showErrorToast("Failed to generate Waybill shipping label.");
@@ -1803,7 +1594,7 @@ function CustomerOrders() {
                             >
                               {isPaidOrder
                                 ? (isCodOrder ? "COD Collected • Paid" : "Online Paid")
-                                : (isCodOrder ? "COD • To Collect" : "Payment Pending")}
+                                : (isCodOrder ? "COD" : "Payment Pending")}
                             </span>
                             {isPaidOrder && payRef && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
@@ -2855,7 +2646,7 @@ function CustomerOrders() {
                   return (
                     <div className="space-y-1">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block ${isPaid ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-yellow-50 text-yellow-800 border border-yellow-300"}`}>
-                        {isPaid ? (isCod ? "COD Collected" : "Online Paid") : (isCod ? "COD To Collect" : "Payment Pending")}
+                        {isPaid ? (isCod ? "COD Collected" : "Online Paid") : (isCod ? "COD" : "Payment Pending")}
                       </span>
                       {payRef && (
                         <p className="text-[10px] font-mono font-bold text-blue-800 truncate" title={payRef}>

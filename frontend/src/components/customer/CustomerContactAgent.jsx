@@ -30,10 +30,7 @@ import { showErrorToast, showSuccessToast } from "../../utils/toast";
 import { compressImageToBase64 } from "../../utils/imageCompressor";
 import { useAppData } from "../../context/AppDataContext";
 
-const API_BASE_URL =
-  import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
+import { API_BASE_URL } from "../../utils/apiConfig";
 
 const FAQ_PREVIEWS = [
   {

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
@@ -45,7 +46,7 @@ import { compressImageToBase64 } from '../utils/imageCompressor';
 import TablePagination from './common/TablePagination';
 import ItemImageModal from './common/ItemImageModal';
 
-function MarketingAllProductsCatalog() {
+function MarketingProductsCatalog() {
   const [catalogProducts, setCatalogProducts] = useState(() => {
     try {
       const cached = localStorage.getItem('cached_marketing_catalog') || localStorage.getItem('mhira_db_products');
@@ -165,10 +166,6 @@ function MarketingAllProductsCatalog() {
   const [isInvDropdownOpen, setIsInvDropdownOpen] = useState(false);
   const invDropdownRef = useRef(null);
 
-  const API_BASE_URL =
-    import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -788,7 +785,7 @@ function MarketingAllProductsCatalog() {
     }
 
     const itemsSummary = packageFormData.bundleItems
-      .map((bi) => `• ${bi.quantity}x ${bi.itemName} (${bi.specification ? `${bi.specification} ${bi.uom || ''}` : bi.uom || 'PCS'})`)
+      .map((bi) => `â€¢ ${bi.quantity}x ${bi.itemName} (${bi.specification ? `${bi.specification} ${bi.uom || ''}` : bi.uom || 'PCS'})`)
       .join('\n');
 
     const template = `Elevate your personal self-care regimen with the ${packageFormData.itemName || 'Mhira Botanical Package Set'}. Specially bundled to deliver synergistic skin and body nourishment using locally sourced organic botanical ingredients.\n\nPackage Set Includes:\n${itemsSummary}\n\nHow to Use:\nIntegrate these botanical essentials into your morning and evening routine for visibly rejuvenated, radiant, and hydrated results.`;
@@ -1711,7 +1708,7 @@ function MarketingAllProductsCatalog() {
                           : count;
                       const specVal = isPkg
                         ? `${Array.isArray(row.bundleItems) ? row.bundleItems.length : 0} items bundle`
-                        : matchedInv?.specification || row.specification || '—';
+                        : matchedInv?.specification || row.specification || 'â€”';
                       const uomVal = isPkg
                         ? row.uom || 'Sets'
                         : matchedInv?.uom || row.uom || 'PCS';
@@ -1807,7 +1804,7 @@ function MarketingAllProductsCatalog() {
 
                           {/* 5. STORE PRICE */}
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            ₱{peso(row.price || 0)}
+                            â‚±{peso(row.price || 0)}
                           </td>
 
                           {/* 6. STOREFRONT QUANTITY (Blue accent column) */}
@@ -1956,7 +1953,7 @@ function MarketingAllProductsCatalog() {
                 onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -2227,7 +2224,7 @@ function MarketingAllProductsCatalog() {
                           <span className="font-semibold text-slate-600">
                             {formData.category || 'Skin Care'}
                           </span>
-                          <span>•</span>
+                          <span>â€¢</span>
                           <span>
                             Warehouse Stock:{' '}
                             <strong>
@@ -2268,7 +2265,7 @@ function MarketingAllProductsCatalog() {
                           className="w-6 h-6 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors flex items-center justify-center cursor-pointer"
                           title="Remove / Change selected product"
                         >
-                          ✕
+                          âœ•
                         </button>
                       )}
                     </div>
@@ -2329,7 +2326,7 @@ function MarketingAllProductsCatalog() {
                                 className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                                 title="Remove photo"
                               >
-                                ✕
+                                âœ•
                               </button>
                             </div>
                           ))
@@ -2346,10 +2343,10 @@ function MarketingAllProductsCatalog() {
                       {/* SELLING PRICE */}
                       <div>
                         <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
-                          Selling Price (₱) <span className="text-red-600">*</span>
+                          Selling Price (â‚±) <span className="text-red-600">*</span>
                         </label>
                         <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
-                          <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
+                          <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">â‚±</span>
                           <input
                             type="number"
                             step="0.01"
@@ -2493,7 +2490,7 @@ function MarketingAllProductsCatalog() {
         </div>
       )}
 
-      {/* VIEW PRODUCT DETAILS MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
+      {/* VIEW PRODUCT DETAILS MODAL (VIEW ONLY â€” CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
       {viewProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
@@ -2511,7 +2508,7 @@ function MarketingAllProductsCatalog() {
                 onClick={() => setViewProductModal(null)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -2548,7 +2545,7 @@ function MarketingAllProductsCatalog() {
                   {viewProductModal.category || 'Skin Care'}
                 </p>
                 <p className="text-slate-500">
-                  ₱{Number(viewProductModal.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} •{' '}
+                  â‚±{Number(viewProductModal.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} â€¢{' '}
                   {Number(viewProductModal.quantity ?? 0).toLocaleString()} {viewProductModal.uom || 'PCS'}
                 </p>
                 <p className="font-semibold text-[#01390f]">
@@ -2592,7 +2589,7 @@ function MarketingAllProductsCatalog() {
                 onClick={() => setIsPackageModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -2699,7 +2696,7 @@ function MarketingAllProductsCatalog() {
                             className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                             title="Remove photo"
                           >
-                            ✕
+                            âœ•
                           </button>
                         </div>
                       ))
@@ -2824,7 +2821,7 @@ function MarketingAllProductsCatalog() {
                                   </div>
                                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
                                     <span className="font-mono">{code}</span>
-                                    <span>•</span>
+                                    <span>â€¢</span>
                                     <span>
                                       Warehouse Stock: <strong>{Number(count).toLocaleString()} {uom}</strong>
                                     </span>
@@ -2834,7 +2831,7 @@ function MarketingAllProductsCatalog() {
 
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="text-xs font-bold text-slate-700">
-                                  ₱{Number(p.price || p.unitPrice || 250).toFixed(2)}
+                                  â‚±{Number(p.price || p.unitPrice || 250).toFixed(2)}
                                 </span>
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isAlreadyAdded
@@ -2913,10 +2910,10 @@ function MarketingAllProductsCatalog() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
-                                  <span>₱{Number(item.originalPrice || 0).toFixed(2)} each</span>
+                                  <span>â‚±{Number(item.originalPrice || 0).toFixed(2)} each</span>
                                   {stockCount !== null && (
                                     <>
-                                      <span>•</span>
+                                      <span>â€¢</span>
                                       <span>
                                         Warehouse Stock: <strong>{stockCount} {item.uom || 'PCS'}</strong>
                                       </span>
@@ -2952,7 +2949,7 @@ function MarketingAllProductsCatalog() {
 
                               <div className="text-right min-w-[65px]">
                                 <span className="font-bold text-xs text-slate-800">
-                                  ₱{itemSubtotal.toFixed(2)}
+                                  â‚±{itemSubtotal.toFixed(2)}
                                 </span>
                               </div>
 
@@ -2962,7 +2959,7 @@ function MarketingAllProductsCatalog() {
                                 className="w-6 h-6 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors flex items-center justify-center cursor-pointer"
                                 title="Remove item from package set"
                               >
-                                ✕
+                                âœ•
                               </button>
                             </div>
                           </div>
@@ -2975,7 +2972,7 @@ function MarketingAllProductsCatalog() {
                       <span>
                         Grouped Total:{' '}
                         <strong className="font-mono text-sm font-bold text-[#01390f]">
-                          ₱
+                          â‚±
                           {Number(packageFormData.originalPrice || 0).toLocaleString('en-US', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -3081,17 +3078,17 @@ function MarketingAllProductsCatalog() {
                   <div>
                     <div className="flex items-center justify-between mb-1 gap-1">
                       <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                        Selling Price (₱) <span className="text-red-600">*</span>
+                        Selling Price (â‚±) <span className="text-red-600">*</span>
                       </label>
                       {Number(packageFormData.originalPrice) > Number(packageFormData.price) &&
                         Number(packageFormData.price) > 0 && (
                           <span className="text-[10px] font-bold text-yellow-800 bg-yellow-50 border border-yellow-300 px-2 py-0.5 rounded-full whitespace-nowrap">
-                            Save ₱{(packageFormData.originalPrice - packageFormData.price).toFixed(2)}
+                            Save â‚±{(packageFormData.originalPrice - packageFormData.price).toFixed(2)}
                           </span>
                         )}
                     </div>
                     <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
-                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
+                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">â‚±</span>
                       <input
                         type="number"
                         step="0.01"
@@ -3324,7 +3321,7 @@ function MarketingAllProductsCatalog() {
         </div>
       )}
 
-      {/* VIEW PACKAGE DETAILS MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
+      {/* VIEW PACKAGE DETAILS MODAL (VIEW ONLY â€” CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
       {viewPackageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
@@ -3342,7 +3339,7 @@ function MarketingAllProductsCatalog() {
                 onClick={() => setViewPackageModal(null)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -3377,14 +3374,14 @@ function MarketingAllProductsCatalog() {
 
               <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
                 <p className="font-semibold text-slate-800">
-                  {viewPackageModal.promoBadge || 'Package Set'} • {viewPackageModal.quantity || 0} Sets Available
+                  {viewPackageModal.promoBadge || 'Package Set'} â€¢ {viewPackageModal.quantity || 0} Sets Available
                 </p>
                 <p className="text-slate-500">
-                  ₱{peso(viewPackageModal.price || 0)}
+                  â‚±{peso(viewPackageModal.price || 0)}
                   {Number(viewPackageModal.originalPrice) > Number(viewPackageModal.price)
-                    ? ` (Reg. ₱${peso(viewPackageModal.originalPrice || 0)})`
+                    ? ` (Reg. â‚±${peso(viewPackageModal.originalPrice || 0)})`
                     : ''}
-                  {viewPackageModal.shippingReturns ? ` • ${viewPackageModal.shippingReturns}` : ''}
+                  {viewPackageModal.shippingReturns ? ` â€¢ ${viewPackageModal.shippingReturns}` : ''}
                 </p>
                 {Array.isArray(viewPackageModal.bundleItems) && viewPackageModal.bundleItems.length > 0 && (
                   <p className="font-semibold text-[#01390f]">
@@ -3424,4 +3421,4 @@ function MarketingAllProductsCatalog() {
   );
 }
 
-export default MarketingAllProductsCatalog;
+export default MarketingProductsCatalog;

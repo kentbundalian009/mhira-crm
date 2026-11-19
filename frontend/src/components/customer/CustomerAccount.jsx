@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../utils/apiConfig";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import {
@@ -70,9 +71,6 @@ function CustomerAccount({ initialTab }) {
     initialTab || (["account", "vip", "addresses", "communication", "visibility", "privacy"].includes(tabFromQuery) ? tabFromQuery : "account")
   );
 
-  const API_BASE_URL = import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
 
   const userId = getUserId();
   const fileInputRef = useRef(null);

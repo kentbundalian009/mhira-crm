@@ -266,7 +266,7 @@ const RECIPE_PRESETS = [
   }
 ];
 
-function InventoryWIP() {
+function InventoryWorkInProgress() {
   const API_URL = import.meta.env.MODE === 'production'
     ? 'https://mhira-crmsystem.onrender.com/api'
     : 'http://localhost:5000/api';
@@ -1035,7 +1035,7 @@ function InventoryWIP() {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(5.5);
       doc.setTextColor(21, 62, 151);
-      doc.text('Security Classification: INTERNAL CONFIDENTIAL • Controlled Executive Copy', 36, 30);
+      doc.text('Security Classification: INTERNAL CONFIDENTIAL â€¢ Controlled Executive Copy', 36, 30);
 
       // Top-Right Metadata
       doc.setFont('helvetica', 'bold');
@@ -1195,7 +1195,7 @@ function InventoryWIP() {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(7.2);
             doc.setTextColor(21, 62, 151);
-            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  •  WIP PRODUCTION BATCH SHEET`, 14 + thumbW + 4, 11.5);
+            doc.text(`MHIRA NATURAL BEAUTY PRODUCTS  â€¢  WIP PRODUCTION BATCH SHEET`, 14 + thumbW + 4, 11.5);
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.2);
@@ -1215,7 +1215,7 @@ function InventoryWIP() {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(5.8);
           doc.setTextColor(100, 116, 139);
-          doc.text('INTERNAL CONFIDENTIAL • CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
+          doc.text('INTERNAL CONFIDENTIAL â€¢ CONTROLLED EXECUTIVE COPY', 14, footerY + 1.2);
         },
       });
 
@@ -2065,7 +2065,7 @@ function InventoryWIP() {
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-blue-50 border-blue-200 text-blue-700">
                               {selectedProduct.category || 'Finished Goods'}
                             </span>
-                            <span>•</span>
+                            <span>â€¢</span>
                             <span>Current Stock: <strong className="text-slate-800 font-mono">{selectedProduct.quantity || 0} {selectedProduct.uom || 'pcs'}</strong></span>
                           </div>
                         </div>
@@ -2210,7 +2210,7 @@ function InventoryWIP() {
                           </span>
                         </div>
                         <span className="text-[10px] text-blue-700 font-medium block mt-1 truncate">
-                          {totalBatchWeight} {batchUom.toUpperCase()} ≈ {theoreticalPiecesYield} pcs {unitWeightDisplay ? `(at ${unitWeightDisplay} / unit)` : ''}
+                          {totalBatchWeight} {batchUom.toUpperCase()} â‰ˆ {theoreticalPiecesYield} pcs {unitWeightDisplay ? `(at ${unitWeightDisplay} / unit)` : ''}
                         </span>
                       </div>
                     </div>
@@ -2313,7 +2313,7 @@ function InventoryWIP() {
                     <ul className="list-disc list-inside font-bold text-red-900 space-y-0.5">
                       {blockedSpecMaterials.map((b, i) => (
                         <li key={i}>
-                          {b.name} ({b.materialCode}) — <span className="uppercase text-red-700 font-black">[{b.qcStatus}]</span>
+                          {b.name} ({b.materialCode}) â€” <span className="uppercase text-red-700 font-black">[{b.qcStatus}]</span>
                         </li>
                       ))}
                     </ul>
@@ -2740,7 +2740,7 @@ function InventoryWIP() {
                   onClick={() => setSelectedLog(null)}
                   className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
 
@@ -3092,7 +3092,7 @@ function InventoryWIP() {
                 onClick={() => setIsConfirmOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -3229,4 +3229,4 @@ function InventoryWIP() {
   );
 }
 
-export default InventoryWIP;
+export default InventoryWorkInProgress;

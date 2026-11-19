@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Clock,
@@ -140,10 +141,6 @@ function AdminUserActivity() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const API_BASE_URL =
-        import.meta.env.MODE === 'production'
-          ? 'https://mhira-crmsystem.onrender.com'
-          : 'http://localhost:5000';
 
       const response = await axios.get(`${API_BASE_URL}/api/activity-logs`, {
         headers: { Authorization: `Bearer ${token}` },

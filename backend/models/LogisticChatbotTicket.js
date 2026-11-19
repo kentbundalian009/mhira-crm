@@ -48,6 +48,15 @@ const chatbotTicketSchema = new mongoose.Schema(
       enum: ["ai", "human", "resolved"],
       default: "ai",
     },
+    chatMode: {
+      type: String,
+      enum: ["", "product_ai", "inquiry", "agent"],
+      default: "",
+    },
+    aiQuestionCount: {
+      type: Number,
+      default: 0,
+    },
     messages: [messageSchema],
   },
   { timestamps: true }

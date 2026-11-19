@@ -45,12 +45,9 @@ import { showSuccessToast, showErrorToast } from "../utils/toast";
 import { compressImageToBase64 } from "../utils/imageCompressor";
 import TablePagination from "./common/TablePagination";
 
-const API_BASE_URL =
-  import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
+import { API_BASE_URL } from "../utils/apiConfig";
 
-function LogisticsSupportCenter() {
+function LogisticsCustomerSupport() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("pending"); // 'pending' | 'resolved'
@@ -975,7 +972,7 @@ function LogisticsSupportCenter() {
                       <Tag className="w-3 h-3 text-[#01390f]" />
                       <span>Ticket #{selectedTicket.ticketId}</span>
                     </span>
-                    <span>•</span>
+                    <span>â€¢</span>
                     <span className="flex items-center gap-1">
                       <MessageCircle className="w-3 h-3 text-slate-400" />
                       <span>{selectedTicket.messages?.length || 0} Messages</span>
@@ -989,7 +986,7 @@ function LogisticsSupportCenter() {
                   className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-all cursor-pointer text-sm font-bold shadow-2xs"
                   title="Close Sidebar"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
 
@@ -1136,7 +1133,7 @@ function LogisticsSupportCenter() {
                               className={`flex flex-col ${isCust ? "items-start" : "items-end"}`}
                             >
                               <span className="text-[10px] font-bold text-slate-400 mb-1 px-1">
-                                {isCust ? selectedTicket.customerName || "Customer" : "Logistics Agent"} • {m.time || ""}
+                                {isCust ? selectedTicket.customerName || "Customer" : "Logistics Agent"} â€¢ {m.time || ""}
                               </span>
 
                               <div
@@ -1152,7 +1149,7 @@ function LogisticsSupportCenter() {
                                   <div className="bg-slate-50 text-slate-900 rounded-xl p-3 border border-blue-200 shadow-2xs space-y-2 text-left mb-2">
                                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
                                       <span className="font-bold text-[#01390f] text-xs flex items-center gap-1">
-                                        📦 Order #{m.orderData.orderNumber}
+                                        ðŸ“¦ Order #{m.orderData.orderNumber}
                                       </span>
                                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                                         {m.orderData.status}
@@ -1171,7 +1168,7 @@ function LogisticsSupportCenter() {
                                           {m.orderData.itemName}
                                         </p>
                                         <p className="text-[11px] text-slate-600 mt-0.5">
-                                          Qty: {m.orderData.quantity} • <strong className="text-[#01390f]">₱{Number(m.orderData.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                                          Qty: {m.orderData.quantity} â€¢ <strong className="text-[#01390f]">â‚±{Number(m.orderData.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
                                         </p>
                                       </div>
                                     </div>
@@ -1232,7 +1229,7 @@ function LogisticsSupportCenter() {
                           onClick={removeSelectedFile}
                           className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1"
                         >
-                          ✕
+                          âœ•
                         </button>
                       </div>
                     )}
@@ -1453,7 +1450,7 @@ function LogisticsSupportCenter() {
               onClick={() => setPreviewModalImg(null)}
               className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center font-bold"
             >
-              ✕
+              âœ•
             </button>
           </div>
         </div>
@@ -1462,4 +1459,4 @@ function LogisticsSupportCenter() {
   );
 }
 
-export default LogisticsSupportCenter;
+export default LogisticsCustomerSupport;

@@ -86,7 +86,7 @@ const SMART_MARKETING_PRESETS = [
     bodyText:
       'As one of our most distinguished customers, we invite you to experience our newest organic collection before the official public launch.\n\nUse your personal VIP token below for instant savings on your next checkout.',
     discountCode: 'VIPMHIRA',
-    discountNote: '₱250 OFF on orders above ₱1,200',
+    discountNote: 'â‚±250 OFF on orders above â‚±1,200',
     ctaText: 'Explore VIP Collection',
     ctaUrl: `${FRONTEND_BASE_URL}/collection`,
   },
@@ -105,7 +105,7 @@ const SMART_MARKETING_PRESETS = [
   },
 ];
 
-export default function MarketingEmailCampaigns() {
+export default function MarketingProductsPromotions() {
   // View Mode ('active' | 'archived')
   const [viewMode, setViewMode] = useState('active');
 
@@ -186,7 +186,7 @@ export default function MarketingEmailCampaigns() {
         recipientEmail: 'vip.client@gmail.com',
         recipientsCount: 1,
         discountCode: 'VIPMHIRA',
-        discountNote: '₱250 OFF on orders above ₱1,200',
+        discountNote: 'â‚±250 OFF on orders above â‚±1,200',
         ctaText: 'Explore VIP Collection',
         ctaUrl: `${FRONTEND_BASE_URL}/collection`,
         dispatchedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
@@ -899,7 +899,7 @@ export default function MarketingEmailCampaigns() {
 
                       {/* 5. Offer Note */}
                       <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs font-semibold text-slate-700 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[200px] truncate">
-                        {item.discountNote || '—'}
+                        {item.discountNote || 'â€”'}
                       </td>
 
                       {/* 6. Dispatched Date */}
@@ -909,7 +909,7 @@ export default function MarketingEmailCampaigns() {
                           : 'N/A'}
                       </td>
 
-                      {/* 7. Status (Live vs Draft vs Archived Tinted Cell — Blue / Yellow / Red) */}
+                      {/* 7. Status (Live vs Draft vs Archived Tinted Cell â€” Blue / Yellow / Red) */}
                       <td
                         className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.isArchived
                           ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
@@ -1015,7 +1015,7 @@ export default function MarketingEmailCampaigns() {
                 }}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -1429,7 +1429,7 @@ export default function MarketingEmailCampaigns() {
                   onClick={() => setIsPreviewModalOpen(false)}
                   className="text-slate-400 hover:text-slate-600 font-bold px-2.5 py-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer text-sm"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
             </div>
@@ -1446,7 +1446,7 @@ export default function MarketingEmailCampaigns() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-14">From:</span>
                 <span className="font-semibold text-[#01390f]">Mhira Natural</span>
                 <span className="text-slate-400 font-mono text-[11px]">&lt;noreply@mhira.shop&gt;</span>
-                <span className="mx-1 text-slate-300">•</span>
+                <span className="mx-1 text-slate-300">â€¢</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">To:</span>
                 <span className="text-slate-600 font-medium">
                   {previewCampaignData.targetAudience === 'CUSTOM' && previewCampaignData.recipientEmail
@@ -1731,7 +1731,7 @@ export default function MarketingEmailCampaigns() {
         </div>
       )}
 
-      {/* VIEW CAMPAIGN DETAILS MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
+      {/* VIEW CAMPAIGN DETAILS MODAL (VIEW ONLY â€” CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
       {viewCampaignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
@@ -1752,11 +1752,11 @@ export default function MarketingEmailCampaigns() {
                 onClick={() => setViewCampaignModal(null)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
-            {/* MODAL BODY (PARAGRAPH STYLE — NO ICONS, NO LABELS, NO CONTAINERS) */}
+            {/* MODAL BODY (PARAGRAPH STYLE â€” NO ICONS, NO LABELS, NO CONTAINERS) */}
             <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
               <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
                 <p className="font-semibold text-slate-800">
@@ -1773,7 +1773,7 @@ export default function MarketingEmailCampaigns() {
                 {(viewCampaignModal.discountCode || viewCampaignModal.discountNote) && (
                   <p className="font-semibold text-[#01390f]">
                     {viewCampaignModal.discountCode ? `Code: ${viewCampaignModal.discountCode}` : ''}
-                    {viewCampaignModal.discountCode && viewCampaignModal.discountNote ? ' — ' : ''}
+                    {viewCampaignModal.discountCode && viewCampaignModal.discountNote ? ' â€” ' : ''}
                     {viewCampaignModal.discountNote || ''}
                   </p>
                 )}

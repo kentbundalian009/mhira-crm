@@ -20,7 +20,7 @@ import AdminSystemMaintenance from "../components/AdminSystemMaintenance";
 import AdminReports from "../components/AdminReports";
 import AdminDataBackup from "../components/AdminDataBackup";
 import AdminAppearance from "../components/AdminAppearance";
-import AdminFormulaAccess from "../components/AdminFormulaAccess";
+import AdminFormulaAuthorization from "../components/AdminFormulaAuthorization";
 import { getRoleTheme, normalizeRole as normalizeThemeRole, getRoleFromTab, syncThemesFromBackend, applyRoleThemeToRoot } from "../utils/themeManager";
 import { subscribeLiveSync } from "../utils/liveSync";
 
@@ -30,26 +30,26 @@ import InventoryDeliveryReceiving from "../components/InventoryDeliveryReceiving
 import InventoryFinishedGoods from "../components/InventoryFinishedGoods";
 import InventoryRawMaterials from "../components/InventoryRawMaterials";
 import InventorySuppliers from "../components/InventorySuppliers";
-import InventoryWIP from "../components/InventoryWIP";
+import InventoryWorkInProgress from "../components/InventoryWorkInProgress";
+import InventoryPurchaseRequest from "../components/InventoryPurchaseRequest";
 import InventoryReports from "../components/InventoryReports";
 
 // Feature Components - Logistics
-import LogisticsPerformanceAnalytics from "../components/LogisticsPerformanceAnalytics";
+import LogisticsCustomerAnalytics from "../components/LogisticsCustomerAnalytics";
 import LogisticsOrderManagement from "../components/LogisticsOrderManagement";
 import LogisticsReturnManagement from "../components/LogisticsReturnManagement";
-import LogisticsSupportCenter from "../components/LogisticsSupportCenter";
-import LogisticsShippingSetting from "../components/LogisticsShippingSetting";
-import InventoryPurchaseRequest from "../components/InventoryPurchaseRequest";
-import LogisticReports from "../components/LogisticReports";
+import LogisticsCustomerSupport from "../components/LogisticsCustomerSupport";
+import LogisticsShippingRatesAndFees from "../components/LogisticsShippingRatesAndFees";
+import LogisticsReports from "../components/LogisticsReports";
 
 // Feature Components - Marketing
-import MarketingAllProductsCatalog from "../components/MarketingAllProductsCatalog";
+import MarketingProductsCatalog from "../components/MarketingProductsCatalog";
 import MarketingEventsManagement from "../components/MarketingEventsManagement";
 import MarketingCustomerFeedback from "../components/MarketingCustomerFeedback";
-import MarketingPromotions from "../components/MarketingPromotions";
-import MarketingMarketingContent from "../components/MarketingMarketingContent";
+import MarketingProductsVouchers from "../components/MarketingProductsVouchers";
+import MarketingContent from "../components/MarketingContent";
 import MarketingReports from "../components/MarketingReports";
-import MarketingEmailCampaigns from "../components/MarketingEmailCampaigns";
+import MarketingProductsPromotions from "../components/MarketingProductsPromotions";
 import MarketingOurStoryManagement from "../components/MarketingOurStoryManagement";
 
 // User Profile Settings Component
@@ -314,7 +314,7 @@ function Dashboard() {
       case "admin-activity":
         return <AdminUserActivity />;
       case "admin-formula-access":
-        return <AdminFormulaAccess />;
+        return <AdminFormulaAuthorization />;
       case "system-settings":
         return <AdminSystemMaintenance />;
       case "admin-appearance":
@@ -326,7 +326,7 @@ function Dashboard() {
 
       // Logistics / Sales
       case "sales-analytics":
-        return <LogisticsPerformanceAnalytics />;
+        return <LogisticsCustomerAnalytics />;
       case "sales-orders":
         return <LogisticsOrderManagement />;
       case "material-requests":
@@ -335,12 +335,12 @@ function Dashboard() {
       case "sales-returns":
         return <LogisticsReturnManagement />;
       case "sales-support":
-        return <LogisticsSupportCenter />;
+        return <LogisticsCustomerSupport />;
       case "shipping-rates":
       case "logistic-shipping-settings":
-        return <LogisticsShippingSetting />;
+        return <LogisticsShippingRatesAndFees />;
       case "logistic-reports":
-        return <LogisticReports />;
+        return <LogisticsReports />;
 
       // Inventory
       case "inv-products":
@@ -352,7 +352,7 @@ function Dashboard() {
       case "inv-inbound":
         return <InventoryDeliveryReceiving />;
       case "inv-wip":
-        return <InventoryWIP />;
+        return <InventoryWorkInProgress />;
       case "inv-expiry":
         return <InventoryExpiryMonitoring />;
       case "inv-reports":
@@ -361,17 +361,17 @@ function Dashboard() {
       // Marketing
       case "product-catalog":
       case "package-sets":
-        return <MarketingAllProductsCatalog />; 
+        return <MarketingProductsCatalog />; 
       case "announcement":
         return <MarketingEventsManagement />;
       case "customer-feedback":
         return <MarketingCustomerFeedback />;
       case "coupons":
-        return <MarketingPromotions />;
+        return <MarketingProductsVouchers />;
       case "advertisement":
-        return <MarketingMarketingContent />;
+        return <MarketingContent />;
       case "marketing-notification-desk":
-        return <MarketingEmailCampaigns />;
+        return <MarketingProductsPromotions />;
       case "marketing-reports":
         return <MarketingReports />;
       case "marketing-our-story":

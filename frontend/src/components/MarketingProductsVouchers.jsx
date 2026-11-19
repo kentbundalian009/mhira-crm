@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
@@ -39,7 +40,7 @@ import autoTable from 'jspdf-autotable';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
 
-function MarketingPromotions() {
+function MarketingProductsVouchers() {
   const [coupons, setCoupons] = useState([]);
   const [segments, setSegments] = useState({
     loyal: { count: 0 },
@@ -92,10 +93,6 @@ function MarketingPromotions() {
 
   const todayDate = useMemo(() => getTodayLocalDate(), []);
 
-  const API_BASE_URL =
-    import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
 
   const fetchCouponsAndSegments = async () => {
     try {
@@ -178,7 +175,7 @@ function MarketingPromotions() {
   const handleAutoGenerateVoucherNote = () => {
     const codeStr = newCoupon.code ? newCoupon.code.toUpperCase() : 'MHIRA VOUCHER';
     const discStr = newCoupon.discount ? `${newCoupon.discount}% OFF` : 'Special Discount';
-    const minStr = Number(newCoupon.minSpend) > 0 ? `with a minimum spend of ₱${Number(newCoupon.minSpend).toLocaleString()}` : 'with no minimum spend required';
+    const minStr = Number(newCoupon.minSpend) > 0 ? `with a minimum spend of â‚±${Number(newCoupon.minSpend).toLocaleString()}` : 'with no minimum spend required';
     const segStr = newCoupon.targetSegment && newCoupon.targetSegment !== 'All' ? `exclusively for ${newCoupon.targetSegment} members` : 'valid for all verified Mhira Natural shoppers';
     const expStr = newCoupon.expiry ? `Valid until ${new Date(newCoupon.expiry).toLocaleDateString()}.` : 'Valid on regular and promotional items at checkout.';
 
@@ -681,14 +678,14 @@ function MarketingPromotions() {
 
                         {/* 2. DISCOUNT RATE (Volume / Accent Blue Column) */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/20 group-hover:bg-blue-600/30 text-slate-800 font-mono font-bold text-xs transition-colors">
-                          {rawDiscount.includes('%') || rawDiscount.includes('₱')
+                          {rawDiscount.includes('%') || rawDiscount.includes('â‚±')
                             ? `${rawDiscount} OFF`
                             : `${rawDiscount}% OFF`}
                         </td>
 
                         {/* 3. MIN SPEND */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
-                          {minSpendNum > 0 ? `₱${minSpendNum.toFixed(2)}` : 'No Minimum'}
+                          {minSpendNum > 0 ? `â‚±${minSpendNum.toFixed(2)}` : 'No Minimum'}
                         </td>
 
                         {/* 4. USAGE LIMIT */}
@@ -707,7 +704,7 @@ function MarketingPromotions() {
                           )}
                         </td>
 
-                        {/* 5. TARGET AUDIENCE (Standardized Pill Badges — Blue / Yellow / Red) */}
+                        {/* 5. TARGET AUDIENCE (Standardized Pill Badges â€” Blue / Yellow / Red) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${(c.targetSegment || '').includes('Gold') ||
@@ -822,7 +819,7 @@ function MarketingPromotions() {
                 }}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -966,10 +963,10 @@ function MarketingPromotions() {
                   {/* MIN SPEND REQUIREMENT */}
                   <div>
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
-                      Min Spend Requirement (₱)
+                      Min Spend Requirement (â‚±)
                     </label>
                     <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
-                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
+                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">â‚±</span>
                       <input
                         type="number"
                         min="0"
@@ -1122,7 +1119,7 @@ function MarketingPromotions() {
         </div>
       )}
 
-      {/* VIEW COUPON MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
+      {/* VIEW COUPON MODAL (VIEW ONLY â€” CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
       {viewCouponModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
@@ -1143,11 +1140,11 @@ function MarketingPromotions() {
                 onClick={() => setViewCouponModal(null)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
-            {/* MODAL BODY (PARAGRAPH STYLE — NO ICONS, NO LABELS, NO CONTAINERS) */}
+            {/* MODAL BODY (PARAGRAPH STYLE â€” NO ICONS, NO LABELS, NO CONTAINERS) */}
             <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
               <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
                 <p className="font-semibold text-slate-800">
@@ -1157,18 +1154,18 @@ function MarketingPromotions() {
                   {viewCouponModal.expiry && !isNaN(new Date(viewCouponModal.expiry).getTime())
                     ? new Date(viewCouponModal.expiry).toLocaleDateString()
                     : 'No Expiry'}{' '}
-                  •{' '}
+                  â€¢{' '}
                   {Number(viewCouponModal.usageLimit || 0) > 0
                     ? `${Number(viewCouponModal.usedCount || 0)} / ${Number(viewCouponModal.usageLimit)} Used`
                     : 'Unlimited Usage'}
                 </p>
                 <p className="font-semibold text-[#01390f]">
                   {String(viewCouponModal.discount || '0').includes('%') ||
-                    String(viewCouponModal.discount || '0').includes('₱')
+                    String(viewCouponModal.discount || '0').includes('â‚±')
                     ? `${viewCouponModal.discount} OFF`
                     : `${viewCouponModal.discount}% OFF`}
                   {Number(viewCouponModal.minSpend || 0) > 0
-                    ? ` (Min. Spend ₱${Number(viewCouponModal.minSpend).toFixed(2)})`
+                    ? ` (Min. Spend â‚±${Number(viewCouponModal.minSpend).toFixed(2)})`
                     : ' (No Minimum Spend)'}
                 </p>
                 {viewCouponModal.description && (
@@ -1196,4 +1193,4 @@ function MarketingPromotions() {
   );
 }
 
-export default MarketingPromotions;
+export default MarketingProductsVouchers;

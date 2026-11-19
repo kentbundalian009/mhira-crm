@@ -34,22 +34,14 @@ import {
   TRANSIT_WINDOW_OPTIONS,
 } from '../utils/phLocations';
 
-const isLocalhost =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1');
-
-const API_BASE_URL =
-  !isLocalhost || import.meta.env.PROD || import.meta.env.MODE === 'production'
-    ? 'https://mhira-crmsystem.onrender.com'
-    : 'http://localhost:5000';
+import { API_BASE_URL } from "../utils/apiConfig";
 
 const DEFAULT_REGIONS = [
   {
     key: 'ncr',
     name: 'Metro Manila (NCR)',
     description:
-      'Manila, Quezon City, Makati, Taguig, Pasig, Mandaluyong, Pasay, Parañaque, Las Piñas, Muntinlupa, Marikina, Valenzuela, Caloocan, Malabon, Navotas, San Juan, Pateros',
+      'Manila, Quezon City, Makati, Taguig, Pasig, Mandaluyong, Pasay, ParaÃ±aque, Las PiÃ±as, Muntinlupa, Marikina, Valenzuela, Caloocan, Malabon, Navotas, San Juan, Pateros',
     rate: 65,
     estimatedDays: '1 - 2 Days',
     isActive: true,
@@ -92,7 +84,7 @@ const DEFAULT_REGIONS = [
   },
 ];
 
-function LogisticsShippingSetting() {
+function LogisticsShippingRatesAndFees() {
   const [phDirectory, setPhDirectory] = useState(() => getMergedPhDirectory());
 
   const [settings, setSettings] = useState({
@@ -332,7 +324,7 @@ function LogisticsShippingSetting() {
 
     const ok = await persistSettings(
       nextSettings,
-      `Saved shipping rate for "${locName}" (₱${fee.toFixed(2)}) & synced to PayMongo!`
+      `Saved shipping rate for "${locName}" (â‚±${fee.toFixed(2)}) & synced to PayMongo!`
     );
     if (ok) {
       await runSimulator(testAddress, testSubtotal);
@@ -575,7 +567,7 @@ function LogisticsShippingSetting() {
       key: '',
       overrideIdx: null,
       name: computedName,
-      description: `${defaultReg?.regionName || ''} • ${defaultProv}`,
+      description: `${defaultReg?.regionName || ''} â€¢ ${defaultProv}`,
       rate: preset?.rate ?? defaultReg?.defaultFee ?? 65,
       estimatedDays: defaultReg?.defaultTransit || '1 - 3 Days',
       isActive: true,
@@ -713,7 +705,7 @@ function LogisticsShippingSetting() {
 
     const ok = await persistSettings(
       nextSettings,
-      `Saved shipping rate for "${finalLocationName}" (₱${Number(
+      `Saved shipping rate for "${finalLocationName}" (â‚±${Number(
         locationForm.rate || 0
       ).toFixed(2)}) & synced to PayMongo!`
     );
@@ -1187,8 +1179,8 @@ function LogisticsShippingSetting() {
                           title="Filter by Rate Status"
                         >
                           <option value="All">All Rate Statuses</option>
-                          <option value="Active Rate">🟢 Active Rate</option>
-                          <option value="Disabled Rate">🔴 Disabled Rate</option>
+                          <option value="Active Rate">ðŸŸ¢ Active Rate</option>
+                          <option value="Disabled Rate">ðŸ”´ Disabled Rate</option>
                         </select>
                       </div>
                     </>
@@ -1222,11 +1214,11 @@ function LogisticsShippingSetting() {
                       className="w-full bg-white border border-slate-200 rounded pl-7 pr-6 py-1 sm:py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[30px] sm:h-[22px] cursor-pointer truncate shadow-2xs"
                     >
                       <option value="default">Sort: Default Priority</option>
-                      <option value="name_asc">Location (A → Z)</option>
-                      <option value="name_desc">Location (Z → A)</option>
-                      <option value="fee_asc">Shipping Fee (Low → High)</option>
-                      <option value="fee_desc">Shipping Fee (High → Low)</option>
-                      <option value="code_asc">Code (A → Z)</option>
+                      <option value="name_asc">Location (A â†’ Z)</option>
+                      <option value="name_desc">Location (Z â†’ A)</option>
+                      <option value="fee_asc">Shipping Fee (Low â†’ High)</option>
+                      <option value="fee_desc">Shipping Fee (High â†’ Low)</option>
+                      <option value="code_asc">Code (A â†’ Z)</option>
                     </select>
                   </div>
                 </div>
@@ -1332,7 +1324,7 @@ function LogisticsShippingSetting() {
                                 title={`Click to set shipping rate for ${city}, ${item.province}`}
                               >
                                 {city}
-                                {cityOverride ? ` (₱${cityOverride.rate})` : ''}
+                                {cityOverride ? ` (â‚±${cityOverride.rate})` : ''}
                               </button>
                             );
                           })}
@@ -1341,7 +1333,7 @@ function LogisticsShippingSetting() {
                       <td className="py-3.5 px-4 text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07]">
                         <div className="flex flex-col items-center gap-0.5">
                           <span className="font-mono font-bold text-slate-900 text-sm">
-                            ₱{Number(item.effectiveFee).toFixed(2)}
+                            â‚±{Number(item.effectiveFee).toFixed(2)}
                           </span>
                           <span className="text-[10px] text-slate-500 font-medium">
                             {item.defaultTransit}
@@ -1483,7 +1475,7 @@ function LogisticsShippingSetting() {
                             <div className="flex flex-col items-center gap-1">
                               <div className="inline-flex items-center bg-white border border-slate-200 rounded-md px-2 py-0.5 focus-within:border-[#01390f] shadow-2xs">
                                 <span className="text-slate-400 font-bold text-xs mr-1">
-                                  ₱
+                                  â‚±
                                 </span>
                                 <input
                                   type="number"
@@ -1606,7 +1598,7 @@ function LogisticsShippingSetting() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
                 {editingRow
-                  ? `Edit Shipping Rate — ${editingRow.name}`
+                  ? `Edit Shipping Rate â€” ${editingRow.name}`
                   : 'Add Location Shipping Rate (Philippines)'}
               </h3>
               <button
@@ -1614,7 +1606,7 @@ function LogisticsShippingSetting() {
                 onClick={() => setIsLocationModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -1680,7 +1672,7 @@ function LogisticsShippingSetting() {
                           className="w-full h-[36px] pl-8 pr-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#01390f] cursor-pointer"
                         >
                           <option value="">
-                            -- ➕ Choose Province or City from Dropdown to Add --
+                            -- âž• Choose Province or City from Dropdown to Add --
                           </option>
                           {officialRegionLocations.map((loc, idx) => {
                             const isAlreadyCovered = coveredLocationsList.some(
@@ -1692,7 +1684,7 @@ function LogisticsShippingSetting() {
                                 value={loc.name}
                                 disabled={isAlreadyCovered}
                               >
-                                {loc.name} {isAlreadyCovered ? '✓ (Covered)' : ''}
+                                {loc.name} {isAlreadyCovered ? 'âœ“ (Covered)' : ''}
                               </option>
                             );
                           })}
@@ -1804,7 +1796,7 @@ function LogisticsShippingSetting() {
                         >
                           {phDirectory.map((reg) => (
                             <option key={reg.regionId} value={reg.regionId}>
-                              {reg.regionName} — {reg.islandGroup}
+                              {reg.regionName} â€” {reg.islandGroup}
                             </option>
                           ))}
                         </select>
@@ -1887,7 +1879,7 @@ function LogisticsShippingSetting() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Shipping Fee (₱) *
+                      Shipping Fee (â‚±) *
                     </label>
                     <div className="relative">
                       <Truck className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1959,9 +1951,9 @@ function LogisticsShippingSetting() {
                       className="w-full h-[34px] pl-8 pr-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#01390f] cursor-pointer"
                     >
                       <option value="active">
-                        🟢 Active (Applied at Cart, Checkout &amp; PayMongo)
+                        ðŸŸ¢ Active (Applied at Cart, Checkout &amp; PayMongo)
                       </option>
-                      <option value="disabled">🔴 Disabled</option>
+                      <option value="disabled">ðŸ”´ Disabled</option>
                     </select>
                   </div>
                 </div>
@@ -2009,7 +2001,7 @@ function LogisticsShippingSetting() {
                 onClick={() => setIsAddPlaceModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -2133,7 +2125,7 @@ function LogisticsShippingSetting() {
                 onClick={() => setIsSimulatorModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -2224,11 +2216,11 @@ function LogisticsShippingSetting() {
                   <div className="space-y-3 pt-2">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        Cart Merchandise Subtotal (₱)
+                        Cart Merchandise Subtotal (â‚±)
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
-                          ₱
+                          â‚±
                         </span>
                         <input
                           type="number"
@@ -2300,11 +2292,11 @@ function LogisticsShippingSetting() {
                         {simulatedResult?.isFreeShipping &&
                           simulatedResult?.baseRegionRate > 0 && (
                             <span className="text-xs text-slate-400 line-through mr-2 font-mono">
-                              ₱{Number(simulatedResult.baseRegionRate).toFixed(2)}
+                              â‚±{Number(simulatedResult.baseRegionRate).toFixed(2)}
                             </span>
                           )}
                         <span className="text-2xl font-mono font-black text-[#01390f]">
-                          ₱{Number(simulatedResult?.shippingFee ?? 0).toFixed(2)}
+                          â‚±{Number(simulatedResult?.shippingFee ?? 0).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -2320,7 +2312,7 @@ function LogisticsShippingSetting() {
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
                       <div className="sm:col-span-3">
                         <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                          Shipping Fee (₱)
+                          Shipping Fee (â‚±)
                         </label>
                         <input
                           type="number"
@@ -2380,4 +2372,4 @@ function LogisticsShippingSetting() {
   );
 }
 
-export default LogisticsShippingSetting;
+export default LogisticsShippingRatesAndFees;

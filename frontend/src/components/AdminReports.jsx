@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FileSpreadsheet,
@@ -114,9 +115,6 @@ function AdminReports() {
   const [users, setUsers] = useState(DEFAULT_USERS);
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
 
-  const API_BASE_URL = import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
 
   const fetchData = useCallback(async () => {
     setLoading(true);

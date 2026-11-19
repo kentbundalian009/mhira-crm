@@ -1,16 +1,126 @@
-// import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import ChatbotTicket from "../models/LogisticChatbotTicket.js";
+import Collection from "../models/MarketingCollection.js";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// AI Initializer - Commented out muna para iwas 429 / API errors
-// const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const MAX_AI_PRODUCT_QUESTIONS = 5;
 
-// 1. Customer Chat Logic (Hybrid: Pre-meditated AI Assistant + Live Human CSR)
+const getGeminiClient = () => {
+  const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+  if (!apiKey) return null;
+  try {
+    return new GoogleGenAI({ apiKey });
+  } catch (e) {
+    return null;
+  }
+};
+
+// Lightweight 2-minute in-memory cache of live Mhira products for fast AI grounding
+let cachedCatalog = { items: [], fetchedAt: 0 };
+const getProductCatalog = async () => {
+  const now = Date.now();
+  if (cachedCatalog.items.length > 0 && now - cachedCatalog.fetchedAt < 120000) {
+    return cachedCatalog.items;
+  }
+  try {
+    const items = await Collection.find({
+      isArchived: { $ne: true },
+      isPublished: { $ne: false },
+    })
+      .select("itemDescription category navbarTag price quantity description benefits")
+      .limit(60)
+      .lean()
+      .maxTimeMS(3000);
+    cachedCatalog = { items: items || [], fetchedAt: now };
+    return cachedCatalog.items;
+  } catch (err) {
+    return cachedCatalog.items || [];
+  }
+};
+
+const buildLocalProductFallback = (question, products) => {
+  const lower = String(question || "").toLowerCase();
+  const stopWords = new Set(["the", "and", "for", "with", "about", "what", "how", "much", "ano", "magkano", "meron", "ba", "kayo", "po", "ang", "mga", "sa", "ng", "product", "products"]);
+  const tokens = lower
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !stopWords.has(w));
+
+  const scored = (products || [])
+    .map((p) => {
+      const hay = `${p.itemDescription || ""} ${p.category || ""} ${p.navbarTag || ""} ${p.description || ""}`.toLowerCase();
+      const score = tokens.reduce((acc, tok) => acc + (hay.includes(tok) ? 1 : 0), 0);
+      return { p, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  if (scored.length > 0) {
+    const lines = scored.map(({ p }) => {
+      const price = Number(p.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
+      const stockLabel = Number(p.quantity ?? 1) > 0 ? "In Stock" : "Out of Stock";
+      return `• ${p.itemDescription} (${p.category || p.navbarTag || "Botanical Care"}) — ₱${price} [${stockLabel}]`;
+    });
+    return `Here are the matching Mhira products from our catalog:\n\n${lines.join("\n")}\n\nYou can view full details and ingredients under Our Collection.`;
+  }
+
+  const featured = (products || []).slice(0, 3).map((p) => {
+    const price = Number(p.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
+    return `• ${p.itemDescription} — ₱${price}`;
+  });
+  return `Welcome to Mhira Product AI. I can assist you with our organic soaps, serums, lotions, and hair care products.\n${
+    featured.length > 0 ? `\nPopular selections:\n${featured.join("\n")}\n` : ""
+  }\nFeel free to ask about a specific product name, skin concern, or price.`;
+};
+
+const askProductAI = async (question, products) => {
+  const ai = getGeminiClient();
+  if (!ai) {
+    return buildLocalProductFallback(question, products);
+  }
+
+  const catalogLines = (products || [])
+    .slice(0, 45)
+    .map((p) => {
+      const price = Number(p.price || 0).toFixed(2);
+      const stock = Number(p.quantity ?? 1) > 0 ? "In Stock" : "Out of Stock";
+      return `- ${p.itemDescription} | Category: ${p.category || p.navbarTag || "Botanical"} | Price: PHP ${price} | ${stock}`;
+    })
+    .join("\n");
+
+  const prompt = `You are Mhira Product AI Assistant for "Mhira Natural Soap & Cosmetics" (Philippines).
+STRICT RULES:
+1. Answer ONLY questions related to Mhira Natural products (soaps, serums, lotions, skincare, hair care, ingredients, benefits, usage, pricing, recommendations).
+2. Use ONLY the live product catalog below when quoting product names and prices. Never invent products or prices.
+3. If the user asks anything unrelated to Mhira products (e.g., math, coding, general trivia, politics, or order tracking/refunds), politely state that you only handle Mhira product questions and invite them to switch the topic dropdown to "Order Inquiry & Live Agent".
+4. Keep replies concise (2-5 short lines), professional, warm, and match the user's language (English or Taglish). Do NOT use emojis.
+
+LIVE MHIRA PRODUCT CATALOG:
+${catalogLines || "Organic soaps, brightening serums, botanical body lotions, and natural hair care."}
+
+CUSTOMER QUESTION: ${question}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const text = (response?.text || "").trim();
+    if (text) return text;
+  } catch (err) {
+    console.warn("[Chatbot Product AI] Gemini fallback triggered:", err.message || err);
+  }
+
+  return buildLocalProductFallback(question, products);
+};
+
+// 1. Customer Chat Logic (Guided 3-Mode: Product AI with Limit + Inquiry + Live Human CSR)
 export const handleCustomerChat = async (req, res) => {
   try {
-    const { message, ticketId, attachment, orderData, userId, customerName } = req.body;
+    const { message, ticketId, attachment, orderData, userId, customerName, chatMode = "" } = req.body;
 
     if (!message && !attachment && !orderData) {
       return res.status(400).json({ success: false, error: "Message, attachment, or order details required." });
@@ -26,6 +136,12 @@ export const handleCustomerChat = async (req, res) => {
       currentTicket = await ChatbotTicket.findOne({ userId, status: { $ne: "resolved" } }).sort({ updatedAt: -1 });
     }
 
+    const normalizedMode = ["product_ai", "inquiry", "agent"].includes(chatMode)
+      ? chatMode
+      : orderData
+      ? "inquiry"
+      : "";
+
     // Create new ticket if not yet existing
     if (!currentTicket) {
       const generatedId = `TCK-${Date.now().toString().slice(-6)}`;
@@ -33,8 +149,14 @@ export const handleCustomerChat = async (req, res) => {
         ticketId: generatedId,
         userId: userId || "",
         customerName: customerName || orderData?.customerName || "Mhira Customer",
-        subject: orderData ? `Order #${orderData.orderNumber || "INQUIRY"}` : (message || "File Attachment").slice(0, 30) + "...",
-        status: orderData ? "human" : "ai",
+        subject: orderData
+          ? `Order #${orderData.orderNumber || "INQUIRY"}`
+          : normalizedMode === "product_ai"
+          ? `Product AI: ${(message || "Inquiry").slice(0, 28)}`
+          : (message || "Customer Inquiry").slice(0, 35),
+        status: orderData || normalizedMode === "agent" || normalizedMode === "inquiry" ? "human" : "ai",
+        chatMode: normalizedMode,
+        aiQuestionCount: 0,
         messages: [],
       });
     } else {
@@ -43,6 +165,9 @@ export const handleCustomerChat = async (req, res) => {
       }
       if (customerName && currentTicket.customerName === "Guest Customer") {
         currentTicket.customerName = customerName;
+      }
+      if (normalizedMode) {
+        currentTicket.chatMode = normalizedMode;
       }
     }
 
@@ -56,18 +181,19 @@ export const handleCustomerChat = async (req, res) => {
     });
 
     const lower = (message || "").toLowerCase().trim();
+    const aiUsed = Number(currentTicket.aiQuestionCount || 0);
+    const aiRemaining = Math.max(0, MAX_AI_PRODUCT_QUESTIONS - aiUsed);
 
-    // 🟢 1. CHECK IF USER SENT AN ORDER INQUIRY (PRIORITY #1):
+    // 🟢 1. ORDER INQUIRY (PRIORITY #1 -> HUMAN LOGISTICS SUPPORT)
     if (
       orderData ||
       lower.includes("order inquiry") ||
       lower.includes("[order inquiry") ||
       lower.includes("order number") ||
-      lower.includes("item(s):") ||
-      lower.includes("delivery address:") ||
       (lower.includes("order #") && (lower.includes("status:") || lower.includes("total:")))
     ) {
       currentTicket.status = "human";
+      currentTicket.chatMode = "inquiry";
       const orderNumStr = orderData?.orderNumber ? `#${orderData.orderNumber}` : "details";
       const inquiryAckMsg = `Order ${orderNumStr} received! We have forwarded your inquiry to our Logistics Support team. How can we assist you with this order today?`;
 
@@ -78,65 +204,106 @@ export const handleCustomerChat = async (req, res) => {
         success: true,
         reply: inquiryAckMsg,
         status: "human",
+        chatMode: "inquiry",
+        aiQuestionsRemaining: aiRemaining,
+        aiLimit: MAX_AI_PRODUCT_QUESTIONS,
         ticketId: currentTicket.ticketId,
         messages: currentTicket.messages,
       });
     }
 
-    // Check if user requested Live Agent
-    if (
+    // 🟢 2. LIVE AGENT OR GENERAL INQUIRY MODE -> ROUTE DIRECTLY TO HUMAN SUPPORT (0 AI QUOTA USED)
+    const isRequestingAgent =
+      normalizedMode === "agent" ||
+      normalizedMode === "inquiry" ||
       lower.includes("human agent") ||
       lower.includes("talk to human") ||
       lower.includes("live agent") ||
       lower.includes("speak with a human") ||
       lower.includes("csr") ||
       lower.includes("representative") ||
-      lower.includes("kausap")
-    ) {
+      lower.includes("kausap");
+
+    if (isRequestingAgent) {
+      const wasHuman = currentTicket.status === "human" && currentTicket.messages.length > 2;
       currentTicket.status = "human";
-      const transferMsg = "Connecting you to a Live Mhira Support Specialist... 🎧\nOur staff has received your ticket and will assist you shortly. You may also attach photos or order details here.";
-      currentTicket.messages.push({ sender: "ai", text: transferMsg, time: timeString });
-      await currentTicket.save();
 
+      if (!wasHuman) {
+        const ackMsg =
+          normalizedMode === "inquiry"
+            ? "Thank you for your inquiry. Your message has been forwarded to our Mhira Support team. A representative will reply to you here shortly."
+            : "Connecting you to a Live Mhira Support Agent. Our staff has received your message and will assist you shortly. You may also attach photos or order details here.";
+        currentTicket.messages.push({ sender: "ai", text: ackMsg, time: timeString });
+        await currentTicket.save();
+
+        return res.status(200).json({
+          success: true,
+          reply: ackMsg,
+          status: "human",
+          chatMode: currentTicket.chatMode || "agent",
+          aiQuestionsRemaining: aiRemaining,
+          aiLimit: MAX_AI_PRODUCT_QUESTIONS,
+          ticketId: currentTicket.ticketId,
+          messages: currentTicket.messages,
+        });
+      }
+
+      await currentTicket.save();
       return res.status(200).json({
         success: true,
-        reply: transferMsg,
+        reply: null,
         status: "human",
+        chatMode: currentTicket.chatMode || "agent",
+        aiQuestionsRemaining: aiRemaining,
+        aiLimit: MAX_AI_PRODUCT_QUESTIONS,
         ticketId: currentTicket.ticketId,
         messages: currentTicket.messages,
       });
     }
 
-    // 🟢 IF TICKET IS IN "HUMAN" MODE (CSR in charge):
-    if (currentTicket.status === "human") {
+    // 🟢 3. IF ALREADY IN HUMAN MODE AND NOT EXPLICITLY SWITCHED TO PRODUCT AI
+    if (currentTicket.status === "human" && normalizedMode !== "product_ai") {
       await currentTicket.save();
       return res.status(200).json({
         success: true,
-        reply: null, // Waiting for CSR staff reply
+        reply: null,
         status: "human",
+        chatMode: currentTicket.chatMode || "agent",
+        aiQuestionsRemaining: aiRemaining,
+        aiLimit: MAX_AI_PRODUCT_QUESTIONS,
         ticketId: currentTicket.ticketId,
         messages: currentTicket.messages,
       });
     }
 
-    // 🟢 SMART PRE-MEDITATED AI ASSISTANT REPLIES:
-    let aiReply = "";
+    // 🟢 4. PRODUCT AI MODE (STRICT PRODUCT-ONLY + 5 QUESTIONS LIMIT PER SESSION)
+    if (aiUsed >= MAX_AI_PRODUCT_QUESTIONS) {
+      const limitMsg = `You have reached the limit of ${MAX_AI_PRODUCT_QUESTIONS} AI product questions for this session.\nFor further assistance, please switch the topic to "Order Inquiry & Live Agent" below.`;
+      currentTicket.messages.push({ sender: "ai", text: limitMsg, time: timeString });
+      await currentTicket.save();
 
-    if (lower.includes("serum") || lower.includes("face serum")) {
-      aiReply = "✨ Best Face Serum Recommendation:\nOur #1 bestseller is the Mhira Collagen & Vitamin C Brightening Serum (30ml). It boosts skin elasticity, fades dark spots, and provides lightweight 24-hr hydration using pure botanical extracts. Check it out under Our Collection > Skin Care!";
-    } else if (lower.includes("hair") || lower.includes("hair care")) {
-      aiReply = "💆‍♀️ Natural Hair Care Tips:\n1. Use our sulfate-free organic shampoo bars to avoid scalp dryness.\n2. Apply pure Coconut & Argan Hair Oil on damp ends for frizz-free shine.\n3. Rinse with lukewarm water to seal hair cuticles.";
-    } else if (lower.includes("lotion") || lower.includes("spf") || lower.includes("body lotion")) {
-      aiReply = "🧴 Body Lotion with SPF:\nWe recommend our Mhira Botanical Whitening Lotion with SPF 30! Infused with organic Shea Butter, Niacinamide, and Aloe Vera to shield your skin from harmful UV rays while keeping it smooth all day.";
-    } else if (lower.includes("track") || lower.includes("order") || lower.includes("delivery") || lower.includes("shipping status")) {
-      aiReply = "📦 Order Tracking Hub:\nYou can monitor your delivery step-by-step (Placed ➔ Preparing ➔ On the Way ➔ Delivered) in your My Orders hub (/orders) or review live milestone updates in Store Notifications.";
-    } else if (lower.includes("voucher") || lower.includes("coupon") || lower.includes("discount") || lower.includes("promo")) {
-      aiReply = "🎟️ Active Platform Vouchers:\n• ORGANIC10 — 10% OFF all natural products\n• MHIRA50 — ₱50 OFF (Min. spend ₱500)\n• FREESHIP — Free nationwide shipping\nYou can select or enter these codes directly in your Shopping Bag summary!";
-    } else if (attachment && !message) {
-      aiReply = "Thank you for sending the file! Our team will review your attachment. If you need immediate assistance, click 'Talk to Human Agent'.";
-    } else {
-      aiReply = "Thank you for your message! 🌿 At Mhira Natural Soap & Cosmetics, all our products are handcrafted with 100% organic ingredients. Feel free to choose an option from the suggestions or ask about our soaps, serums, and delivery!";
+      return res.status(200).json({
+        success: true,
+        reply: limitMsg,
+        status: currentTicket.status,
+        chatMode: "product_ai",
+        limitReached: true,
+        aiQuestionsRemaining: 0,
+        aiLimit: MAX_AI_PRODUCT_QUESTIONS,
+        ticketId: currentTicket.ticketId,
+        messages: currentTicket.messages,
+      });
     }
+
+    currentTicket.status = "ai";
+    currentTicket.chatMode = "product_ai";
+    currentTicket.aiQuestionCount = aiUsed + 1;
+
+    const products = await getProductCatalog();
+    const aiReply =
+      attachment && !message
+        ? "Thank you for sharing the image! Please type your question about this product, or switch to 'Talk to Live Agent' for order/support help."
+        : await askProductAI(message, products);
 
     currentTicket.messages.push({ sender: "ai", text: aiReply, time: timeString });
     await currentTicket.save();
@@ -145,10 +312,13 @@ export const handleCustomerChat = async (req, res) => {
       success: true,
       reply: aiReply,
       status: "ai",
+      chatMode: "product_ai",
+      limitReached: currentTicket.aiQuestionCount >= MAX_AI_PRODUCT_QUESTIONS,
+      aiQuestionsRemaining: Math.max(0, MAX_AI_PRODUCT_QUESTIONS - currentTicket.aiQuestionCount),
+      aiLimit: MAX_AI_PRODUCT_QUESTIONS,
       ticketId: currentTicket.ticketId,
       messages: currentTicket.messages,
     });
-
   } catch (error) {
     console.error("🔴 SERVER ERROR:", error.message || error);
     return res.status(500).json({

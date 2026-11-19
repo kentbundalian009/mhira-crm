@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../utils/apiConfig";
 import React, { useEffect, useState } from "react";
 import axios, { API } from "../../axios";
 import { subscribeLiveSync } from "../../utils/liveSync";
@@ -28,10 +29,6 @@ function Topbar() {
     }
   });
 
-  const API_BASE_URL =
-    import.meta.env.MODE === "production"
-      ? "https://mhira-crmsystem.onrender.com"
-      : "http://localhost:5000";
 
   const fetchAnnouncement = () => {
     axios

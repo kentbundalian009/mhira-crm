@@ -20,10 +20,7 @@ import Footer from "../common/Footer";
 import { showSuccessToast } from "../../utils/toast";
 import { getUserId, isUserLoggedIn } from "../../utils/userId";
 
-const API_BASE_URL =
-  import.meta.env.MODE === "production"
-    ? "https://mhira-crmsystem.onrender.com"
-    : "http://localhost:5000";
+import { API_BASE_URL } from "../../utils/apiConfig";
 
 function CustomerNotifications() {
   const navigate = useNavigate();

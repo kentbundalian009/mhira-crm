@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../utils/apiConfig";
 import React from "react";
 import { Heart, ShoppingBag, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,15 +13,6 @@ function Favorites({ isEmbedded = false }) {
   const loggedIn = isUserLoggedIn();
   const { favorites, loading, removeFavorite, addToCart } = useAppData();
 
-  const isLocalhost =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1");
-
-  const API_BASE_URL =
-    !isLocalhost || import.meta.env.PROD || import.meta.env.MODE === "production"
-      ? "https://mhira-crmsystem.onrender.com"
-      : "http://localhost:5000";
 
   const getImageUrl = (url) => {
     if (!url || typeof url !== "string") return "";

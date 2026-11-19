@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../utils/apiConfig";
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios, { API, getImageUrl, getBackendMediaUrl } from '../../axios';
@@ -131,15 +132,6 @@ function Home() {
 
   const videoRefs = useRef({});
 
-  const isLocalhost =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1');
-
-  const API_BASE_URL =
-    !isLocalhost || import.meta.env.PROD || import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
 
   const fetchHomeData = async () => {
     try {

@@ -143,10 +143,6 @@ const loadWatermarkImage = (url, opacity = 0.08) => {
 };
 
 function InventoryDeliveryReceiving() {
-  const API_BASE_URL =
-    import.meta.env.MODE === 'production'
-      ? 'https://mhira-crmsystem.onrender.com'
-      : 'http://localhost:5000';
 
   const getTodayLocalDate = () => {
     const now = new Date();
