@@ -398,31 +398,31 @@ function InventoryFinishedGoods() {
         return {
           key: 'Critical Alert',
           label: 'Critical Alert',
-          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/70 font-semibold',
-          dotClass: 'bg-rose-500',
+          badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
+          dotClass: 'bg-red-600',
         };
       }
       if (val <= restock) {
         return {
           key: 'Restock Warning',
           label: 'Restock Warning',
-          badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/70 font-semibold',
-          dotClass: 'bg-amber-500',
+          badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold',
+          dotClass: 'bg-yellow-500',
         };
       }
       if (val <= overstock) {
         return {
           key: 'Healthy',
           label: 'Healthy',
-          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
-          dotClass: 'bg-emerald-500',
+          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+          dotClass: 'bg-blue-600',
         };
       }
       return {
         key: 'Overstock',
         label: 'Overstock',
-        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
-        dotClass: 'bg-blue-500',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+        dotClass: 'bg-blue-600',
       };
     },
     []
@@ -462,7 +462,7 @@ function InventoryFinishedGoods() {
         ? response.data
         : (response.data?.data || response.data?.products || response.data?.items || []);
 
-      if (Array.isArray(raw) && raw.length > 0) {
+      if (Array.isArray(raw)) {
         setProducts(raw);
         try {
           localStorage.setItem('cached_inventory_products', JSON.stringify(raw));
@@ -865,7 +865,10 @@ function InventoryFinishedGoods() {
           : 'Product moved to archive vault!'
       );
       setArchiveTargetProduct(null);
-      fetchProducts();
+      await fetchProducts();
+      notifyLiveSync('products');
+      notifyLiveSync('inventory');
+      window.dispatchEvent(new Event('inventory_products_updated'));
     } catch (error) {
       console.error('Error toggling product archive status:', error);
       showErrorToast(error.response?.data?.message || 'Failed to update archive status.');
@@ -1098,7 +1101,10 @@ function InventoryFinishedGoods() {
       }
 
       setIsModalOpen(false);
-      fetchProducts();
+      await fetchProducts();
+      notifyLiveSync('products');
+      notifyLiveSync('inventory');
+      window.dispatchEvent(new Event('inventory_products_updated'));
     } catch (error) {
       console.error('Error saving product:', error);
       setModalError(error.response?.data?.message || 'Failed to save product details.');
@@ -1117,7 +1123,10 @@ function InventoryFinishedGoods() {
       await axios.delete(`${API_BASE_URL}/api/inventory-products/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      fetchProducts();
+      await fetchProducts();
+      notifyLiveSync('products');
+      notifyLiveSync('inventory');
+      window.dispatchEvent(new Event('inventory_products_updated'));
       showSuccessToast('Product deleted successfully!');
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -1757,12 +1766,12 @@ function InventoryFinishedGoods() {
                       if (!hideZeroQty) setShowZeroOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${hideZeroQty
-                      ? 'bg-red-50 text-red-700 border border-red-300'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-400 font-bold'
                       : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={hideZeroQty ? 'Showing: 0 Qty Hidden (Click to show)' : 'Click to Hide 0 Quantity items'}
                   >
-                    <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                    <EyeOff className={`w-3.5 h-3.5 ${hideZeroQty ? 'text-blue-600' : 'text-slate-500'}`} />
                     <span>Hide 0 Qty</span>
                   </button>
 
@@ -1774,12 +1783,12 @@ function InventoryFinishedGoods() {
                       if (!showZeroOnly) setHideZeroQty(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[30px] sm:h-[22px] w-full shadow-2xs ${showZeroOnly
-                      ? 'bg-rose-50 text-rose-700 border border-rose-300'
+                      ? 'bg-red-50 text-red-700 border border-red-300 font-bold'
                       : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={showZeroOnly ? `Showing: 0 Qty Only (${zeroCount})` : `Filter 0 Qty Only (${zeroCount} items)`}
                   >
-                    <Boxes className="w-3.5 h-3.5 text-slate-500" />
+                    <Boxes className={`w-3.5 h-3.5 ${showZeroOnly ? 'text-red-600' : 'text-slate-500'}`} />
                     <span>0 Qty Only {zeroCount > 0 ? `(${zeroCount})` : ''}</span>
                   </button>
 
@@ -1909,7 +1918,7 @@ function InventoryFinishedGoods() {
 
                         {/* 3. CATEGORY (Pill Badge) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                             {item.category || 'Finished Goods'}
                           </span>
                         </td>
@@ -1921,7 +1930,7 @@ function InventoryFinishedGoods() {
                               {item.itemName || 'N/A'}
                             </span>
                             {item.isArchived && (
-                              <span className="inline-flex items-center text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full font-bold border border-rose-200">
+                              <span className="inline-flex items-center text-[10px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full font-bold border border-red-200">
                                 Archived
                               </span>
                             )}
@@ -1951,7 +1960,7 @@ function InventoryFinishedGoods() {
                             <span className="font-mono font-bold text-slate-800 text-xs">
                               {item.specification ? item.specification : '-'}
                             </span>
-                            <span className="inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-300 bg-slate-100 text-slate-700 uppercase">
+                            <span className="inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 uppercase">
                               {item.uom || 'PCS'}
                             </span>
                           </div>
@@ -1992,7 +2001,7 @@ function InventoryFinishedGoods() {
                                   type="button"
                                   onClick={() => handleToggleArchive(item)}
                                   title="Archive Product"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Archive className="w-3.5 h-3.5" />
                                 </button>
@@ -2003,7 +2012,7 @@ function InventoryFinishedGoods() {
                                   type="button"
                                   onClick={() => handleToggleArchive(item)}
                                   title="Restore to Active"
-                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5" />
                                 </button>
@@ -2011,7 +2020,7 @@ function InventoryFinishedGoods() {
                                   type="button"
                                   onClick={() => handleDeleteProduct(item)}
                                   title="Delete Permanently"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -2091,10 +2100,10 @@ function InventoryFinishedGoods() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="inline-flex items-center px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-bold font-mono">
+                    <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-[10px] font-bold font-mono">
                       {viewIngredientsProduct.code || 'N/A'}
                     </span>
-                    <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-bold">
+                    <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-[10px] font-bold">
                       {viewIngredients.length} {viewIngredients.length === 1 ? 'Ingredient' : 'Ingredients'}
                     </span>
                   </div>
@@ -2164,7 +2173,7 @@ function InventoryFinishedGoods() {
 
                       <div className="col-span-3 text-center">
                         <span
-                          className={`font-mono font-bold text-xs ${isViewSpecValid ? 'text-emerald-700' : 'text-slate-800'
+                          className={`font-mono font-bold text-xs ${isViewSpecValid ? 'text-blue-700' : 'text-slate-800'
                             }`}
                         >
                           {viewTotalSpec.toFixed(2)}%
@@ -2173,7 +2182,7 @@ function InventoryFinishedGoods() {
 
                       <div className="col-span-2 text-center">
                         <span
-                          className={`font-mono font-bold text-xs ${isViewWeightValid ? 'text-emerald-700' : 'text-slate-800'
+                          className={`font-mono font-bold text-xs ${isViewWeightValid ? 'text-blue-700' : 'text-slate-800'
                             }`}
                         >
                           {viewTotalWeight.toFixed(2)}
@@ -2233,7 +2242,7 @@ function InventoryFinishedGoods() {
               {/* SCROLLABLE BODY */}
               <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 custom-scrollbar">
                 {modalError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold">
                     {modalError}
                   </div>
                 )}
@@ -2249,15 +2258,15 @@ function InventoryFinishedGoods() {
                         Item-specific rules evaluated for condition badges & replenishment warnings.
                       </p>
                     </div>
-                    <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-bold">
+                    <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-[10px] font-bold">
                       Healthy: {Math.max(0, (Number(formData.restockWarningPoint) || 0) + 1)} - {Number(formData.overstockLimitPoint) || 1000} {formData.uom ? formData.uom.toUpperCase() : ''}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     {/* CRITICAL */}
-                    <div className="bg-white p-2.5 rounded-xl border border-rose-200/80">
-                      <label className="block text-[11px] font-bold text-rose-700 mb-1">
+                    <div className="bg-white p-2.5 rounded-xl border border-red-200/80">
+                      <label className="block text-[11px] font-bold text-red-700 mb-1">
                         Critical Alert (≤)
                       </label>
                       <input
@@ -2266,15 +2275,15 @@ function InventoryFinishedGoods() {
                         min="0"
                         value={formData.criticalLevel !== undefined ? formData.criticalLevel : 0}
                         onChange={handleInputChange}
-                        className="w-full bg-slate-50 border border-rose-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-800 focus:outline-none focus:border-rose-500"
+                        className="w-full bg-slate-50 border border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-800 focus:outline-none focus:border-red-500"
                         placeholder="0"
                       />
                       <span className="text-[10px] text-slate-400 mt-0.5 block">Default: 0 (Emergency)</span>
                     </div>
 
                     {/* RESTOCK WARNING */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200/80">
-                      <label className="block text-[11px] font-bold text-amber-700 mb-1">
+                    <div className="bg-white p-2.5 rounded-xl border border-yellow-300/80">
+                      <label className="block text-[11px] font-bold text-yellow-800 mb-1">
                         Restock Warning (≤)
                       </label>
                       <input
@@ -2283,7 +2292,7 @@ function InventoryFinishedGoods() {
                         min="0"
                         value={formData.restockWarningPoint !== undefined ? formData.restockWarningPoint : 10}
                         onChange={handleInputChange}
-                        className="w-full bg-slate-50 border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-800 focus:outline-none focus:border-amber-500"
+                        className="w-full bg-slate-50 border border-yellow-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-yellow-900 focus:outline-none focus:border-yellow-500"
                         placeholder="10"
                       />
                       <span className="text-[10px] text-slate-400 mt-0.5 block">Default: 10 (Reorder)</span>
@@ -2419,7 +2428,7 @@ function InventoryFinishedGoods() {
                         Product Image
                       </label>
                       {formData.image ? (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                           Selected
                         </span>
                       ) : (
@@ -2459,7 +2468,7 @@ function InventoryFinishedGoods() {
                           <button
                             type="button"
                             onClick={() => setFormData((prev) => ({ ...prev, image: '' }))}
-                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             title="Remove Image"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -2467,7 +2476,7 @@ function InventoryFinishedGoods() {
                         </div>
                       </div>
                     ) : (
-                      <label className="w-full flex items-center justify-center gap-2 bg-white hover:bg-emerald-50/40 border border-dashed border-slate-300 hover:border-[#01390f] rounded-xl px-3.5 h-[42px] cursor-pointer transition-all text-slate-600 hover:text-[#01390f] shadow-2xs group">
+                      <label className="w-full flex items-center justify-center gap-2 bg-white hover:bg-blue-50/40 border border-dashed border-slate-300 hover:border-[#01390f] rounded-xl px-3.5 h-[42px] cursor-pointer transition-all text-slate-600 hover:text-[#01390f] shadow-2xs group">
                         <Upload className="w-4 h-4 text-slate-400 group-hover:text-[#01390f] transition-colors" />
                         <span className="text-xs sm:text-sm font-medium text-slate-700 group-hover:text-[#01390f]">Upload Photo</span>
                         <input
@@ -2595,7 +2604,7 @@ function InventoryFinishedGoods() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveIngredientRow(idx)}
-                                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 font-bold p-1 rounded-lg cursor-pointer transition-colors text-xs inline-flex items-center justify-center"
+                                className="text-slate-400 hover:text-red-600 hover:bg-red-50 font-bold p-1 rounded-lg cursor-pointer transition-colors text-xs inline-flex items-center justify-center"
                                 title="Remove Ingredient"
                               >
                                 ✕
@@ -2614,7 +2623,7 @@ function InventoryFinishedGoods() {
                         {/* SPEC TOTAL */}
                         <div className="col-span-3 text-center">
                           <span
-                            className={`font-mono font-bold text-xs ${isBOMSpecValid ? 'text-emerald-700' : 'text-slate-800'
+                            className={`font-mono font-bold text-xs ${isBOMSpecValid ? 'text-blue-700' : 'text-slate-800'
                               }`}
                           >
                             {totalBOMSpec.toFixed(2)}%
@@ -2624,7 +2633,7 @@ function InventoryFinishedGoods() {
                         {/* WEIGHT TOTAL */}
                         <div className="col-span-2 text-center">
                           <span
-                            className={`font-mono font-bold text-xs ${isBOMWeightValid ? 'text-emerald-700' : 'text-slate-800'
+                            className={`font-mono font-bold text-xs ${isBOMWeightValid ? 'text-blue-700' : 'text-slate-800'
                               }`}
                           >
                             {totalBOMWeight.toFixed(2)}
@@ -2642,18 +2651,18 @@ function InventoryFinishedGoods() {
 
                       {/* FORMULATION VALIDATION NOTICE */}
                       {!isBOMValid && formData.ingredients && formData.ingredients.length > 0 && (
-                        <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div className="mt-2.5 p-3 bg-yellow-50 border border-yellow-300 rounded-xl text-yellow-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                           <div className="flex items-center gap-2">
                             <span className="font-bold shrink-0">⚠️ Total Formulation:</span>
                             <span>
                               Currently <strong className="font-mono">{totalBOMSpec.toFixed(2)}%</strong> ({totalBOMWeight.toFixed(2)}g). Must reach exactly <strong className="font-mono">100.00%</strong> (5000g).
                               {totalBOMSpec < 100 && (
-                                <span className="font-bold text-amber-800 ml-1">
+                                <span className="font-bold text-yellow-800 ml-1">
                                   (Lacking: {(100 - totalBOMSpec).toFixed(2)}% / {(5000 - totalBOMWeight).toFixed(2)}g)
                                 </span>
                               )}
                               {totalBOMSpec > 100 && (
-                                <span className="font-bold text-rose-700 ml-1">
+                                <span className="font-bold text-red-700 ml-1">
                                   (Excess: {(totalBOMSpec - 100).toFixed(2)}% / {(totalBOMWeight - 5000).toFixed(2)}g)
                                 </span>
                               )}
@@ -2694,7 +2703,7 @@ function InventoryFinishedGoods() {
                   title={!isBOMValid ? `Formulation must reach 100% (currently ${totalBOMSpec.toFixed(2)}%)` : 'Save Product'}
                   className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${isBOMValid
                     ? 'bg-[#01390f] hover:bg-[#0a5219] text-white disabled:opacity-50'
-                    : 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-yellow-500 hover:bg-yellow-600 text-slate-900'
                     }`}
                 >
                   {modalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

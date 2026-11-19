@@ -156,3 +156,27 @@ export const authorize = (...roles) => {
     next();
   };
 };
+
+// Optional JWT Verification (does not reject unauthenticated requests)
+export const protectOptional = async (req, res, next) => {
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    try {
+      token = req.headers.authorization.split(" ")[1];
+      if (token && token !== "null" && token !== "undefined") {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = await User.findById(decoded.id).select("-password").lean().maxTimeMS(3000);
+        if (user) {
+          req.user = user;
+          req.token = token;
+        }
+      }
+    } catch (e) {
+      // Non-blocking for optional auth
+    }
+  }
+  next();
+};

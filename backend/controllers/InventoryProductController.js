@@ -80,6 +80,7 @@ export const createProduct = async (req, res) => {
     });
 
     const savedProduct = await newProduct.save();
+    invalidateProductsCache();
     res.status(201).json(savedProduct);
   } catch (error) {
     console.error('Error creating product:', error);
@@ -207,6 +208,7 @@ export const deleteProduct = async (req, res) => {
       }
     }
 
+    invalidateProductsCache();
     res.status(200).json({ message: 'Product deleted successfully' });
   } catch (error) {
     console.error('Error deleting product:', error);
@@ -226,6 +228,7 @@ export const toggleArchiveProduct = async (req, res) => {
 
     product.isArchived = !product.isArchived;
     const updated = await product.save();
+    invalidateProductsCache();
 
     res.status(200).json({
       message: product.isArchived ? 'Product archived successfully' : 'Product unarchived successfully',

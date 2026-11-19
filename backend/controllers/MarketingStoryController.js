@@ -171,6 +171,10 @@ export const updateMarketingStory = async (req, res) => {
       pillars: parsedPillars,
       bannerImage: bannerImageUrl,
       closingTagline: body.closingTagline !== undefined ? body.closingTagline : currentStory.closingTagline,
+      isPublished:
+        body.isPublished !== undefined
+          ? body.isPublished === true || body.isPublished === 'true'
+          : currentStory.isPublished !== false,
       updatedBy: body.updatedBy || req.user?.username || 'Marketing Staff',
       updatedAt: new Date().toISOString(),
     };

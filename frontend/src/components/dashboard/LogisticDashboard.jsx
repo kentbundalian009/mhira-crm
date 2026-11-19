@@ -907,7 +907,7 @@ function LogisticDashboard({ setActiveTab }) {
                   <tr className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 font-bold text-slate-800 whitespace-nowrap">In Transit & En Route</td>
                     <td className="py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-50 text-[#1D6E9C] border border-sky-200">
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                         #1D6E9C
                       </span>
                     </td>
@@ -921,7 +921,7 @@ function LogisticDashboard({ setActiveTab }) {
                   <tr className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 font-bold text-slate-800 whitespace-nowrap">To Ship & Packing</td>
                     <td className="py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-50 text-[#0284c7] border border-sky-200">
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                         #0284c7
                       </span>
                     </td>
@@ -935,7 +935,7 @@ function LogisticDashboard({ setActiveTab }) {
                   <tr className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 font-bold text-slate-800 whitespace-nowrap">RMA Returns & Issues</td>
                     <td className="py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-50 text-[#0ea5e9] border border-cyan-200">
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                         #0ea5e9
                       </span>
                     </td>
@@ -1247,7 +1247,7 @@ function LogisticDashboard({ setActiveTab }) {
                       {dashboardStats.toShip + dashboardStats.toReceive} Orders
                     </td>
                     <td className="py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#153E97] border border-blue-200 whitespace-nowrap">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                         Tracking
                       </span>
                     </td>
@@ -1261,7 +1261,7 @@ function LogisticDashboard({ setActiveTab }) {
                       {dashboardStats.toShip} To Pack
                     </td>
                     <td className="py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-[#0284c7] border border-sky-200 whitespace-nowrap">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                         Operational
                       </span>
                     </td>
@@ -1275,7 +1275,7 @@ function LogisticDashboard({ setActiveTab }) {
                       {dashboardStats.returnRefund} Issues
                     </td>
                     <td className="py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 whitespace-nowrap">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                         {dashboardStats.fulfillmentNum}% Rate
                       </span>
                     </td>

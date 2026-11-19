@@ -157,6 +157,7 @@ function MarketingPackageSets() {
   // Distinct categories from Finished Goods inventory
   const uniqueInvCategories = useMemo(() => {
     const cats = inventoryProducts
+      .filter((p) => p && !p.isArchived)
       .map((p) => p.category || p.itemGroup || '')
       .filter(Boolean);
     return Array.from(new Set(cats));
@@ -165,6 +166,7 @@ function MarketingPackageSets() {
   // Filtered inventory products in modal dropdown
   const filteredInventoryProducts = useMemo(() => {
     return inventoryProducts.filter((p) => {
+      if (!p || p.isArchived) return false;
       const matchCat =
         selectedInvCategory === 'All' ||
         (p.category || p.itemGroup || '').toLowerCase() === selectedInvCategory.toLowerCase();
@@ -1018,7 +1020,7 @@ function MarketingPackageSets() {
                     if (next) setShowZeroOnly(false);
                   }}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${hideZeroQty
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -1033,7 +1035,7 @@ function MarketingPackageSets() {
                     if (next) setHideZeroQty(false);
                   }}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${showZeroOnly
-                    ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold'
+                    ? 'bg-red-50 border-red-300 text-red-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -1044,7 +1046,7 @@ function MarketingPackageSets() {
                   type="button"
                   onClick={() => setOnlyDiscounted(!onlyDiscounted)}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${onlyDiscounted
-                    ? 'bg-amber-50 border-amber-500 text-amber-800 font-semibold'
+                    ? 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -1127,9 +1129,9 @@ function MarketingPackageSets() {
                             >
                               {displayName}
                             </span>
-                            {row.isOnSale && (
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 border border-amber-500/30 uppercase tracking-wide flex-shrink-0">
+                            {(row.isOnSale || row.promoBadge) && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-yellow-50 text-yellow-800 border-yellow-300 flex-shrink-0">
                                   {row.promoBadge || 'Special Bundle'}
                                 </span>
                               </div>
@@ -1169,8 +1171,10 @@ function MarketingPackageSets() {
                         </td>
 
                         {/* 4. Category */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {row.category || 'Package Sets'}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
+                            {row.category || 'Package Sets'}
+                          </span>
                         </td>
 
                         {/* 5. Store Price */}
@@ -1195,7 +1199,7 @@ function MarketingPackageSets() {
                               items.map((bi, i) => (
                                 <span
                                   key={i}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100/70 border border-emerald-200 text-emerald-900 whitespace-nowrap"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 border border-blue-200 text-blue-700 whitespace-nowrap"
                                   title={`${bi.quantity}x ${bi.itemName}`}
                                 >
                                   <span>{bi.quantity}x</span>
@@ -1214,24 +1218,27 @@ function MarketingPackageSets() {
                         </td>
 
                         {/* 10. Storefront Status */}
-                        <td className={`px-4 py-3.5 whitespace-nowrap text-center text-slate-800 font-semibold text-xs transition-colors select-none ${row.isPublished
-                          ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
-                          : 'bg-amber-500/20 group-hover:bg-amber-500/30'
+                        <td className={`px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs transition-colors select-none ${row.isArchived
+                          ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
+                          : row.isPublished
+                            ? 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
+                            : 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
                           }`}>
-                          {row.isPublished ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span>Live</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span>Draft</span>
-                            </span>
-                          )}
+                          <span>{row.isArchived ? 'Archived' : row.isPublished ? 'Live' : 'Draft'}</span>
                         </td>
 
                         {/* 11. Action (Sticky Right matching All Products Catalog) */}
-                        <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                        <td className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setViewPackageModal(row)}
+                              title="View Package Set Details"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+
                             {viewMode !== 'archived' ? (
                               <>
                                 {/* Edit */}
@@ -1249,7 +1256,7 @@ function MarketingPackageSets() {
                                   type="button"
                                   onClick={() => handleToggleArchive(row)}
                                   title="Archive Package Set"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Archive className="w-3.5 h-3.5" />
                                 </button>
@@ -1261,7 +1268,7 @@ function MarketingPackageSets() {
                                   type="button"
                                   onClick={() => handleToggleArchive(row)}
                                   title="Restore Package Set"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-emerald-700 hover:bg-emerald-700 hover:text-white hover:border-emerald-700 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5" />
                                 </button>
@@ -1321,7 +1328,7 @@ function MarketingPackageSets() {
                 <div className="flex flex-col gap-2 relative" ref={invDropdownRef}>
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-slate-700 cursor-pointer">
-                      Group Finished Goods into this Package Set <span className="text-rose-500">*</span>
+                      Group Finished Goods into this Package Set <span className="text-red-600">*</span>
                     </label>
                     <span className="text-[11px] text-slate-400">
                       {formData.bundleItems.length} {formData.bundleItems.length === 1 ? 'product' : 'products'} selected
@@ -1424,7 +1431,7 @@ function MarketingPackageSets() {
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-slate-800 text-xs truncate">{desc}</span>
                                     {spec && (
-                                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                         {spec} {uom}
                                       </span>
                                     )}
@@ -1442,9 +1449,9 @@ function MarketingPackageSets() {
                                   ₱{Number(p.price || p.unitPrice || 250).toFixed(2)}
                                 </span>
                                 <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${isAlreadyAdded
-                                    ? 'bg-emerald-100 text-[#01390f]'
-                                    : 'bg-[#01390f] text-white'
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isAlreadyAdded
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-[#01390f] text-white border-[#01390f]'
                                     }`}
                                 >
                                   {isAlreadyAdded ? '+ Add More' : '+ Add'}
@@ -1454,7 +1461,7 @@ function MarketingPackageSets() {
                           );
                         })
                       ) : (
-                        <div className="p-3 text-center text-xs text-rose-500 italic">
+                        <div className="p-3 text-center text-xs text-red-600 italic">
                           No finished goods found matching &ldquo;{invSearchQuery}&rdquo;.
                         </div>
                       )}
@@ -1482,10 +1489,10 @@ function MarketingPackageSets() {
                         return (
                           <div
                             key={idx}
-                            className="p-2.5 bg-white border border-emerald-200/90 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-emerald-300 transition-colors"
+                            className="p-2.5 bg-white border border-blue-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-blue-300 transition-colors"
                           >
                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center overflow-hidden shrink-0">
+                              <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center overflow-hidden shrink-0">
                                 {item.image ? (
                                   <img
                                     src={resolveProductImageUrl(item.image)}
@@ -1497,14 +1504,14 @@ function MarketingPackageSets() {
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
-                                  <Package className="w-5 h-5 text-emerald-700" />
+                                  <Package className="w-5 h-5 text-blue-700" />
                                 )}
                               </div>
 
                               <div className="flex flex-col min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {item.code && (
-                                    <span className="font-mono text-[9px] font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-200 px-1 py-0.2 rounded">
+                                    <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                                       {item.code}
                                     </span>
                                   )}
@@ -1512,7 +1519,7 @@ function MarketingPackageSets() {
                                     {item.itemName}
                                   </span>
                                   {item.specification && (
-                                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                                    <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                       {item.specification} {item.uom || ''}
                                     </span>
                                   )}
@@ -1562,7 +1569,7 @@ function MarketingPackageSets() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveBundleItem(idx)}
-                                className="w-6 h-6 rounded-full hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors flex items-center justify-center cursor-pointer"
+                                className="w-6 h-6 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors flex items-center justify-center cursor-pointer"
                                 title="Remove item from package set"
                               >
                                 ✕
@@ -1574,14 +1581,14 @@ function MarketingPackageSets() {
                     </div>
 
                     {/* GROUPED VALUE & DISCOUNT SHORTCUT BAR */}
-                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs mt-1">
+                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs mt-1">
                       <div className="flex items-center gap-2">
-                        <Boxes className="w-4 h-4 text-[#01390f]" />
+                        <Boxes className="w-4 h-4 text-blue-700" />
                         <span>
-                          Grouped Original Total: <strong className="font-mono text-[#01390f] text-sm">₱{Number(formData.originalPrice).toFixed(2)}</strong>
+                          Grouped Original Total: <strong className="font-mono text-blue-900 text-sm">₱{Number(formData.originalPrice).toFixed(2)}</strong>
                         </span>
                         {estimatedMaxBuildable > 0 && (
-                          <span className="text-[10px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full font-bold ml-1">
+                          <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-bold ml-1">
                             ~{estimatedMaxBuildable} sets buildable
                           </span>
                         )}
@@ -1595,7 +1602,7 @@ function MarketingPackageSets() {
                             key={pct}
                             type="button"
                             onClick={() => applyDiscountPercent(pct)}
-                            className="px-2 py-0.5 rounded bg-white hover:bg-[#01390f] hover:text-white border border-emerald-300 text-[#01390f] text-[10px] font-bold transition-colors cursor-pointer shadow-2xs"
+                            className="px-2 py-0.5 rounded-full bg-yellow-50 hover:bg-yellow-100 border border-yellow-300 text-yellow-800 text-[10px] font-bold transition-colors cursor-pointer shadow-2xs"
                           >
                             {pct}% OFF
                           </button>
@@ -1603,7 +1610,7 @@ function MarketingPackageSets() {
                         <button
                           type="button"
                           onClick={() => applyDiscountPercent(0)}
-                          className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-bold transition-colors cursor-pointer"
+                          className="px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-[10px] font-bold transition-colors cursor-pointer"
                         >
                           Exact Sum
                         </button>
@@ -1630,7 +1637,7 @@ function MarketingPackageSets() {
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Package Set Name <span className="text-rose-500">*</span>
+                      Package Set Name <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -1704,7 +1711,7 @@ function MarketingPackageSets() {
                           <button
                             type="button"
                             onClick={() => handleRemoveImageAtIndex(idx)}
-                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                             title="Remove photo"
                           >
                             ✕
@@ -1725,10 +1732,10 @@ function MarketingPackageSets() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-semibold text-slate-700">
-                        Selling Price (₱) <span className="text-rose-500">*</span>
+                        Selling Price (₱) <span className="text-red-600">*</span>
                       </label>
                       {Number(formData.originalPrice) > Number(formData.price) && Number(formData.price) > 0 && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                        <span className="text-[10px] font-bold text-yellow-800 bg-yellow-50 border border-yellow-300 px-2 py-0.5 rounded-full">
                           Save ₱{(formData.originalPrice - formData.price).toFixed(2)} ({Math.round(((formData.originalPrice - formData.price) / formData.originalPrice) * 100)}% OFF)
                         </span>
                       )}
@@ -1751,7 +1758,7 @@ function MarketingPackageSets() {
                   {/* Storefront Quantity with MAX Helper */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Storefront Quantity (Sets Available) <span className="text-rose-500">*</span>
+                      Storefront Quantity (Sets Available) <span className="text-red-600">*</span>
                     </label>
                     <div className="flex items-center">
                       <div className="relative flex-1">
@@ -1780,24 +1787,64 @@ function MarketingPackageSets() {
                   </div>
                 </div>
 
-                {/* 5. PROMO BADGE DROPDOWN */}
+                {/* 5. PROMO BADGE (TYPE + DROPDOWN INTEGRATED UI) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Promotional Badge
                     </label>
-                    <select
-                      value={formData.promoBadge}
-                      onChange={(e) => setFormData({ ...formData, promoBadge: e.target.value })}
-                      className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors cursor-pointer"
-                    >
-                      <option value="Special Bundle">Special Bundle</option>
-                      <option value="Best Value">Best Value</option>
-                      <option value="Starter Kit">Starter Kit</option>
-                      <option value="Limited Edition">Limited Edition</option>
-                      <option value="Routine Set">Routine Set</option>
-                      <option value="Holiday Bundle">Holiday Bundle</option>
-                    </select>
+                    <div className="flex items-center">
+                      <div className="relative flex-1">
+                        <Tag className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={formData.promoBadge || ''}
+                          onChange={(e) => setFormData({ ...formData, promoBadge: e.target.value })}
+                          placeholder="Type custom or select badge preset..."
+                          className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-l-lg pl-8 pr-2 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        />
+                      </div>
+                      <select
+                        value={
+                          Array.from(
+                            new Set([
+                              'Special Bundle',
+                              'Best Value',
+                              'Starter Kit',
+                              'Limited Edition',
+                              'Routine Set',
+                              'Holiday Bundle',
+                              ...packageSets.map((p) => (p?.promoBadge || '').trim()).filter(Boolean),
+                            ])
+                          ).includes(formData.promoBadge)
+                            ? formData.promoBadge
+                            : ''
+                        }
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setFormData({ ...formData, promoBadge: e.target.value });
+                          }
+                        }}
+                        className="h-[36px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-2 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none shrink-0 transition-colors"
+                      >
+                        <option value="">Quick Select Preset</option>
+                        {Array.from(
+                          new Set([
+                            'Special Bundle',
+                            'Best Value',
+                            'Starter Kit',
+                            'Limited Edition',
+                            'Routine Set',
+                            'Holiday Bundle',
+                            ...packageSets.map((p) => (p?.promoBadge || '').trim()).filter(Boolean),
+                          ])
+                        ).map((badge) => (
+                          <option key={badge} value={badge}>
+                            {badge}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   {/* Estimated Delivery Transit Time */}
@@ -1925,15 +1972,15 @@ function MarketingPackageSets() {
 
       {/* VIEW PACKAGE DETAILS MODAL */}
       {viewPackageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[88vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-800">
                   {viewPackageModal.itemName || viewPackageModal.itemDescription}
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
-                  Package Code: #{viewPackageModal.code}
+                  #{viewPackageModal.code}
                 </p>
               </div>
               <button
@@ -1945,128 +1992,69 @@ function MarketingPackageSets() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-4 text-xs sm:text-sm custom-scrollbar flex-1">
-              {/* Product Photo Gallery */}
-              <div className="aspect-video w-full rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center relative">
-                <img
-                  src={resolveProductImageUrl((viewPackageModal.images && viewPackageModal.images[0]) || viewPackageModal.image)}
-                  alt=""
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/mhira_removebg.png';
-                  }}
-                  className="w-full h-full object-cover"
-                />
-                {viewPackageModal.promoBadge && (
-                  <span className="absolute top-2 left-2 bg-[#01390f] text-white text-[10px] font-bold px-2.5 py-0.5 rounded shadow-sm uppercase tracking-wider">
-                    {viewPackageModal.promoBadge}
-                  </span>
-                )}
-              </div>
-
-              {/* Price & Savings */}
-              <div className="flex items-center justify-between p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Package Bundle Price:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-[#01390f]">₱{peso(viewPackageModal.price || 0)}</span>
-                    {Number(viewPackageModal.originalPrice) > Number(viewPackageModal.price) && (
-                      <span className="text-xs text-slate-400 line-through">₱{peso(viewPackageModal.originalPrice || 0)}</span>
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
+              {/* Product Storefront Images Size */}
+              <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
+                {(Array.isArray(viewPackageModal.images) && viewPackageModal.images.length > 0
+                  ? viewPackageModal.images
+                  : [viewPackageModal.image || '/mhira_removebg.png']
+                ).map((imgSrc, idx) => (
+                  <div
+                    key={idx}
+                    className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0"
+                  >
+                    <img
+                      src={resolveProductImageUrl(imgSrc)}
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/mhira_removebg.png';
+                      }}
+                      className="w-full h-full object-cover"
+                    />
+                    {idx === 0 && (
+                      <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                        Main
+                      </span>
                     )}
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Stock:</span>
-                  <p className="text-xs font-bold text-slate-800">{viewPackageModal.quantity || 0} Sets Available</p>
-                </div>
+                ))}
               </div>
 
-              {/* Included Items */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                  What&apos;s Included in this Package Set:
-                </label>
-                <div className="space-y-2">
-                  {Array.isArray(viewPackageModal.bundleItems) && viewPackageModal.bundleItems.length > 0 ? (
-                    viewPackageModal.bundleItems.map((bi, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 bg-slate-50/60">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                            {bi.image ? (
-                              <img
-                                src={resolveProductImageUrl(bi.image)}
-                                alt=""
-                                onError={(e) => {
-                                  e.currentTarget.onerror = null;
-                                  e.currentTarget.src = '/mhira_removebg.png';
-                                }}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <Package className="w-4 h-4 text-slate-400" />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="font-bold text-slate-800 text-xs block truncate">{bi.itemName}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{bi.code} {bi.specification ? `• ${bi.specification}` : ''}</span>
-                          </div>
-                        </div>
-                        <span className="text-xs font-bold text-[#01390f] shrink-0 font-mono">
-                          {bi.quantity}x
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">No item breakdown specified.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Description */}
-              {viewPackageModal.marketingDescription && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
-                    Product Overview & Usage:
-                  </label>
-                  <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+              <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="font-semibold text-slate-800">
+                  {viewPackageModal.promoBadge || 'Package Set'} • {viewPackageModal.quantity || 0} Sets Available
+                </p>
+                <p className="text-slate-500">
+                  ₱{peso(viewPackageModal.price || 0)}
+                  {Number(viewPackageModal.originalPrice) > Number(viewPackageModal.price)
+                    ? ` (Reg. ₱${peso(viewPackageModal.originalPrice || 0)})`
+                    : ''}
+                  {viewPackageModal.shippingReturns ? ` • ${viewPackageModal.shippingReturns}` : ''}
+                </p>
+                {Array.isArray(viewPackageModal.bundleItems) && viewPackageModal.bundleItems.length > 0 && (
+                  <p className="font-semibold text-[#01390f]">
+                    {viewPackageModal.bundleItems
+                      .map((bi) => `${bi.quantity || 1}x ${bi.itemName}`)
+                      .join(', ')}
+                  </p>
+                )}
+                {viewPackageModal.marketingDescription && (
+                  <p className="pt-2 text-slate-700 leading-relaxed whitespace-pre-line font-normal">
                     {viewPackageModal.marketingDescription}
                   </p>
-                </div>
-              )}
-
-              {/* Transit Time */}
-              {viewPackageModal.shippingReturns && (
-                <div className="flex items-center gap-2 text-xs text-slate-600">
-                  <Truck className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span>Estimated Delivery: <strong>{viewPackageModal.shippingReturns}</strong></span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${viewPackageModal.isPublished ? 'bg-emerald-100 text-[#01390f]' : 'bg-slate-200 text-slate-600'}`}>
-                {viewPackageModal.isPublished ? 'Live in Storefront' : 'Draft'}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const pkg = viewPackageModal;
-                    setViewPackageModal(null);
-                    openEditModal(pkg);
-                  }}
-                  className="px-4 py-2 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Edit Package
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewPackageModal(null)}
-                  className="px-4 py-2 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewPackageModal(null)}
+                className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

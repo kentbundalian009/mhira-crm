@@ -55,9 +55,11 @@ function CustomerEvents() {
   const fetchPublicEvents = async () => {
     try {
       const res = await API.get("/api/events/public");
-      const safeData = Array.isArray(res.data)
-        ? res.data
-        : res.data?.events || res.data?.items || res.data?.data || [];
+      const safeData = (
+        Array.isArray(res.data)
+          ? res.data
+          : res.data?.events || res.data?.items || res.data?.data || []
+      ).filter((e) => e && !e.isArchived && e.isPublished !== false);
       setEvents(safeData);
       try {
         localStorage.setItem("cached_public_events", JSON.stringify(safeData));
@@ -712,40 +714,22 @@ function CustomerEvents() {
                 </h2>
               </div>
 
-              {/* Metadata Pills Box */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#f8faf8] border border-[#E1E9EF]">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-[#EDF7EE] text-[#01390f] flex items-center justify-center shrink-0">
-                    <Calendar className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                      Date & Schedule
-                    </span>
-                    <span className="text-xs font-semibold text-[#243746]">
-                      {formatEventDate(activeEventModal.eventDate)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-[#EDF7EE] text-[#01390f] flex items-center justify-center shrink-0">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                      Location / Venue
-                    </span>
-                    <span className="text-xs font-semibold text-[#243746] block truncate">
-                      {activeEventModal.location || "Online & Main Store"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Full Announcement Description */}
-              <div className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                {activeEventModal.description || "No additional details provided."}
+              {/* Paragraph Style Details (No Icons or Containers) */}
+              <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="font-semibold text-[#243746]">
+                  {activeEventModal.location || "Online & Main Store"}
+                </p>
+                <p className="text-slate-500">
+                  {formatEventDate(activeEventModal.eventDate)}
+                </p>
+                <p className="font-semibold text-[#01390f]">
+                  {activeEventModal.category || "Announcement"}
+                </p>
+                {activeEventModal.description && (
+                  <p className="pt-2 text-slate-600 leading-relaxed whitespace-pre-line font-normal">
+                    {activeEventModal.description}
+                  </p>
+                )}
               </div>
             </div>
 

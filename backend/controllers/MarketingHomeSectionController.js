@@ -107,6 +107,7 @@ export const getHomeSections = async (req, res) => {
       .filter((s) => s && !['ads-iii', 'ads-iv', 'featured', 'navbar-promo'].includes(s.sectionName))
       .map((s) => ({
         ...s,
+        isPublished: s.isPublished !== false,
         images: resolveExistingMedia(s.sectionName, s.images)
       }));
 
@@ -117,6 +118,7 @@ export const getHomeSections = async (req, res) => {
         title: 'Announcement:',
         text: 'Announcement: Current pricing and offers end 8/11/2026 at 11:59 PM ET / 8:59 PM PT — Grab your organic favorites now! 🌿',
         images: [],
+        isPublished: true,
         order: 5,
       });
     }
@@ -216,6 +218,9 @@ export const updateHomeSection = async (req, res) => {
       text: text || '',
       images: finalImages,
     };
+    if (req.body.isPublished !== undefined) {
+      updatePayload.isPublished = req.body.isPublished === true || req.body.isPublished === 'true';
+    }
     if (sectionName === 'carousel') {
       updatePayload.slideDetails = finalSlideDetails;
     }

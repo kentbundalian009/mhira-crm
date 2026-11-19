@@ -44,7 +44,11 @@ import {
   AlertTriangle,
   FileImage,
   CalendarDays,
-  ClipboardList
+  ClipboardList,
+  History,
+  FileText,
+  Send,
+  PackageCheck
 } from 'lucide-react';
 import axios from '../axios';
 import { jsPDF } from 'jspdf';
@@ -75,6 +79,15 @@ const formatShippingAddress = (addr) => {
       .join(', ');
   }
   return String(addr || '');
+};
+
+const resolveProductImageUrl = (img) => {
+  if (!img) return '/mhira_removebg.png';
+  if (typeof img === 'object' && img.url) img = img.url;
+  if (typeof img !== 'string') return '/mhira_removebg.png';
+  if (img.startsWith('http') || img.startsWith('data:') || img.startsWith('blob:')) return img;
+  if (img.startsWith('/')) return img;
+  return `/${img}`;
 };
 
 function LogisticsOrderManagement() {
@@ -118,6 +131,21 @@ function LogisticsOrderManagement() {
   // Status mapping and counts
   const [filterCancelRequestsOnly, setFilterCancelRequestsOnly] = useState(false);
   const [isReviewingCancel, setIsReviewingCancel] = useState(false);
+
+  // E-Payment Verification Modal State
+  const [paymentVerifyModal, setPaymentVerifyModal] = useState({
+    isOpen: false,
+    order: null,
+    referenceNumber: '',
+    notes: '',
+    isSubmitting: false,
+    isSyncingPayMongo: false,
+    payMongoDetails: null,
+  });
+
+  // Custom Process Note State
+  const [customNote, setCustomNote] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
 
   const [counts, setCounts] = useState(() => {
     try {
@@ -217,17 +245,17 @@ function LogisticsOrderManagement() {
   // Map workflow status to matching drawer tab (Stage 1 -> review, Stage 2 -> dispatch, Stage 3 -> customer, Stage 4 -> invoice)
   const getTabForStatus = (status) => {
     const s = (status || '').toLowerCase();
-    if (s.includes('cancelled')) return 'review';
-    if (s === 'completed' || s === 'paid') return 'invoice';
-    if (s === 'to receive' || s === 'to-receive') return 'customer';
-    if (s === 'to ship' || s === 'to-ship') return 'dispatch';
+    if (s.includes('cancel') || s.includes('return')) return 'review';
+    if (s === 'completed' || s === 'delivered' || s === 'paid') return 'invoice';
+    if (s === 'to receive' || s === 'to-receive' || s === 'in transit' || s === 'in-transit') return 'customer';
+    if (s === 'to ship' || s === 'to-ship' || s === 'waiting for courier' || s === 'waiting-for-courier') return 'dispatch';
     return 'review'; // Order Placed / To Pay
   };
 
   const handleUpdateStatus = async (orderId, newStatus, extraData = {}) => {
     try {
       const payload = { status: newStatus, ...extraData };
-      if (newStatus === 'To Receive') {
+      if (newStatus === 'To Receive' || newStatus === 'In Transit') {
         payload.courier = payload.courier || selectedCourier || 'J&T Express';
         payload.trackingNumber = payload.trackingNumber || trackingNumber || '';
       }
@@ -243,7 +271,11 @@ function LogisticsOrderManagement() {
       }
       fetchOrders(true);
       notifyLiveSync('orders');
-      if (['To Ship', 'To Receive', 'Completed'].includes(newStatus)) {
+      if (newStatus === 'In Transit' || newStatus === 'To Receive') {
+        showSuccessToast(
+          `Order dispatched via ${payload.courier || 'courier'}! Inventory stock deducted from Finished Goods.`
+        );
+      } else if (['To Ship', 'Waiting for Courier', 'Completed', 'Delivered'].includes(newStatus)) {
         showSuccessToast(
           `Order updated to "${newStatus}"! Inventory stock status synchronized.`
         );
@@ -735,6 +767,302 @@ function LogisticsOrderManagement() {
     }
   };
 
+  // Log Process Records to Order Tracking Timeline
+  const handleLogTimelineEvent = async (orderId, { title, description, actor = 'Logistics Staff', status }) => {
+    try {
+      const res = await axios.post(`${API_BASE_URL}/orders/${orderId}/timeline`, {
+        title,
+        description,
+        actor,
+        status,
+      });
+      if (res.data?.order) {
+        setSelectedOrder((prev) => (prev?._id === orderId ? res.data.order : prev));
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? res.data.order : o)));
+      }
+    } catch (e) {
+      console.warn('Non-blocking timeline logging:', e);
+    }
+  };
+
+  // Auto-Fetch & Sync Payment Reference from PayMongo API
+  const handleAutoFetchPayMongo = async (targetOrder) => {
+    const ord = targetOrder || paymentVerifyModal.order;
+    if (!ord?._id) return;
+
+    setPaymentVerifyModal((prev) => ({ ...prev, isSyncingPayMongo: true }));
+    try {
+      const res = await axios.get(`${API_BASE_URL}/payments/sync-order-reference/${ord._id}`);
+      if (res.data?.matched && res.data?.referenceNumber) {
+        const ref = res.data.referenceNumber;
+        const channel = res.data.channel || 'Online';
+        const fee = Number(res.data.fee || 0);
+        const net = Number(res.data.netAmount || 0);
+        const gross = Number(res.data.grossAmount || 0);
+
+        setPaymentVerifyModal((prev) => ({
+          ...prev,
+          referenceNumber: ref,
+          notes: `Auto-verified via PayMongo API (${channel} • Ref #${ref} • Net: ₱${net.toFixed(2)})`,
+          payMongoDetails: res.data.order?.paymentDetails || {
+            referenceNumber: ref,
+            paymentMethodType: channel,
+            grossAmount: gross,
+            fee,
+            netAmount: net,
+            billingDetails: res.data.billing,
+          },
+          isSyncingPayMongo: false,
+        }));
+
+        if (res.data.order) {
+          setSelectedOrder((prev) => (prev?._id === ord._id ? res.data.order : prev));
+          setOrders((prev) => prev.map((o) => (o._id === ord._id ? res.data.order : o)));
+        }
+        showSuccessToast(`PayMongo reference auto-captured: ${ref} (${channel}) 🎉`);
+      } else {
+        showInfoToast(res.data?.message || 'No PayMongo transaction found for this order yet.');
+        setPaymentVerifyModal((prev) => ({ ...prev, isSyncingPayMongo: false }));
+      }
+    } catch (err) {
+      console.error('PayMongo auto-sync error:', err);
+      showErrorToast('Failed to auto-fetch reference from PayMongo API.');
+      setPaymentVerifyModal((prev) => ({ ...prev, isSyncingPayMongo: false }));
+    }
+  };
+
+  // Open Payment Verification Modal
+  const handleOpenPaymentVerifyModal = (order) => {
+    const existingRef = order?.paymentDetails?.referenceNumber || order?.paymentDetails?.paymentId || '';
+    setPaymentVerifyModal({
+      isOpen: true,
+      order,
+      referenceNumber: existingRef,
+      notes: order?.paymentDetails?.verifiedBy ? `Verified by ${order.paymentDetails.verifiedBy}` : '',
+      isSubmitting: false,
+      isSyncingPayMongo: false,
+      payMongoDetails: order?.paymentDetails || null,
+    });
+
+    const isOnline = (order?.paymentMethod || '').toLowerCase().includes('paymongo') ||
+      (order?.paymentMethod || '').toLowerCase().includes('e-wallet') ||
+      (order?.paymentMethod || '').toLowerCase().includes('online') ||
+      (order?.paymentMethod || '').toLowerCase().includes('card') ||
+      Boolean(order?.checkoutSessionId);
+
+    if (isOnline && !existingRef) {
+      handleAutoFetchPayMongo(order);
+    }
+  };
+
+  // Confirm Verification & Mark E-Payment as Paid
+  const handleConfirmVerifyPayment = async () => {
+    if (!paymentVerifyModal.order) return;
+    setPaymentVerifyModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      const res = await axios.put(`${API_BASE_URL}/orders/${paymentVerifyModal.order._id}/payment`, {
+        paymentStatus: 'Paid',
+        paymentReference: paymentVerifyModal.referenceNumber.trim() || undefined,
+        notes: paymentVerifyModal.notes.trim() || undefined,
+        actor: 'Logistics Officer',
+      });
+      if (res.data?.order) {
+        setSelectedOrder((prev) => (prev?._id === paymentVerifyModal.order._id ? res.data.order : prev));
+        setOrders((prev) => prev.map((o) => (o._id === paymentVerifyModal.order._id ? res.data.order : o)));
+      }
+      fetchOrders(true);
+      notifyLiveSync('orders');
+      showSuccessToast('Payment verified successfully as Paid! Process record updated.');
+      setPaymentVerifyModal({ isOpen: false, order: null, referenceNumber: '', notes: '', isSubmitting: false, isSyncingPayMongo: false, payMongoDetails: null });
+    } catch (err) {
+      console.error('Error verifying payment:', err);
+      showErrorToast('Failed to verify payment status.');
+      setPaymentVerifyModal((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  };
+
+  // Add Manual Process Note to Audit Trail
+  const handleAddProcessNote = async () => {
+    if (!customNote.trim() || !selectedOrder) return;
+    setIsAddingNote(true);
+    try {
+      await handleLogTimelineEvent(selectedOrder._id, {
+        title: 'Logistics Process Update',
+        description: customNote.trim(),
+        actor: 'Logistics Staff',
+        status: selectedOrder.status,
+      });
+      setCustomNote('');
+      fetchOrders(true);
+      notifyLiveSync('orders');
+      showSuccessToast('Process record note added to order audit log.');
+    } catch (e) {
+      showErrorToast('Failed to record process note.');
+    } finally {
+      setIsAddingNote(false);
+    }
+  };
+
+  // Download Standard Courier Airway Bill / Shipping Label PDF (Waybill)
+  const handleDownloadWaybillPdf = (order) => {
+    if (!order) return;
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [100, 150] }); // 100x150mm standard thermal sticker format
+      const orderIdShort = order._id?.slice(-8).toUpperCase() || 'ORDER';
+      const courierName = (order.courier || selectedCourier || 'J&T Express').trim();
+      const trackingNo = order.trackingNumber || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
+      const customerName = order.customerName || order.userId?.name || order.user?.name || 'Customer';
+      const customerPhone = order.userId?.phoneNumber || order.phoneNumber || '0917-000-0000';
+      const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      const totalAmount = Number(order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+      const isCod = (order.paymentMethod || '').toLowerCase().includes('cod') || (order.paymentMethod || '').toLowerCase().includes('cash on delivery');
+      const isPaid = (order.paymentStatus || '').toLowerCase() === 'paid';
+
+      // 1. Header Box - Courier & Service Type
+      doc.setFillColor(1, 57, 15);
+      doc.rect(0, 0, 100, 15, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(courierName.toUpperCase(), 5, 7.5);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('AIRWAY BILL & SHIPPING LABEL', 5, 12);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('STANDARD EXP', 72, 7.5);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(new Date().toLocaleDateString(), 74, 12);
+
+      // 2. Barcode Simulation Box
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 15, 100, 21, 'F');
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(4, 17, 92, 17);
+
+      doc.setFillColor(15, 23, 42);
+      let bx = 9;
+      for (let i = 0; i < 44; i++) {
+        const barWidth = (i % 3 === 0 || i % 7 === 0) ? 1.4 : 0.6;
+        if (i % 6 !== 0) {
+          doc.rect(bx, 19, barWidth, 9.5, 'F');
+        }
+        bx += barWidth + 1.1;
+      }
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(8.5);
+      doc.text(`* ${trackingNo} *`, 50, 32, { align: 'center' });
+
+      // 3. Payment Method & Amount Box (Crucial for Courier Rider)
+      doc.setDrawColor(30, 41, 59);
+      if (isCod) {
+        doc.setFillColor(254, 240, 138); // Yellow highlight for COD
+        doc.rect(4, 36, 92, 13, 'FD');
+        doc.setTextColor(113, 63, 18);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text('CASH ON DELIVERY (COD)', 7, 41);
+        doc.setFontSize(9.5);
+        doc.text(`AMOUNT TO COLLECT: PHP ${totalAmount}`, 7, 46.5);
+      } else {
+        doc.setFillColor(219, 234, 254); // Blue highlight for Prepaid
+        doc.rect(4, 36, 92, 13, 'FD');
+        doc.setTextColor(30, 58, 138);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text('PREPAID / NON-COD  [ DO NOT COLLECT CASH ]', 7, 41);
+        doc.setFontSize(9);
+        doc.text(`PAID ONLINE (${order.paymentMethod || 'E-PAYMENT'}) - PHP ${totalAmount}`, 7, 46.5);
+      }
+
+      // 4. Consignee (Receiver / TO)
+      doc.setDrawColor(203, 213, 225);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(4, 51, 92, 28, 'FD');
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.text('RECIPIENT / SHIP TO:', 7, 55);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(8.5);
+      doc.text(customerName.toUpperCase(), 7, 60);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`Phone: ${customerPhone}`, 7, 64);
+      const splitAddress = doc.splitTextToSize(formatShippingAddress(order.shippingAddress) || 'Customer Delivery Address', 86);
+      doc.text(splitAddress, 7, 68);
+
+      // 5. Shipper (Sender / FROM)
+      doc.rect(4, 81, 92, 16, 'FD');
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.text('SENDER / RETURN TO:', 7, 85);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(7.5);
+      doc.text('MHIRA NATURAL SKINCARE', 7, 89);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.text('Logistics & Supply Chain Hub, Manila, Philippines | Tel: 0917-123-4567', 7, 93);
+
+      // 6. Order Contents & Itemized Summary
+      doc.rect(4, 99, 92, 27, 'FD');
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.text('PARCEL CONTENTS & ORDER INFO:', 7, 103);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.text(`Order Ref: #${orderIdShort} | Date Placed: ${orderDate}`, 7, 107);
+
+      let itemY = 111;
+      const itemsList = order.items || [];
+      const totalItemsCount = itemsList.reduce((acc, it) => acc + (it.quantity || 1), 0);
+      itemsList.slice(0, 3).forEach((it) => {
+        const itemLine = `• ${(it.name || 'Product').substring(0, 38)} (x${it.quantity || 1})`;
+        doc.text(itemLine, 7, itemY);
+        itemY += 3.5;
+      });
+      if (itemsList.length > 3) {
+        doc.text(`+ ${itemsList.length - 3} more items...`, 7, itemY);
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total Pcs: ${totalItemsCount} units | Declared Value: PHP ${totalAmount}`, 7, 123);
+
+      // 7. Rider Signature & Verification Box
+      doc.rect(4, 128, 92, 17);
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('DISPATCH / RIDER HANDOVER:', 7, 132);
+      doc.text('RECIPIENT SIGNATURE:', 54, 132);
+      doc.line(7, 140, 45, 140);
+      doc.line(54, 140, 92, 140);
+      doc.text(`Carrier: ${courierName}`, 7, 143.5);
+      doc.text('Date Received:', 54, 143.5);
+
+      const fileName = `Waybill_${courierName.replace(/\s+/g, '_')}_${trackingNo}.pdf`;
+      doc.save(fileName);
+      showSuccessToast(`Waybill generated & downloaded: ${fileName}`);
+
+      // Log timeline event
+      handleLogTimelineEvent(order._id, {
+        title: 'Waybill Generated & Downloaded',
+        description: `Waybill shipping label generated for ${courierName} (Tracking: ${trackingNo}).`,
+        actor: 'Logistics Officer',
+      });
+    } catch (err) {
+      console.error('Error generating Waybill PDF:', err);
+      showErrorToast('Failed to generate Waybill shipping label.');
+    }
+  };
+
   // Download Master Orders Summary Report PDF
   const handleDownloadOrdersSummaryPdf = (orderList) => {
     try {
@@ -807,55 +1135,70 @@ function LogisticsOrderManagement() {
     switch (s) {
       case 'paid':
       case 'completed':
+      case 'delivered':
+      case 'to-review':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            Completed
+          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+            Delivered
           </span>
         );
+      case 'waiting for courier':
+      case 'waiting-for-courier':
       case 'to ship':
       case 'to-ship':
+      case 'processing':
+      case 'preparing':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-            To Ship
+          <span className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+            Waiting for Courier
           </span>
         );
+      case 'in transit':
+      case 'in-transit':
       case 'to receive':
       case 'to-receive':
+      case 'shipped':
+      case 'out-for-delivery':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-cyan-50 text-cyan-700 border border-cyan-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
             In Transit
           </span>
         );
       case 'order placed':
       case 'order-placed':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
             Order Placed
           </span>
         );
       case 'to pay':
       case 'to-pay':
+      case 'pending':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+          <span className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
             To Pay
           </span>
         );
       case 'cancelled':
+      case 'cancel':
+      case 'return':
+      case 'return-refund':
+      case 'returns':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 border border-rose-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
             Cancelled
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 border border-slate-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+          <span className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
             {status || 'Pending'}
           </span>
         );
@@ -865,10 +1208,10 @@ function LogisticsOrderManagement() {
   // Workflow progress index calculation (0-3: Order Placed -> Waiting for Courier / To Ship -> In Transit -> Delivered)
   const getWorkflowStepIndex = (status) => {
     const s = (status || '').toLowerCase();
-    if (s.includes('cancelled')) return -1;
-    if (s === 'completed' || s === 'paid') return 3;
-    if (s === 'to receive' || s === 'to-receive') return 2;
-    if (s === 'to ship' || s === 'to-ship') return 1;
+    if (s.includes('cancel') || s.includes('return')) return -1;
+    if (s === 'completed' || s === 'delivered' || s === 'paid' || s === 'to-review') return 3;
+    if (s === 'to receive' || s === 'to-receive' || s === 'in transit' || s === 'in-transit' || s === 'shipped' || s === 'out-for-delivery') return 2;
+    if (s === 'to ship' || s === 'to-ship' || s === 'waiting for courier' || s === 'waiting-for-courier' || s === 'processing' || s === 'preparing') return 1;
     return 0; // Order Placed / To Pay
   };
 
@@ -911,10 +1254,10 @@ function LogisticsOrderManagement() {
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'order-placed'
                   ? (counts['order-placed'] || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : (counts['order-placed'] || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by Order Placed (Awaiting confirmation)"
@@ -926,7 +1269,7 @@ function LogisticsOrderManagement() {
 
               {(counts['cancel-requests'] || 0) > 0 && (
                 <span
-                  className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-rose-600 text-white shadow-2xs animate-pulse tracking-tight flex items-center gap-1"
+                  className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white shadow-2xs animate-pulse tracking-tight flex items-center gap-1"
                   title={`${counts['cancel-requests']} Cancellation Request(s) Pending Review`}
                 >
                   <AlertTriangle className="w-2.5 h-2.5" />
@@ -939,7 +1282,7 @@ function LogisticsOrderManagement() {
                   className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${(counts['order-placed'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
                     } ${activeTab === 'order-placed'
                       ? 'bg-[#c81e1e] text-white'
-                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                      : 'bg-red-50 text-red-700 border border-red-200'
                     }`}
                   title={`${counts['order-placed']} Order Placed`}
                 >
@@ -957,10 +1300,10 @@ function LogisticsOrderManagement() {
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'waiting-courier'
                   ? (counts['waiting-courier'] || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : (counts['waiting-courier'] || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by Waiting for Courier (To Ship / Packing)"
@@ -974,7 +1317,7 @@ function LogisticsOrderManagement() {
                   className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${(counts['waiting-courier'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
                     } ${activeTab === 'waiting-courier'
                       ? 'bg-[#c81e1e] text-white'
-                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                      : 'bg-red-50 text-red-700 border border-red-200'
                     }`}
                   title={`${counts['waiting-courier']} Waiting for Courier`}
                 >
@@ -992,10 +1335,10 @@ function LogisticsOrderManagement() {
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'in-transit'
                   ? (counts['in-transit'] || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : (counts['in-transit'] || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by In Transit (Dispatched to Courier)"
@@ -1009,7 +1352,7 @@ function LogisticsOrderManagement() {
                   className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${(counts['in-transit'] || 0) > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
                     } ${activeTab === 'in-transit'
                       ? 'bg-[#c81e1e] text-white'
-                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                      : 'bg-red-50 text-red-700 border border-red-200'
                     }`}
                   title={`${counts['in-transit']} In Transit`}
                 >
@@ -1078,9 +1421,9 @@ function LogisticsOrderManagement() {
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <RotateCcw className="w-3.5 h-3.5 text-red-600 shrink-0" />
                   <span className="truncate">Reset Filters</span>
                 </button>
               </div>
@@ -1162,7 +1505,7 @@ function LogisticsOrderManagement() {
                         e.stopPropagation();
                         setSelectedDate('');
                       }}
-                      className="absolute right-1.5 top-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      className="absolute right-1.5 top-1 text-slate-400 hover:text-red-600 cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -1220,7 +1563,7 @@ function LogisticsOrderManagement() {
                     )
                   }
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedPaymentMethod === 'Cash on Delivery (COD)'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -1233,7 +1576,7 @@ function LogisticsOrderManagement() {
                     setSelectedPaymentMethod(selectedPaymentMethod === 'GCash' ? 'All' : 'GCash')
                   }
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedPaymentMethod === 'GCash'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -1247,7 +1590,7 @@ function LogisticsOrderManagement() {
                     setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                   }}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${selectedDate === new Date().toISOString().split('T')[0]
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -1263,15 +1606,15 @@ function LogisticsOrderManagement() {
 
         {/* PROMINENT PENDING CANCELLATION REQUESTS BANNER */}
         {(counts['cancel-requests'] || 0) > 0 && (
-          <div className="bg-gradient-to-r from-amber-50 to-rose-50 border border-rose-200/90 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs -mt-2">
+          <div className="bg-gradient-to-r from-yellow-50 to-red-50 border border-red-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs -mt-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 border border-rose-200 shadow-2xs">
-                <AlertTriangle className="w-4 h-4 animate-bounce text-rose-600" />
+              <div className="w-8 h-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center shrink-0 border border-red-200 shadow-2xs">
+                <AlertTriangle className="w-4 h-4 animate-bounce text-red-600" />
               </div>
               <div>
-                <p className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
+                <p className="text-xs font-bold text-red-950 flex items-center gap-1.5">
                   <span>{counts['cancel-requests']} Order Cancellation Request{counts['cancel-requests'] > 1 ? 's' : ''} Pending Review</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-600 text-white animate-pulse">ACTION REQUIRED</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white animate-pulse">ACTION REQUIRED</span>
                 </p>
                 <p className="text-[11px] text-slate-600">
                   Customers submitted cancellation requests in "Order Placed". Please review and approve or decline.
@@ -1286,8 +1629,8 @@ function LogisticsOrderManagement() {
                   setFilterCancelRequestsOnly((prev) => !prev);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${filterCancelRequestsOnly
-                  ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
-                  : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-100 shadow-2xs'
+                  ? 'bg-red-600 text-white border-red-700 shadow-2xs'
+                  : 'bg-white text-red-800 border-red-300 hover:bg-red-100 shadow-2xs'
                   }`}
               >
                 <Filter className="w-3.5 h-3.5" />
@@ -1428,8 +1771,58 @@ function LogisticsOrderManagement() {
                         </td>
 
                         {/* 6. PAYMENT */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-700 uppercase bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {order.paymentMethod || 'COD'}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {(() => {
+                            const isCod = (order.paymentMethod || '').toLowerCase().includes('cod') || (order.paymentMethod || '').toLowerCase().includes('cash on delivery');
+                            const isPaid = (order.paymentStatus || '').toLowerCase() === 'paid';
+                            const isDelivered = (order.status || '').toLowerCase() === 'delivered' || (order.status || '').toLowerCase() === 'completed';
+
+                            return (
+                              <div className="flex flex-col items-center justify-center gap-1">
+                                <span className="font-mono text-xs font-bold text-slate-800 uppercase">
+                                  {order.paymentMethod || 'Cash on Delivery'}
+                                </span>
+                                {isCod ? (
+                                  isDelivered || isPaid ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1 shadow-2xs">
+                                      <Check className="w-2.5 h-2.5" />
+                                      <span>COD COLLECTED</span>
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300 inline-flex items-center gap-1 shadow-2xs" title="To be collected by courier rider upon delivery">
+                                      <Clock className="w-2.5 h-2.5" />
+                                      <span>COD • TO COLLECT</span>
+                                    </span>
+                                  )
+                                ) : (
+                                  isPaid ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1 shadow-2xs">
+                                      <Check className="w-2.5 h-2.5" />
+                                      <span>ONLINE PAID</span>
+                                    </span>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300 inline-flex items-center gap-1 shadow-2xs">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        <span>PAYMENT PENDING</span>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenPaymentVerifyModal(order);
+                                        }}
+                                        className="text-[10px] text-blue-700 hover:text-blue-900 underline font-bold cursor-pointer"
+                                        title="Verify e-payment & mark as Paid"
+                                      >
+                                        Verify
+                                      </button>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* 7. TOTAL AMOUNT (Accent Column) */}
@@ -1460,10 +1853,10 @@ function LogisticsOrderManagement() {
                             </div>
                             {order.cancellationRequest?.status === 'Pending' && (
                               <span
-                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300 inline-flex items-center gap-1 animate-pulse"
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 inline-flex items-center gap-1 animate-pulse"
                                 title={`Reason: ${order.cancellationRequest.reason || 'Customer requested'}`}
                               >
-                                <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                <AlertTriangle className="w-3 h-3 text-red-600" />
                                 <span>Cancel Requested</span>
                               </span>
                             )}
@@ -1473,7 +1866,7 @@ function LogisticsOrderManagement() {
                         {/* 9. ACTION (Sticky Right) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
-                          className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors"
+                          className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-32 min-w-[120px] transition-colors"
                         >
                           <div className="flex items-center justify-center gap-1.5">
                             {order.cancellationRequest?.status === 'Pending' && (
@@ -1481,7 +1874,7 @@ function LogisticsOrderManagement() {
                                 type="button"
                                 onClick={() => setSelectedOrder(order)}
                                 title="Review customer cancellation request"
-                                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                                className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
                               >
                                 <AlertTriangle className="w-3 h-3" />
                                 <span>Review</span>
@@ -1489,15 +1882,24 @@ function LogisticsOrderManagement() {
                             )}
                             <button
                               type="button"
+                              onClick={() => handleDownloadWaybillPdf(order)}
+                              title="Download Courier Waybill Shipping Label"
+                              aria-label="Download Courier Waybill Shipping Label"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => setSelectedOrder(order)}
-                              title="View Order Details"
-                              aria-label="View Order Details"
+                              title="View Order Details & Process Records"
+                              aria-label="View Order Details & Process Records"
                               className="relative w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group/btn"
                             >
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                               {((order.status || '').toLowerCase() === 'order placed' || (order.status || '').toLowerCase() === 'to pay') && (
                                 <span
-                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white animate-pulse"
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-600 border-2 border-white animate-pulse"
                                   title="Order Placed - Awaiting Confirmation"
                                 />
                               )}
@@ -1527,37 +1929,134 @@ function LogisticsOrderManagement() {
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-2xl bg-white shadow-2xl border-l border-slate-200 flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
 
-              {/* DRAWER TOP BAR HEADER */}
-              <div className="p-6 bg-slate-50/90 border-b border-slate-200/80 flex items-start justify-between shrink-0">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              {/* DRAWER TOP BAR HEADER (CLEAN & COMPACT, NO BULKY CONTAINERS) */}
+              <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex flex-col gap-2 shrink-0">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight truncate max-w-[280px]">
                       {selectedOrder.customerName || selectedOrder.userId?.name || 'Customer Order'}
                     </h2>
                     {getStatusBadge(selectedOrder.status)}
+                    <span className="font-mono font-black text-[#01390f] text-sm sm:text-base">
+                      ₱{Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
-                    <span className="flex items-center gap-1">
-                      <Tag className="w-3 h-3 text-[#01390f]" />
-                      <span>#{selectedOrder._id?.slice(-8).toUpperCase()}</span>
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <ShoppingBag className="w-3 h-3 text-slate-400" />
-                      <span>Mhira Natural Store</span>
-                    </span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrder(null)}
+                    className="text-slate-400 hover:text-slate-600 font-bold px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm shrink-0"
+                    title="Close Drawer"
+                  >
+                    ✕
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setSelectedOrder(null)}
-                  className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-all cursor-pointer text-sm font-bold shadow-2xs"
-                  title="Close Sidebar"
-                >
-                  ✕
-                </button>
+                {/* Subtitle & Key Status Badges Inline */}
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-mono flex-wrap">
+                  <span className="flex items-center gap-1">
+                    <Tag className="w-3 h-3 text-[#01390f]" />
+                    <span>#{selectedOrder._id?.slice(-8).toUpperCase()}</span>
+                  </span>
+                  <span>•</span>
+                  {/* Payment Badge */}
+                  {(() => {
+                    const isCod = (selectedOrder.paymentMethod || '').toLowerCase().includes('cod') || (selectedOrder.paymentMethod || '').toLowerCase().includes('cash on delivery');
+                    const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid';
+                    const isDelivered = (selectedOrder.status || '').toLowerCase() === 'delivered' || (selectedOrder.status || '').toLowerCase() === 'completed';
+                    if (isCod) {
+                      return isDelivered || isPaid ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          COD Paid
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
+                          COD Collect
+                        </span>
+                      );
+                    }
+                    return isPaid ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        Online Paid
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
+                        Pending Pay
+                      </span>
+                    );
+                  })()}
+                  <span>•</span>
+                  {/* Inventory Stock Badge */}
+                  {selectedOrder.inventoryDeducted ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200" title="Deducted from Finished Goods inventory">
+                      ✓ Stock Deducted
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300" title="Will auto-deduct upon courier rider handover">
+                      ⏳ Pending Handover
+                    </span>
+                  )}
+                  <span>•</span>
+                  <span className="text-slate-400">Mhira Natural Store</span>
+                </div>
+              </div>
+
+              {/* COMPACT WORKFLOW STAGE TABS (NO BULKY STEPPER BOX) */}
+              <div className="px-6 py-2.5 bg-white border-b border-slate-200/80 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
+                {[
+                  { id: 'review', stageNum: 1, label: 'Order Review' },
+                  { id: 'dispatch', stageNum: 2, label: 'Waiting for Courier & Waybill' },
+                  { id: 'customer', stageNum: 3, label: 'In Transit & POD' },
+                  { id: 'invoice', stageNum: 4, label: 'Delivered & Invoice' },
+                  { id: 'timeline', stageNum: 5, label: 'Process Records', isAlwaysUnlocked: true },
+                ].map((tab) => {
+                  const currentOrderStage = getWorkflowStepIndex(selectedOrder.status);
+                  const isUnlocked = tab.isAlwaysUnlocked || tab.stageNum - 1 <= currentOrderStage;
+                  const isOrderCurrentStage = currentOrderStage === tab.stageNum - 1;
+                  const isActive = activeDrawerTab === tab.id;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      disabled={!isUnlocked}
+                      onClick={() => {
+                        if (isUnlocked) setActiveDrawerTab(tab.id);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${!isUnlocked
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-40 select-none'
+                        : isActive
+                          ? 'bg-[#01390f] text-white shadow-xs cursor-pointer'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer'
+                        }`}
+                    >
+                      <span
+                        className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${!isUnlocked
+                          ? 'bg-slate-200 text-slate-400'
+                          : isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-slate-200 text-slate-700'
+                          }`}
+                      >
+                        {!isUnlocked ? (
+                          <Lock className="w-2.5 h-2.5" />
+                        ) : tab.isAlwaysUnlocked ? (
+                          <History className="w-2.5 h-2.5" />
+                        ) : (
+                          tab.stageNum
+                        )}
+                      </span>
+                      <span>{tab.label}</span>
+                      {isOrderCurrentStage && !tab.isAlwaysUnlocked && (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${isActive ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}
+                        >
+                          Current
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* DRAWER SCROLLABLE CONTENT */}
@@ -1565,27 +2064,27 @@ function LogisticsOrderManagement() {
 
                 {/* CANCELLATION REQUEST REVIEW BANNER */}
                 {selectedOrder.cancellationRequest?.status === 'Pending' && (
-                  <div className="bg-gradient-to-r from-amber-50 to-rose-50 border-2 border-rose-300 rounded-2xl p-4 shadow-xs space-y-3">
+                  <div className="bg-gradient-to-r from-yellow-50 to-red-50 border-2 border-red-300 rounded-2xl p-4 shadow-xs space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center border border-rose-200 shrink-0 shadow-2xs">
-                          <AlertTriangle className="w-4 h-4 animate-bounce text-rose-600" />
+                        <div className="w-8 h-8 rounded-xl bg-red-100 text-red-700 flex items-center justify-center border border-red-200 shrink-0 shadow-2xs">
+                          <AlertTriangle className="w-4 h-4 animate-bounce text-red-600" />
                         </div>
                         <div>
-                          <h4 className="text-xs font-black text-rose-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <h4 className="text-xs font-black text-red-950 uppercase tracking-wider flex items-center gap-1.5">
                             <span>Customer Cancellation Request</span>
                           </h4>
-                          <p className="text-[11px] text-rose-700 font-mono">
+                          <p className="text-[11px] text-red-700 font-mono">
                             Submitted {selectedOrder.cancellationRequest.requestedAt ? new Date(selectedOrder.cancellationRequest.requestedAt).toLocaleString() : 'Recently'}
                           </p>
                         </div>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-200 text-rose-900 uppercase tracking-wide animate-pulse">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 uppercase tracking-wide animate-pulse">
                         Action Required
                       </span>
                     </div>
 
-                    <div className="bg-white/90 p-3 rounded-xl border border-rose-200 text-xs space-y-1">
+                    <div className="bg-white/90 p-3 rounded-xl border border-red-200 text-xs space-y-1">
                       <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider block">Customer's Reason:</span>
                       <p className="font-bold text-slate-800 italic">
                         "{selectedOrder.cancellationRequest.reason || 'Customer requested order cancellation'}"
@@ -1597,7 +2096,7 @@ function LogisticsOrderManagement() {
                         type="button"
                         disabled={isReviewingCancel}
                         onClick={() => handleReviewCancellation(selectedOrder._id, 'approve')}
-                        className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
                       >
                         {isReviewingCancel ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                         <span>Approve Cancel (Cancel Order)</span>
@@ -1615,263 +2114,125 @@ function LogisticsOrderManagement() {
                   </div>
                 )}
 
-                {/* 3-CARD SUMMARY STATS (AS IN REFERENCE) */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">STATUS</span>
-                    <span className="font-bold text-slate-900 mt-1">
-                      {(selectedOrder.status || 'Pending').toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">DATE PLACED</span>
-                    <span className="font-mono font-bold text-slate-900 mt-1">
-                      {new Date(selectedOrder.createdAt || Date.now()).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TOTAL VALUE</span>
-                    <span className="font-mono font-black text-[#01390f] text-sm mt-1">
-                      ₱{Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* WORKFLOW PROGRESS STEPPER PIPELINE */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                      WORKFLOW PROGRESS
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-[#01390f]">
-                      Stage {Math.max(1, getWorkflowStepIndex(selectedOrder.status) + 1)} of {workflowSteps.length}
-                    </span>
-                  </div>
-
-                  {/* Visual Step Progress Line */}
-                  <div className="relative flex items-center justify-between pt-2">
-                    {/* Connecting Line */}
-                    <div className="absolute left-4 right-4 top-5 h-0.5 bg-slate-200 z-0" />
-                    <div
-                      className="absolute left-4 top-5 h-0.5 bg-[#01390f] transition-all duration-500 z-0"
-                      style={{
-                        width: `${Math.max(0, Math.min(100, (getWorkflowStepIndex(selectedOrder.status) / (workflowSteps.length - 1)) * 100))}%`
-                      }}
-                    />
-
-                    {workflowSteps.map((step, idx) => {
-                      const currentIdx = getWorkflowStepIndex(selectedOrder.status);
-                      const isPassed = idx < currentIdx;
-                      const isCurrent = idx === currentIdx;
-                      const isUnlocked = idx <= currentIdx;
-                      const tabIds = ['review', 'dispatch', 'customer', 'invoice'];
-                      const targetTab = tabIds[idx];
-                      const isTabActive = activeDrawerTab === targetTab;
-
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            if (!isUnlocked) return;
-                            setActiveDrawerTab(targetTab);
-                          }}
-                          className={`relative z-10 flex flex-col items-center gap-2 transition-all ${isUnlocked ? 'cursor-pointer group' : 'cursor-not-allowed opacity-40 pointer-events-none select-none'
-                            }`}
-                          title={
-                            isUnlocked
-                              ? `Click to view Stage ${idx + 1}: ${step.label}`
-                              : `Stage ${idx + 1}: ${step.label} is locked (advance previous stage first)`
-                          }
-                        >
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${isUnlocked ? 'group-hover:scale-110' : ''
-                              } ${isTabActive
-                                ? 'bg-[#01390f] text-white ring-4 ring-[#01390f]/20 scale-110 shadow-md'
-                                : isPassed
-                                  ? 'bg-[#01390f] text-white'
-                                  : isCurrent
-                                    ? 'bg-[#01390f] text-white ring-2 ring-[#01390f]/30'
-                                    : 'bg-slate-100 text-slate-400 border border-slate-200'
-                              }`}
-                          >
-                            {isPassed ? (
-                              <Check className="w-3.5 h-3.5" />
-                            ) : !isUnlocked ? (
-                              <Lock className="w-3 h-3 text-slate-400" />
-                            ) : (
-                              idx + 1
-                            )}
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight transition-colors ${isTabActive
-                              ? 'text-[#01390f] underline decoration-2 underline-offset-2'
-                              : isCurrent
-                                ? 'text-[#01390f]'
-                                : isPassed
-                                  ? 'text-slate-700'
-                                  : 'text-slate-400'
-                              }`}
-                          >
-                            {step.label}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* WORKFLOW STAGE TABS (LOCKED TO REACHED STAGES ONLY) */}
-                <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
-                  {[
-                    { id: 'review', stageNum: 1, label: 'Order Review', stepName: 'Order Placed' },
-                    { id: 'dispatch', stageNum: 2, label: 'Fulfillment & Dispatch', stepName: 'Waiting for Courier' },
-                    { id: 'customer', stageNum: 3, label: 'Customer & Destination', stepName: 'In Transit' },
-                    { id: 'invoice', stageNum: 4, label: 'Invoice & Receipt', stepName: 'Delivered' },
-                  ].map((tab) => {
-                    const currentOrderStage = getWorkflowStepIndex(selectedOrder.status);
-                    const isUnlocked = tab.stageNum - 1 <= currentOrderStage;
-                    const isOrderCurrentStage = currentOrderStage === tab.stageNum - 1;
-                    const isActive = activeDrawerTab === tab.id;
-
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        disabled={!isUnlocked}
-                        onClick={() => {
-                          if (isUnlocked) setActiveDrawerTab(tab.id);
-                        }}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${!isUnlocked
-                          ? 'bg-slate-100/60 text-slate-400 cursor-not-allowed opacity-45 border border-transparent pointer-events-none select-none'
-                          : isActive
-                            ? 'bg-[#01390f] text-white shadow-xs cursor-pointer'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer'
-                          }`}
-                        title={
-                          isUnlocked
-                            ? `Stage ${tab.stageNum}: ${tab.label}`
-                            : `Stage ${tab.stageNum} is locked. Complete previous stages first.`
-                        }
-                      >
-                        <span
-                          className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${!isUnlocked
-                            ? 'bg-slate-200/70 text-slate-400'
-                            : isActive
-                              ? 'bg-white/20 text-white'
-                              : 'bg-slate-200 text-slate-700'
-                            }`}
-                        >
-                          {!isUnlocked ? <Lock className="w-2.5 h-2.5 text-slate-400" /> : tab.stageNum}
-                        </span>
-                        <span>{tab.label}</span>
-                        {isOrderCurrentStage && (
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${isActive ? 'bg-emerald-300 text-slate-900 font-bold' : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                            title="Current fulfillment stage of this order"
-                          >
-                            Current
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
                 {/* TAB 1: ORDER REVIEW WORKSPACE */}
                 {activeDrawerTab === 'review' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
-                    {/* Confirmation Alert when order is at Order Placed stage */}
-                    {((selectedOrder.status || '').toLowerCase() === 'order placed' || (selectedOrder.status || '').toLowerCase() === 'to pay') && (
-                      <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                            <Clock className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h5 className="font-bold text-amber-950 text-xs sm:text-sm">Order Placed — Awaiting Confirmation</h5>
-                            <p className="text-[11px] text-amber-800/90 font-medium">Order is not yet in "To Ship". Confirm to approve and move to "Waiting for courier".</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(selectedOrder._id, 'To Ship')}
-                          className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Confirm Order (Move to To Ship)</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Top Alert Workspace Card */}
-                    <div className="bg-emerald-50/70 border border-emerald-200/80 p-4 rounded-2xl flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#01390f] text-white flex items-center justify-center">
-                          <Package className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm">Order Items Verification</h4>
-                          <p className="text-[11px] text-slate-500">
-                            {selectedOrder.items?.length || 0} purchased line item(s) recorded in this transaction.
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadOrderPdf(selectedOrder)}
-                        className="bg-white hover:bg-emerald-100 text-[#01390f] border border-emerald-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <FileDown className="w-3.5 h-3.5" />
-                        <span>PDF Invoice</span>
-                      </button>
-                    </div>
-
-                    {/* Order Items Table List */}
+                    {/* Order Items Table List (Clean Cards styled like MarketingAllProductsCatalog) */}
                     <div className="space-y-2">
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                        Ordered Items Breakdown
-                      </span>
-                      <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
-                        {selectedOrder.items?.map((it, idx) => (
-                          <div
-                            key={idx}
-                            className="bg-slate-50 hover:bg-white p-3 rounded-xl border border-slate-200/80 flex items-center justify-between transition-colors text-xs"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-[#01390f] flex items-center justify-center font-bold shrink-0 border border-emerald-100">
-                                {idx + 1}
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Purchased Products & Bundles
+                        </label>
+                        <span className="text-[11px] text-slate-400">
+                          {selectedOrder.items?.length || 0} {selectedOrder.items?.length === 1 ? 'item' : 'items'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                        {selectedOrder.items?.map((it, idx) => {
+                          const itemImg = it.image || it.product?.image || (Array.isArray(it.product?.images) ? it.product.images[0] : null);
+                          const itemCode = it.code || it.product?.code || it.product?.itemCode;
+                          const itemSpec = it.specification || it.product?.specification || it.product?.spec;
+                          const itemUom = it.uom || it.product?.uom || 'PCS';
+                          const unitPrice = Number(it.price || it.product?.price || 0);
+                          const qty = Number(it.quantity || 1);
+                          const lineTotal = unitPrice * qty;
+
+                          return (
+                            <div
+                              key={idx}
+                              className="p-3 bg-white border border-slate-200/80 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-blue-200 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="w-11 h-11 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center overflow-hidden shrink-0">
+                                  {itemImg ? (
+                                    <img
+                                      src={resolveProductImageUrl(itemImg)}
+                                      alt={it.name || 'Product'}
+                                      onError={(e) => {
+                                        e.currentTarget.onerror = null;
+                                        e.currentTarget.src = '/mhira_removebg.png';
+                                      }}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <Package className="w-5 h-5 text-blue-700" />
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                                      {itemCode || `ITEM #${idx + 1}`}
+                                    </span>
+                                    <span className="font-bold text-slate-800 text-xs truncate">
+                                      {it.name || it.product?.name || it.product?.itemName || 'Item Name'}
+                                    </span>
+                                    {itemSpec && (
+                                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
+                                        {itemSpec} {itemUom}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
+                                    <span className="font-mono">₱{unitPrice.toFixed(2)} each</span>
+                                    <span>•</span>
+                                    <span>Quantity: <strong>{qty}</strong></span>
+                                  </div>
+                                </div>
                               </div>
-                              <div>
-                                <span className="font-bold text-slate-900 block truncate max-w-[200px]">
-                                  {it.name || it.product?.name || 'Item Name'}
-                                </span>
-                                <span className="text-slate-400 font-mono text-[10px]">
-                                  ₱{Number(it.price || it.product?.price || 0).toFixed(2)} each
+
+                              <div className="flex flex-col items-end shrink-0 pl-2">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subtotal</span>
+                                <span className="font-mono font-bold text-[#01390f] text-xs">
+                                  ₱{lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <span className="font-mono font-bold text-slate-900 block">
-                                x{it.quantity || 1}
-                              </span>
-                              <span className="font-mono text-[#01390f] font-bold text-xs">
-                                ₱{(Number(it.price || 0) * Number(it.quantity || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Order Financial Totals */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
-                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                        Payment & Financial Summary
-                      </span>
+                    {/* Order Financial Totals & Payment Verification */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                          Payment & Financial Summary
+                        </span>
+                        {(() => {
+                          const isCod = (selectedOrder.paymentMethod || '').toLowerCase().includes('cod') || (selectedOrder.paymentMethod || '').toLowerCase().includes('cash on delivery');
+                          const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid';
+                          const isDelivered = (selectedOrder.status || '').toLowerCase() === 'delivered' || (selectedOrder.status || '').toLowerCase() === 'completed';
+                          if (isCod) {
+                            return isDelivered || isPaid ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                COD Collected
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300">
+                                COD To Collect
+                              </span>
+                            );
+                          }
+                          return isPaid ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              Online Paid
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPaymentVerifyModal(selectedOrder)}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-pointer flex items-center gap-1"
+                              title="Verify customer transfer and mark as Paid"
+                            >
+                              <Check className="w-2.5 h-2.5" />
+                              <span>Verify E-Payment</span>
+                            </button>
+                          );
+                        })()}
+                      </div>
+
                       <div className="flex justify-between items-center text-xs text-slate-600">
                         <span>Items Subtotal:</span>
                         <span className="font-mono font-bold">
@@ -1880,11 +2241,53 @@ function LogisticsOrderManagement() {
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-600">
                         <span>Shipping / Delivery Fee:</span>
-                        <span className="font-mono font-bold text-emerald-600">FREE / Included</span>
+                        <span className="font-mono font-bold text-blue-700">FREE / Included</span>
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-600">
                         <span>Payment Method:</span>
-                        <span className="font-bold text-slate-800">{selectedOrder.paymentMethod || 'COD'}</span>
+                        <span className="font-bold text-slate-800">{selectedOrder.paymentMethod || 'Cash on Delivery'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-slate-600">
+                        <span>Payment Settlement:</span>
+                        {(() => {
+                          const isCod = (selectedOrder.paymentMethod || '').toLowerCase().includes('cod') || (selectedOrder.paymentMethod || '').toLowerCase().includes('cash on delivery');
+                          const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid';
+                          const isDelivered = (selectedOrder.status || '').toLowerCase() === 'delivered' || (selectedOrder.status || '').toLowerCase() === 'completed';
+                          if (isCod) {
+                            return (
+                              <span className="font-bold text-slate-700">
+                                {isDelivered || isPaid ? 'Collected by Rider on Delivery' : `Collect ₱${Number(selectedOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} on Delivery`}
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="font-bold text-slate-700 flex flex-wrap items-center gap-1.5 justify-end">
+                              {isPaid ? (
+                                <>
+                                  <span>Prepaid via {selectedOrder.paymentMethod || 'E-Payment'}</span>
+                                  {selectedOrder.paymentDetails?.referenceNumber && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+                                      Ref: {selectedOrder.paymentDetails.referenceNumber}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <span>Awaiting online transfer confirmation</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAutoFetchPayMongo(selectedOrder)}
+                                    className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer inline-flex items-center gap-1"
+                                    title="Auto-fetch reference from PayMongo"
+                                  >
+                                    <RefreshCw size={9} />
+                                    <span>Sync PayMongo</span>
+                                  </button>
+                                </>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
                         <span>Grand Total:</span>
@@ -1901,30 +2304,20 @@ function LogisticsOrderManagement() {
                   <div className="space-y-4 animate-in fade-in duration-150">
                     {getWorkflowStepIndex(selectedOrder.status) < 1 ? (
                       /* If order is still at Stage 1 (Order Placed) */
-                      <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-5 text-center space-y-3 shadow-2xs">
-                        <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto">
-                          <Clock className="w-6 h-6" />
+                      <div className="bg-yellow-50/80 border border-yellow-300 rounded-2xl p-5 text-center space-y-2.5 shadow-2xs">
+                        <div className="w-11 h-11 rounded-full bg-yellow-100 text-yellow-800 flex items-center justify-center mx-auto">
+                          <Clock className="w-5 h-5" />
                         </div>
-                        <h4 className="text-sm font-bold text-amber-950">Awaiting Order Confirmation First</h4>
-                        <p className="text-xs text-amber-800/80 max-w-sm mx-auto">
-                          This order is still in <strong>Stage 1: Order Placed</strong>. Please review and confirm the order in <strong>Order Review</strong> before assigning courier and dispatching.
+                        <h4 className="text-sm font-bold text-yellow-950">Awaiting Order Confirmation First</h4>
+                        <p className="text-xs text-yellow-800/90 max-w-sm mx-auto">
+                          This order is currently in <strong>Stage 1: Order Placed</strong>. Click <strong>&ldquo;Confirm Order&rdquo;</strong> in the drawer footer below to approve and advance to courier dispatch.
                         </p>
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(selectedOrder._id, 'To Ship')}
-                            className="bg-[#01390f] hover:bg-[#051609] text-white px-5 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
-                          >
-                            <Check className="w-4 h-4" />
-                            <span>Confirm Order Now (Move to To Ship)</span>
-                          </button>
-                        </div>
                       </div>
                     ) : (
                       /* When order is at Stage 2 (Waiting for Courier / To Ship) or above */
                       <div className="space-y-4">
                         {/* Dispatch Status Overview */}
-                        <div className="bg-emerald-50/70 border border-emerald-200/80 p-4 rounded-2xl flex items-center justify-between">
+                        <div className="bg-blue-50/70 border border-blue-200/80 p-4 rounded-2xl flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl bg-[#01390f] text-white flex items-center justify-center">
                               <Truck className="w-5 h-5" />
@@ -1942,16 +2335,22 @@ function LogisticsOrderManagement() {
                               </p>
                             </div>
                           </div>
-                          <span className="text-xs font-mono font-bold text-[#01390f] bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+                          <span className="text-xs font-mono font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200">
                             {selectedOrder.status}
                           </span>
                         </div>
 
                         {/* Courier Partner & Waybill Form */}
-                        <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3">
-                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                            Assigned Courier & Tracking Waybill
-                          </span>
+                        <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                              Assigned Courier & Waybill Label
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                              Thermal 100x150mm
+                            </span>
+                          </div>
+
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="text-[11px] font-semibold text-slate-600 block mb-1">
@@ -1972,38 +2371,77 @@ function LogisticsOrderManagement() {
                             </div>
 
                             <div>
-                              <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-                                Tracking / Waybill No:
-                              </label>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[11px] font-semibold text-slate-600 block">
+                                  Tracking / Waybill No:
+                                </label>
+                                {getWorkflowStepIndex(selectedOrder.status) <= 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const prefix = selectedCourier === 'Lalamove' ? 'LLM' : selectedCourier === 'Flash Express' ? 'TH' : selectedCourier === 'Ninja Van' ? 'NV' : 'JT';
+                                      const generated = `${prefix}${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
+                                      setTrackingNumber(generated);
+                                      showSuccessToast(`Generated Waybill #: ${generated}`);
+                                    }}
+                                    className="text-[10px] font-bold text-blue-700 hover:underline cursor-pointer"
+                                  >
+                                    + Auto-Generate
+                                  </button>
+                                )}
+                              </div>
                               <input
                                 type="text"
                                 placeholder="e.g. JT94829104820"
                                 value={trackingNumber}
                                 onChange={(e) => setTrackingNumber(e.target.value)}
                                 disabled={getWorkflowStepIndex(selectedOrder.status) > 1}
-                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f] disabled:bg-slate-100 disabled:cursor-not-allowed"
+                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f] disabled:bg-slate-100 disabled:cursor-not-allowed font-mono"
                               />
                             </div>
                           </div>
 
-                          {/* 1-Click Dispatch Action Button (Only active at Stage 2: To Ship) */}
-                          {getWorkflowStepIndex(selectedOrder.status) === 1 && (
-                            <div className="pt-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateStatus(selectedOrder._id, 'To Receive', {
-                                    courier: selectedCourier,
-                                    trackingNumber,
-                                  })
-                                }
-                                className="w-full py-2.5 sm:py-3 px-6 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
-                              >
-                                <Truck className="w-4 h-4" />
-                                <span>Handover to Courier & Move to In Transit</span>
-                              </button>
+                          {/* Waybill Action Notice */}
+                          <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-200/70 text-xs">
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              Ready-to-print official Airway Bill (Waybill) with barcode simulation & COD/Prepaid notice.
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              (Use Waybill PDF button in footer)
+                            </span>
+                          </div>
+
+                          {/* Warehouse Finished Goods Inventory Sync Card */}
+                          <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                            selectedOrder.inventoryDeducted
+                              ? 'bg-blue-50/70 border-blue-200 text-blue-900'
+                              : 'bg-yellow-50/70 border-yellow-300 text-yellow-950'
+                          }`}>
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                selectedOrder.inventoryDeducted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                <PackageCheck className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="font-bold flex items-center gap-1.5">
+                                  <span>Warehouse Inventory Stock:</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    selectedOrder.inventoryDeducted
+                                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                      : 'bg-yellow-50 text-yellow-800 border border-yellow-300'
+                                  }`}>
+                                    {selectedOrder.inventoryDeducted ? 'Stock Deducted' : 'Pending Rider Handover'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] opacity-80 mt-0.5">
+                                  {selectedOrder.inventoryDeducted
+                                    ? `Finished Goods inventory deducted for ${(selectedOrder.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0)} units.`
+                                    : 'Items reserved in packing. Stock will be automatically deducted from Finished Goods when handed over to rider.'}
+                                </p>
+                              </div>
                             </div>
-                          )}
+                          </div>
                         </div>
 
                         {/* Shopee/TikTok Style: Estimated Delivery Schedule & Weather Delay Card */}
@@ -2061,7 +2499,7 @@ function LogisticsOrderManagement() {
                           <div className="pt-2 border-t border-slate-200/80 space-y-2.5">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <CloudRain className="w-4 h-4 text-amber-600" />
+                                <CloudRain className="w-4 h-4 text-yellow-600" />
                                 <span className="text-xs font-bold text-slate-800">
                                   Weather / Transit Delay Advisory
                                 </span>
@@ -2073,14 +2511,14 @@ function LogisticsOrderManagement() {
                                   onChange={(e) => setEddIsDelayed(e.target.checked)}
                                   className="sr-only peer"
                                 />
-                                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
                               </label>
                             </div>
 
                             {eddIsDelayed && (
-                              <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-3 space-y-2 animate-in fade-in duration-150">
-                                <div className="flex items-center gap-1.5 text-amber-900 font-bold text-[11px]">
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                              <div className="bg-yellow-50/80 border border-yellow-300 rounded-xl p-3 space-y-2 animate-in fade-in duration-150">
+                                <div className="flex items-center gap-1.5 text-yellow-900 font-bold text-[11px]">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-600" />
                                   <span>Customer Delay Notice Reason:</span>
                                 </div>
                                 <input
@@ -2088,7 +2526,7 @@ function LogisticsOrderManagement() {
                                   placeholder="e.g. Delayed due to Typhoon / Severe Weather disturbance"
                                   value={eddDelayReason}
                                   onChange={(e) => setEddDelayReason(e.target.value)}
-                                  className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-amber-500"
+                                  className="w-full bg-white border border-yellow-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-yellow-500"
                                 />
                                 <div className="flex flex-wrap gap-1 pt-1">
                                   {[
@@ -2100,7 +2538,7 @@ function LogisticsOrderManagement() {
                                       key={preset}
                                       type="button"
                                       onClick={() => setEddDelayReason(preset)}
-                                      className="text-[10px] bg-white hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                                      className="text-[10px] font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full cursor-pointer transition-colors"
                                     >
                                       {preset}
                                     </button>
@@ -2115,7 +2553,7 @@ function LogisticsOrderManagement() {
                               type="button"
                               onClick={handleSaveEstimatedDelivery}
                               disabled={isSavingEdd}
-                              className="px-4 py-2 rounded-xl text-xs font-bold text-[#01390f] bg-white hover:bg-emerald-50 border border-[#01390f]/30 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                              className="px-4 py-2 rounded-xl text-xs font-bold text-blue-700 bg-white hover:bg-blue-50 border border-blue-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
                             >
                               {isSavingEdd ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                               <span>Save Delivery Schedule</span>
@@ -2129,7 +2567,7 @@ function LogisticsOrderManagement() {
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(selectedOrder._id, 'Cancelled')}
-                              className="w-full py-2 px-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              className="w-full py-2 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
                               <XCircle className="w-3.5 h-3.5" />
                               <span>Cancel Order & Restore Inventory Stock</span>
@@ -2196,25 +2634,25 @@ function LogisticsOrderManagement() {
 
                     {/* Active Transit Info & Mark Delivered Action (Only for Stage 3: To Receive) */}
                     {getWorkflowStepIndex(selectedOrder.status) === 2 && (
-                      <div className="bg-emerald-50/70 border border-emerald-200/80 p-4 rounded-2xl space-y-3">
+                      <div className="bg-blue-50/70 border border-blue-200/80 p-4 rounded-2xl space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-slate-800">Assigned Transit Carrier:</span>
-                          <span className="font-semibold text-[#01390f] bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+                          <span className="font-semibold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200">
                             {selectedCourier} {trackingNumber ? `• ${trackingNumber}` : ''}
                           </span>
                         </div>
 
                         {/* Quick Adjust Delivery Schedule While in Transit */}
-                        <div className="bg-white/80 p-3 rounded-xl border border-emerald-200/60 space-y-2 text-xs">
+                        <div className="bg-white/80 p-3 rounded-xl border border-blue-200/60 space-y-2 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-slate-800 flex items-center gap-1">
-                              <CalendarDays className="w-3.5 h-3.5 text-[#01390f]" />
+                              <CalendarDays className="w-3.5 h-3.5 text-blue-700" />
                               <span>Estimated Arrival Window:</span>
                             </span>
-                            <span className="font-bold text-[#01390f]">{eddRange || 'Not set'}</span>
+                            <span className="font-bold text-blue-700">{eddRange || 'Not set'}</span>
                           </div>
                           {eddIsDelayed && (
-                            <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1">
+                            <p className="text-[11px] text-yellow-800 font-medium flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3 shrink-0" />
                               <span>{eddDelayReason || 'Weather / Transit Delay Reported'}</span>
                             </p>
@@ -2237,10 +2675,10 @@ function LogisticsOrderManagement() {
                       <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                            <Camera className="w-3.5 h-3.5 text-[#01390f]" />
+                            <Camera className="w-3.5 h-3.5 text-blue-700" />
                             <span>Verified Proof of Delivery (POD)</span>
                           </span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
                             ✓ Photo Verified
                           </span>
                         </div>
@@ -2331,18 +2769,220 @@ function LogisticsOrderManagement() {
                     </div>
                   </div>
                 )}
+
+                {/* TAB 5: PROCESS RECORDS & AUDIT TRAIL WORKSPACE */}
+                {activeDrawerTab === 'timeline' && (
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    {/* 3 Status KPI Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* 1. Payment Verification Status */}
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Payment Audit</span>
+                        {(() => {
+                          const isCod = (selectedOrder.paymentMethod || '').toUpperCase().includes('COD') || (selectedOrder.paymentMethod || '').toUpperCase().includes('CASH');
+                          const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid' || ((selectedOrder.status || '').toLowerCase() === 'delivered' && isCod);
+                          return (
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isPaid ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-300'}`}>
+                                  {isPaid ? (isCod ? 'COD Collected • Paid' : 'Online Paid') : (isCod ? 'COD • To Collect' : 'Payment Pending')}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 mt-1 font-medium">
+                                {selectedOrder.paymentMethod || 'COD'} • ₱{Number(selectedOrder.totalAmount || 0).toLocaleString()}
+                              </p>
+                              {!isPaid && !isCod && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPaymentVerifyModal(selectedOrder)}
+                                  className="mt-2 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  Verify E-Payment Now
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* 2. Warehouse Stock Deduction Status */}
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Inventory Stock</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedOrder.inventoryDeducted ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-300'}`}>
+                            {selectedOrder.inventoryDeducted ? 'Stock Deducted' : 'Pending Handover'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-1 font-medium">
+                          {selectedOrder.inventoryDeducted
+                            ? `Deducted from Finished Goods (${(selectedOrder.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0)} units)`
+                            : 'Stock reserved. Deducts upon rider handover.'}
+                        </p>
+                      </div>
+
+                      {/* 3. Waybill / Airway Bill Status */}
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Waybill Status</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedOrder.trackingNumber ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-300'}`}>
+                            {selectedOrder.trackingNumber ? 'Waybill Generated' : 'Pending Waybill'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-mono text-slate-600 truncate mt-1">
+                          {selectedOrder.trackingNumber ? `${selectedOrder.courier || 'Courier'}: ${selectedOrder.trackingNumber}` : 'No tracking number yet'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadWaybillPdf(selectedOrder)}
+                          className="mt-1 text-[10px] font-bold text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Printer className="w-3 h-3 text-blue-600" />
+                          <span>Download Waybill PDF</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Manual Process Update Entry */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-blue-700" />
+                          <span>Record Process Activity / Internal Note</span>
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-500">Recorded in Order Audit Log</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="e.g. Parcel packed and bubble wrapped • Rider confirmed pickup for 2:00 PM"
+                          value={customNote}
+                          onChange={(e) => setCustomNote(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !isAddingNote) {
+                              e.preventDefault();
+                              handleAddProcessNote();
+                            }
+                          }}
+                          className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f]"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddProcessNote}
+                          disabled={isAddingNote || !customNote.trim()}
+                          className="px-4 py-2 rounded-xl bg-[#01390f] hover:bg-[#051609] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                        >
+                          {isAddingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          <span>Record Note</span>
+                        </button>
+                      </div>
+                      {/* Quick note presets */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] font-semibold text-slate-400">Quick entries:</span>
+                        {[
+                          'Parcel inspected & bubble wrapped',
+                          'Waiting for courier rider pickup',
+                          'Rider handed parcel • Tracking verified',
+                          'Customer contacted regarding delivery',
+                        ].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setCustomNote(preset)}
+                            className="text-[10px] font-bold bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full cursor-pointer transition-colors"
+                          >
+                            + {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Chronological Audit Trail & Process Logs */}
+                    <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <History className="w-4 h-4 text-[#01390f]" />
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Chronological Process Audit Trail ({selectedOrder.trackingTimeline?.length || 0} Records)
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold text-slate-400">Realtime Log</span>
+                      </div>
+
+                      {(!selectedOrder.trackingTimeline || selectedOrder.trackingTimeline.length === 0) ? (
+                        <div className="text-center py-6 text-slate-400 text-xs">
+                          No process timeline records logged yet for this order.
+                        </div>
+                      ) : (
+                        <div className="space-y-4 border-l-2 border-blue-200 ml-2.5 pl-4 py-1">
+                          {selectedOrder.trackingTimeline.map((item, tIdx) => {
+                            const isLatest = tIdx === 0;
+                            const titleLower = (item.title || '').toLowerCase();
+                            const isCancellation = titleLower.includes('cancel') || titleLower.includes('declined');
+                            const isWarning = titleLower.includes('waiting') || titleLower.includes('pending') || titleLower.includes('delayed');
+
+                            return (
+                              <div key={tIdx} className="relative space-y-1">
+                                {/* Timeline node */}
+                                <div
+                                  className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${
+                                    isCancellation
+                                      ? 'bg-red-500'
+                                      : isWarning
+                                      ? 'bg-yellow-500'
+                                      : 'bg-blue-600'
+                                  }`}
+                                />
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <h5 className="text-xs font-bold text-slate-900">{item.title}</h5>
+                                    {isLatest && (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                        Latest Activity
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                                    <span className="font-semibold text-slate-700">{item.actor || 'Logistics Team'}</span>
+                                    <span>•</span>
+                                    <span>{new Date(item.timestamp).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed bg-white p-2.5 rounded-xl border border-slate-200/70">
+                                  {item.description}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* DRAWER FOOTER ACTIONS */}
               <div className="p-4 bg-slate-100/90 border-t border-slate-200 flex items-center justify-between shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadOrderPdf(selectedOrder)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-rose-200 flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <FileDown className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Invoice PDF</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadWaybillPdf(selectedOrder)}
+                    className="px-4 py-2 sm:py-2.5 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
+                    title="Download 100x150mm Airway Bill / Shipping Label"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Waybill PDF</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadOrderPdf(selectedOrder)}
+                    className="px-4 py-2 sm:py-2.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-slate-300 flex items-center gap-1.5 whitespace-nowrap"
+                    title="Download A4 Customer Delivery Receipt & Invoice"
+                  >
+                    <FileDown className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Invoice PDF</span>
+                  </button>
+                </div>
 
                 <div className="flex items-center gap-2">
                   <button
@@ -2357,7 +2997,7 @@ function LogisticsOrderManagement() {
                   {getWorkflowStepIndex(selectedOrder.status) === 0 && (
                     <button
                       type="button"
-                      onClick={() => handleUpdateStatus(selectedOrder._id, 'To Ship')}
+                      onClick={() => handleUpdateStatus(selectedOrder._id, 'Waiting for Courier')}
                       className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
                     >
                       <Check className="w-3.5 h-3.5" />
@@ -2368,16 +3008,19 @@ function LogisticsOrderManagement() {
                   {getWorkflowStepIndex(selectedOrder.status) === 1 && (
                     <button
                       type="button"
-                      onClick={() =>
-                        handleUpdateStatus(selectedOrder._id, 'To Receive', {
+                      onClick={() => {
+                        const effTracking = trackingNumber.trim() || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
+                        if (!trackingNumber.trim()) setTrackingNumber(effTracking);
+                        handleUpdateStatus(selectedOrder._id, 'In Transit', {
                           courier: selectedCourier,
-                          trackingNumber,
-                        })
-                      }
+                          trackingNumber: effTracking,
+                          timelineEntry: 'Handed Over to Courier Rider & Finished Goods Inventory Deducted',
+                        });
+                      }}
                       className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
                     >
                       <Truck className="w-3.5 h-3.5" />
-                      <span>Dispatch to Courier</span>
+                      <span>Handover to Rider & Deduct Stock</span>
                     </button>
                   )}
 
@@ -2393,13 +3036,150 @@ function LogisticsOrderManagement() {
                   )}
 
                   {getWorkflowStepIndex(selectedOrder.status) === 3 && (
-                    <span className="px-5 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200 flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="px-5 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 flex items-center gap-1.5 whitespace-nowrap">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Order Completed</span>
                     </span>
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT VERIFICATION MODAL */}
+      {paymentVerifyModal.isOpen && paymentVerifyModal.order && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shadow-xs">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Verify E-Payment</h3>
+                  <p className="text-[11px] text-slate-500">Confirm customer online payment & record audit</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentVerifyModal({ isOpen: false, order: null, referenceNumber: '', notes: '', isSubmitting: false })}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Order ID:</span>
+                <span className="font-mono font-bold text-slate-800">#{paymentVerifyModal.order._id?.slice(-8).toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Customer:</span>
+                <span className="font-bold text-slate-900">{paymentVerifyModal.order.customerName || paymentVerifyModal.order.userId?.name || 'Customer'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Payment Channel:</span>
+                <span className="font-bold text-blue-700">{paymentVerifyModal.order.paymentMethod || 'E-Payment'}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                <span className="text-slate-700 font-bold">Total Amount:</span>
+                <span className="font-mono font-black text-slate-900 text-sm">
+                  ₱{Number(paymentVerifyModal.order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700">
+                  Reference / Transaction Number:
+                </label>
+                <button
+                  type="button"
+                  onClick={() => handleAutoFetchPayMongo()}
+                  disabled={paymentVerifyModal.isSyncingPayMongo}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                  title="Auto-fetch official transaction reference from PayMongo API"
+                >
+                  <RefreshCw size={10} className={paymentVerifyModal.isSyncingPayMongo ? "animate-spin" : ""} />
+                  <span>{paymentVerifyModal.isSyncingPayMongo ? "Fetching..." : "Auto-Fetch from PayMongo"}</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="e.g. GCash Ref # or pay_xxxxxxxx"
+                value={paymentVerifyModal.referenceNumber}
+                onChange={(e) => setPaymentVerifyModal((prev) => ({ ...prev, referenceNumber: e.target.value }))}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f]"
+              />
+
+              {/* PayMongo Synced Breakdown Card */}
+              {paymentVerifyModal.payMongoDetails && (
+                <div className="mt-2 p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl text-[11px] space-y-1">
+                  <div className="flex items-center justify-between font-bold text-blue-900">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 size={12} className="text-blue-600" />
+                      <span>PayMongo Record Synced</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 uppercase font-mono">
+                      {paymentVerifyModal.payMongoDetails.paymentMethodType || "ONLINE"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 text-slate-600 pt-1 border-t border-blue-100 text-[10px]">
+                    <div>
+                      <span>Payer: </span>
+                      <strong className="text-slate-800 font-semibold">{paymentVerifyModal.payMongoDetails.billingDetails?.name || paymentVerifyModal.order.customerName || "Customer"}</strong>
+                    </div>
+                    <div>
+                      <span>Gross: </span>
+                      <strong className="text-slate-800 font-semibold">₱{Number(paymentVerifyModal.payMongoDetails.grossAmount || paymentVerifyModal.order.totalAmount || 0).toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>Gateway Fee: </span>
+                      <span className="text-slate-700">₱{Number(paymentVerifyModal.payMongoDetails.fee || 0).toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span>Net Received: </span>
+                      <strong className="text-blue-900 font-bold">₱{Number(paymentVerifyModal.payMongoDetails.netAmount || (Number(paymentVerifyModal.order.totalAmount || 0) - Number(paymentVerifyModal.payMongoDetails.fee || 0))).toFixed(2)}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Verification Notes:
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Payment receipt verified by Logistics officer via merchant portal"
+                value={paymentVerifyModal.notes}
+                onChange={(e) => setPaymentVerifyModal((prev) => ({ ...prev, notes: e.target.value }))}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f]"
+              />
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPaymentVerifyModal({ isOpen: false, order: null, referenceNumber: '', notes: '', isSubmitting: false, isSyncingPayMongo: false, payMongoDetails: null })}
+                className="px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmVerifyPayment}
+                disabled={paymentVerifyModal.isSubmitting}
+                className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {paymentVerifyModal.isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                <span>Confirm & Mark as Paid</span>
+              </button>
             </div>
           </div>
         </div>
@@ -2448,7 +3228,7 @@ function LogisticsOrderManagement() {
                 Proof of Delivery Photo: *
               </label>
               {!podImage ? (
-                <label className="border-2 border-dashed border-slate-300 hover:border-[#01390f] rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50 hover:bg-emerald-50/40 transition-colors">
+                <label className="border-2 border-dashed border-slate-300 hover:border-[#01390f] rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50 hover:bg-blue-50/40 transition-colors">
                   <div className="w-12 h-12 rounded-full bg-white shadow-2xs flex items-center justify-center text-[#01390f]">
                     <UploadCloud className="w-6 h-6" />
                   </div>
@@ -2483,7 +3263,7 @@ function LogisticsOrderManagement() {
                     <button
                       type="button"
                       onClick={() => setPodImage('')}
-                      className="bg-rose-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-sm cursor-pointer"
+                      className="bg-red-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-sm cursor-pointer"
                     >
                       Remove
                     </button>

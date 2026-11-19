@@ -277,31 +277,31 @@ function InventoryRawMaterials() {
       return {
         key: 'Critical Alert',
         label: 'Critical Alert',
-        badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/70 font-semibold',
-        dotClass: 'bg-rose-500',
+        badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
+        dotClass: 'bg-red-600',
       };
     }
     if (val <= restock) {
       return {
         key: 'Restock Warning',
         label: 'Restock Warning',
-        badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/70 font-semibold',
-        dotClass: 'bg-amber-500',
+        badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold',
+        dotClass: 'bg-yellow-500',
       };
     }
     if (val <= overstock) {
       return {
         key: 'Healthy',
         label: 'Healthy',
-        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
-        dotClass: 'bg-emerald-500',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+        dotClass: 'bg-blue-600',
       };
     }
     return {
       key: 'Overstock',
       label: 'Overstock',
-      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
-      dotClass: 'bg-blue-500',
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+      dotClass: 'bg-blue-600',
     };
   }, [getResolvedThreshold]);
 
@@ -1484,12 +1484,12 @@ function InventoryRawMaterials() {
                       if (!hideZeroQty) setShowZeroOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${hideZeroQty
-                      ? 'bg-red-50 text-red-700 border border-red-300'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-400 font-bold'
                       : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={hideZeroQty ? 'Showing: 0 Qty Hidden (Click to show)' : 'Click to Hide 0 Quantity items'}
                   >
-                    <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                    <EyeOff className={`w-3.5 h-3.5 ${hideZeroQty ? 'text-blue-600' : 'text-slate-500'}`} />
                     <span>Hide 0 Qty</span>
                   </button>
 
@@ -1501,12 +1501,12 @@ function InventoryRawMaterials() {
                       if (!showZeroOnly) setHideZeroQty(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[30px] sm:h-[22px] w-full shadow-2xs ${showZeroOnly
-                      ? 'bg-rose-50 text-rose-700 border border-rose-300'
+                      ? 'bg-red-50 text-red-700 border border-red-300 font-bold'
                       : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={showZeroOnly ? `Showing: 0 Qty Only (${zeroCount})` : `Filter 0 Qty Only (${zeroCount} items)`}
                   >
-                    <Boxes className="w-3.5 h-3.5 text-slate-500" />
+                    <Boxes className={`w-3.5 h-3.5 ${showZeroOnly ? 'text-red-600' : 'text-slate-500'}`} />
                     <span>0 Qty Only {zeroCount > 0 ? `(${zeroCount})` : ''}</span>
                   </button>
 
@@ -1640,7 +1640,7 @@ function InventoryRawMaterials() {
 
                           {/* 3. CATEGORY (Pill Badge matching Target Audience) */}
                           <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                               {item.category || 'Raw Materials'}
                             </span>
                           </td>
@@ -1675,12 +1675,12 @@ function InventoryRawMaterials() {
                           {/* 8. DAYS REMAINING / STATUS (Dot removed, purely clean tinted cell) */}
                           <td
                             className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.status === 'Disposed'
-                                ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                                ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                                 : isExpired || isCritical
-                                  ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                  ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                                   : isNear
-                                    ? 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
-                                    : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                                    ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
+                                    : 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
                               }`}
                           >
                             <span>
@@ -1747,7 +1747,7 @@ function InventoryRawMaterials() {
 
                             {/* CATEGORY */}
                             <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-medium text-xs text-slate-600 transition-colors">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                 {displayCat}
                               </span>
                             </td>
@@ -1796,7 +1796,7 @@ function InventoryRawMaterials() {
                                       type="button"
                                       onClick={() => handleToggleArchive(item)}
                                       title="Archive Item"
-                                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                     >
                                       <Archive className="w-3.5 h-3.5" />
                                     </button>
@@ -1807,7 +1807,7 @@ function InventoryRawMaterials() {
                                       type="button"
                                       onClick={() => handleToggleArchive(item)}
                                       title="Restore to Active"
-                                      className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                      className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                     >
                                       <RotateCcw className="w-3.5 h-3.5" />
                                     </button>
@@ -1815,7 +1815,7 @@ function InventoryRawMaterials() {
                                       type="button"
                                       onClick={() => handleDelete(item._id || item.id)}
                                       title="Delete Permanently"
-                                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -1885,15 +1885,15 @@ function InventoryRawMaterials() {
                         Item-specific rules evaluated for condition badges & procurement warnings.
                       </p>
                     </div>
-                    <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-bold">
+                    <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-[10px] font-bold">
                       Healthy: {Math.max(0, (Number(formData.restockWarningPoint) || (defaultThresholds.restockWarningPoint ?? 5000)) + 1)} - {Number(formData.overstockLimitPoint) || (defaultThresholds.overstockLimitPoint ?? 200000)} {formData.uom ? formData.uom.toUpperCase() : ''}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     {/* CRITICAL */}
-                    <div className="bg-white p-2.5 rounded-xl border border-rose-200/80">
-                      <label className="block text-[11px] font-bold text-rose-700 mb-1">
+                    <div className="bg-white p-2.5 rounded-xl border border-red-200/80">
+                      <label className="block text-[11px] font-bold text-red-700 mb-1">
                         Critical Alert (≤)
                       </label>
                       <input
@@ -1902,7 +1902,7 @@ function InventoryRawMaterials() {
                         min="0"
                         value={formData.criticalLevel !== undefined ? formData.criticalLevel : (defaultThresholds.criticalLevel ?? 1000)}
                         onChange={handleInputChange}
-                        className="w-full bg-slate-50 border border-rose-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-800 focus:outline-none focus:border-rose-500"
+                        className="w-full bg-slate-50 border border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-800 focus:outline-none focus:border-red-500"
                         placeholder={String(defaultThresholds.criticalLevel ?? 1000)}
                       />
                       <span className="text-[10px] text-slate-400 mt-0.5 block">
@@ -1911,8 +1911,8 @@ function InventoryRawMaterials() {
                     </div>
 
                     {/* RESTOCK WARNING */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200/80">
-                      <label className="block text-[11px] font-bold text-amber-700 mb-1">
+                    <div className="bg-white p-2.5 rounded-xl border border-yellow-300/80">
+                      <label className="block text-[11px] font-bold text-yellow-800 mb-1">
                         Restock Warning (≤)
                       </label>
                       <input
@@ -1921,7 +1921,7 @@ function InventoryRawMaterials() {
                         min="0"
                         value={formData.restockWarningPoint !== undefined ? formData.restockWarningPoint : (defaultThresholds.restockWarningPoint ?? 5000)}
                         onChange={handleInputChange}
-                        className="w-full bg-slate-50 border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-800 focus:outline-none focus:border-amber-500"
+                        className="w-full bg-slate-50 border border-yellow-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-yellow-900 focus:outline-none focus:border-yellow-500"
                         placeholder={String(defaultThresholds.restockWarningPoint ?? 5000)}
                       />
                       <span className="text-[10px] text-slate-400 mt-0.5 block">
@@ -2102,13 +2102,13 @@ function InventoryRawMaterials() {
                       const isNear = !isNaN(days) && days > 7 && days <= 30;
 
                       return (
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${isExpired
-                          ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${isExpired
+                          ? 'bg-red-50 text-red-700 border-red-200'
                           : isCritical
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            ? 'bg-red-50 text-red-700 border-red-200'
                             : isNear
-                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                              : 'bg-[#EDF7EE] text-[#01390f] border border-[#d5ead7]'
+                              ? 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                              : 'bg-blue-50 text-blue-700 border-blue-200'
                           }`}>
                           {isExpired ? 'Expired' : isCritical ? 'Critical (≤7d)' : isNear ? 'Near Expiry (≤30d)' : 'Good Condition'}
                         </span>

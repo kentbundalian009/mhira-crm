@@ -19,6 +19,8 @@ import {
   ArrowUpDown,
   Sparkles,
   Globe,
+  Eye,
+  Check,
 } from 'lucide-react';
 import axios from '../axios';
 import { jsPDF } from 'jspdf';
@@ -119,6 +121,9 @@ export default function MarketingEmailCampaigns() {
 
   // Modal & Form States
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewCampaignData, setPreviewCampaignData] = useState(null);
+  const [viewCampaignModal, setViewCampaignModal] = useState(null);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [sending, setSending] = useState(false);
 
@@ -133,6 +138,7 @@ export default function MarketingEmailCampaigns() {
   const [ctaText, setCtaText] = useState(SMART_MARKETING_PRESETS[0].ctaText);
   const [ctaUrl, setCtaUrl] = useState(SMART_MARKETING_PRESETS[0].ctaUrl);
   const [activePresetId, setActivePresetId] = useState(SMART_MARKETING_PRESETS[0].id);
+  const [isPublished, setIsPublished] = useState(true);
 
   // Registered Customers
   const [registeredCustomers, setRegisteredCustomers] = useState([]);
@@ -247,6 +253,7 @@ export default function MarketingEmailCampaigns() {
     setDiscountNote(defaultPreset.discountNote);
     setCtaText(defaultPreset.ctaText);
     setCtaUrl(defaultPreset.ctaUrl);
+    setIsPublished(true);
     setIsModalOpen(true);
   };
 
@@ -263,7 +270,58 @@ export default function MarketingEmailCampaigns() {
     setDiscountNote(item.discountNote || '');
     setCtaText(item.ctaText || 'Shop Collection');
     setCtaUrl(item.ctaUrl || `${FRONTEND_BASE_URL}/collection`);
+    setIsPublished(item.isPublished !== undefined ? Boolean(item.isPublished) : item.status !== 'Draft');
     setIsModalOpen(true);
+  };
+
+  const handleAutoGenerateStory = () => {
+    const titleStr = headline || campaignTitle || 'Pure Botanical Luxury';
+    const codeStr = discountCode ? `Use voucher code ${discountCode} at checkout${discountNote ? ` (${discountNote})` : ''}.` : 'Cash on delivery is accepted nationwide.';
+    const generated = `Experience the restorative power of Mhira Natural with "${titleStr}". Handcrafted in micro-batches using sustainably sourced organic botanicals to nourish, hydrate, and protect your skin naturally.\n\n${codeStr}`;
+    setBodyText(generated);
+    showSuccessToast('Auto-generated promotional story copy.');
+  };
+
+  const handleOpenPreviewModal = (customData = null) => {
+    if (customData && customData.title) {
+      setPreviewCampaignData({
+        campaignTitle: stripEmojis(customData.title || customData.campaignTitle || ''),
+        headline: stripEmojis(customData.headline || customData.title || ''),
+        bodyText: customData.bodyText || '',
+        discountCode: customData.discountCode || '',
+        discountNote: customData.discountNote || '',
+        ctaText: customData.ctaText || 'Shop the Botanical Collection',
+        ctaUrl: customData.ctaUrl || `${FRONTEND_BASE_URL}/collection`,
+        targetAudience: customData.targetAudience || 'ALL_CUSTOMERS',
+        recipientEmail: customData.recipientEmail || '',
+      });
+    } else if (isModalOpen) {
+      setPreviewCampaignData({
+        campaignTitle: stripEmojis(campaignTitle || ''),
+        headline: stripEmojis(headline || campaignTitle || ''),
+        bodyText: bodyText || '',
+        discountCode: discountCode || '',
+        discountNote: discountNote || '',
+        ctaText: ctaText || 'Shop the Botanical Collection',
+        ctaUrl: ctaUrl || `${FRONTEND_BASE_URL}/collection`,
+        targetAudience,
+        recipientEmail,
+      });
+    } else {
+      const source = filteredCampaigns[0] || campaignHistory[0] || SMART_MARKETING_PRESETS[0];
+      setPreviewCampaignData({
+        campaignTitle: stripEmojis(source.title || source.campaignTitle || ''),
+        headline: stripEmojis(source.headline || source.title || ''),
+        bodyText: source.bodyText || '',
+        discountCode: source.discountCode || '',
+        discountNote: source.discountNote || '',
+        ctaText: source.ctaText || 'Claim Your Botanical Offer',
+        ctaUrl: source.ctaUrl || `${FRONTEND_BASE_URL}/collection`,
+        targetAudience: source.targetAudience || 'ALL_CUSTOMERS',
+        recipientEmail: source.recipientEmail || '',
+      });
+    }
+    setIsPreviewModalOpen(true);
   };
 
   const handleToggleArchive = (item) => {
@@ -306,10 +364,42 @@ export default function MarketingEmailCampaigns() {
       return;
     }
 
+    const cleanTitle = stripEmojis(campaignTitle.trim());
+    const cleanHeadline = stripEmojis(headline.trim());
+
+    // If set to Draft (not published immediately), save locally as Draft without sending emails
+    if (!isPublished) {
+      const draftEntry = {
+        id: editingCampaign ? editingCampaign.id : `hist-${Date.now()}`,
+        title: cleanTitle,
+        headline: cleanHeadline,
+        bodyText: bodyText.trim(),
+        targetAudience,
+        recipientEmail: targetAudience === 'CUSTOM' ? recipientEmail.trim() : null,
+        recipientsCount: 0,
+        discountCode: discountCode.trim(),
+        discountNote: discountNote.trim(),
+        ctaText: ctaText.trim(),
+        ctaUrl: ctaUrl.trim(),
+        dispatchedAt: new Date().toISOString(),
+        status: 'Draft',
+        isPublished: false,
+        isArchived: false,
+      };
+
+      const updatedHistory = editingCampaign
+        ? campaignHistory.map((item) => (item.id === editingCampaign.id ? draftEntry : item))
+        : [draftEntry, ...campaignHistory];
+
+      saveHistoryToStorage(updatedHistory);
+      showSuccessToast('Email campaign saved as Draft!');
+      setIsModalOpen(false);
+      setEditingCampaign(null);
+      return;
+    }
+
     try {
       setSending(true);
-      const cleanTitle = stripEmojis(campaignTitle.trim());
-      const cleanHeadline = stripEmojis(headline.trim());
 
       const payload = {
         targetAudience,
@@ -342,7 +432,8 @@ export default function MarketingEmailCampaigns() {
           ctaText: ctaText.trim(),
           ctaUrl: ctaUrl.trim(),
           dispatchedAt: new Date().toISOString(),
-          status: 'Delivered',
+          status: 'Live',
+          isPublished: true,
           isArchived: false,
         };
 
@@ -515,8 +606,8 @@ export default function MarketingEmailCampaigns() {
                     setCurrentPage(1);
                   }}
                   className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap ${isActive
-                      ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
-                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
+                    ? 'border-[#01390f] text-[#01390f] bg-slate-50 rounded-t-lg font-bold'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50 rounded-t-lg'
                     }`}
                 >
                   {mod.id === 'active' ? (
@@ -568,6 +659,16 @@ export default function MarketingEmailCampaigns() {
                 >
                   <FileDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span className="whitespace-nowrap">Export PDF</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenPreviewModal()}
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-emerald-50 text-[#01390f] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap"
+                  title="Preview email UI/UX design and brand logo"
+                >
+                  <Eye className="w-3.5 h-3.5 text-[#01390f] shrink-0" />
+                  <span className="whitespace-nowrap">Preview</span>
                 </button>
 
                 <button
@@ -674,8 +775,8 @@ export default function MarketingEmailCampaigns() {
                     setAudienceFilter(audienceFilter === 'ALL_CUSTOMERS' ? 'All' : 'ALL_CUSTOMERS')
                   }
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${audienceFilter === 'ALL_CUSTOMERS'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
                   Broadcast Only
@@ -685,8 +786,8 @@ export default function MarketingEmailCampaigns() {
                   type="button"
                   onClick={() => setAudienceFilter(audienceFilter === 'CUSTOM' ? 'All' : 'CUSTOM')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${audienceFilter === 'CUSTOM'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
                   Single Email Only
@@ -698,8 +799,8 @@ export default function MarketingEmailCampaigns() {
                     setVoucherFilter(voucherFilter === 'WithVoucher' ? 'All' : 'WithVoucher')
                   }
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${voucherFilter === 'WithVoucher'
-                      ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
-                      : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
+                    ? 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
                   With Voucher Only
@@ -737,8 +838,8 @@ export default function MarketingEmailCampaigns() {
                   <th className="py-3.5 px-4 text-center">RECIPIENTS</th>
                   <th className="py-3.5 px-4 text-center">VOUCHER CODE</th>
                   <th className="py-3.5 px-4">OFFER NOTE</th>
-                  <th className="py-3.5 px-4 text-center">DISPATCHED DATE</th>
-                  <th className="py-3.5 px-4 text-center">STATUS</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">DISPATCHED DATE</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">STOREFRONT STATUS</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">
                     ACTION
                   </th>
@@ -777,7 +878,7 @@ export default function MarketingEmailCampaigns() {
 
                       {/* 2. Target Audience */}
                       <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
                           {item.targetAudience === 'ALL_CUSTOMERS'
                             ? 'All Verified Customers'
                             : item.recipientEmail || 'Single Recipient'}
@@ -808,19 +909,36 @@ export default function MarketingEmailCampaigns() {
                           : 'N/A'}
                       </td>
 
-                      {/* 7. Status (Tinted cell, dot removed) */}
+                      {/* 7. Status (Live vs Draft vs Archived Tinted Cell — Blue / Yellow / Red) */}
                       <td
                         className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.isArchived
-                            ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
-                            : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                          ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
+                          : item.isPublished === false || item.status === 'Draft'
+                            ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
+                            : 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
                           }`}
                       >
-                        <span>{item.isArchived ? 'Archived' : item.status || 'Delivered'}</span>
+                        <span>
+                          {item.isArchived
+                            ? 'Archived'
+                            : item.isPublished === false || item.status === 'Draft'
+                              ? 'Draft'
+                              : 'Live'}
+                        </span>
                       </td>
 
                       {/* 8. Action (Sticky Right) */}
-                      <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                      <td className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                         <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setViewCampaignModal(item)}
+                            title="View Campaign Details"
+                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
                           {viewMode !== 'archived' ? (
                             <>
                               <button
@@ -836,7 +954,7 @@ export default function MarketingEmailCampaigns() {
                                 type="button"
                                 onClick={() => handleToggleArchive(item)}
                                 title="Archive Campaign"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <Archive className="w-3.5 h-3.5" />
                               </button>
@@ -847,7 +965,7 @@ export default function MarketingEmailCampaigns() {
                                 type="button"
                                 onClick={() => handleToggleArchive(item)}
                                 title="Restore Campaign"
-                                className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
                               </button>
@@ -856,7 +974,7 @@ export default function MarketingEmailCampaigns() {
                                 type="button"
                                 onClick={() => handleDeleteCampaign(item.id)}
                                 title="Delete Permanently"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -905,19 +1023,56 @@ export default function MarketingEmailCampaigns() {
               onSubmit={handleDispatchCampaign}
               className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm"
             >
-              <div className="p-6 flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar">
-                {/* 1. 2-COLUMN GRID: CAMPAIGN PRESET & TARGET AUDIENCE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto custom-scrollbar">
+                {/* 1. PUBLISH / DISPATCH IMMEDIATELY TOGGLE (CLEAN INLINE WITH UNDERLINE AT THE VERY TOP) */}
+                <div
+                  onClick={() => setIsPublished((prev) => !prev)}
+                  className="flex items-center gap-3 pb-3 border-b border-slate-100 cursor-pointer select-none group"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsPublished((prev) => !prev);
+                    }}
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${isPublished
+                      ? 'bg-[#01390f] text-white border-[#01390f]'
+                      : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    {isPublished ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                    )}
+                  </button>
+                  <div className="flex flex-col flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
+                        Publish &amp; dispatch campaign immediately{' '}
+                        <span className="text-[11px] font-normal text-slate-400">(Send to customer inboxes)</span>
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {isPublished
+                        ? 'Live broadcast to verified customer Gmail inboxes immediately upon saving'
+                        : 'Saved as draft (not yet dispatched to customer inboxes until published)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. 2-COLUMN GRID: CAMPAIGN PRESET & TARGET AUDIENCE */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Campaign Template Preset
                     </label>
-                    <div className="relative">
-                      <Sparkles className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Sparkles className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <select
                         value={activePresetId}
                         onChange={(e) => handleApplyPreset(e.target.value)}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
+                        className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-semibold focus:outline-none cursor-pointer appearance-none"
                       >
                         <option value="">Custom Campaign</option>
                         {SMART_MARKETING_PRESETS.map((preset) => (
@@ -926,62 +1081,62 @@ export default function MarketingEmailCampaigns() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="w-3.5 h-3.5 absolute right-1 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Target Customer Audience <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Target Customer Audience <span className="text-red-600">*</span>
                     </label>
-                    <div className="relative">
-                      <Users className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Users className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <select
                         value={targetAudience}
                         onChange={(e) => setTargetAudience(e.target.value)}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
+                        className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-semibold focus:outline-none cursor-pointer appearance-none"
                       >
                         <option value="ALL_CUSTOMERS">
                           All Verified Customers ({registeredCustomers.length})
                         </option>
                         <option value="CUSTOM">Single Customer / Test Email</option>
                       </select>
-                      <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="w-3.5 h-3.5 absolute right-1 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
                 </div>
 
                 {/* SINGLE CUSTOMER SELECTOR (IF CUSTOM) */}
                 {targetAudience === 'CUSTOM' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                         Pick Verified Customer
                       </label>
-                      <div className="relative">
-                        <Users className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                      <div className="relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                        <Users className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                         <select
                           value={selectedCustomerId}
                           onChange={handleCustomerSelect}
-                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors truncate"
+                          className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-semibold focus:outline-none cursor-pointer appearance-none truncate"
                         >
-                          <option value="">Select from verified accounts...</option>
+                          <option value="">Select verified customer account</option>
                           {registeredCustomers.map((c) => (
                             <option key={c._id} value={c._id}>
                               {c.fullName || 'Customer'} ({c.email})
                             </option>
                           ))}
                         </select>
-                        <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                        <ChevronDown className="w-3.5 h-3.5 absolute right-1 text-slate-400 pointer-events-none" />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                        Recipient Gmail Address <span className="text-rose-500">*</span>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                        Recipient Gmail Address <span className="text-red-600">*</span>
                       </label>
-                      <div className="relative">
-                        <Mail className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                      <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                         <input
                           type="email"
                           required
@@ -990,8 +1145,8 @@ export default function MarketingEmailCampaigns() {
                             setRecipientEmail(e.target.value);
                             setSelectedCustomerId('');
                           }}
-                          placeholder="e.g. client@gmail.com"
-                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                          placeholder="Enter recipient Gmail address"
+                          className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                         />
                       </div>
                     </div>
@@ -999,124 +1154,120 @@ export default function MarketingEmailCampaigns() {
                 )}
 
                 {/* 2. 2-COLUMN GRID: EMAIL SUBJECT LINE & HERO HEADLINE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Email Subject Line <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Email Subject Line <span className="text-red-600">*</span>
                     </label>
-                    <div className="relative">
-                      <Mail className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                       <input
                         type="text"
                         required
                         value={campaignTitle}
                         onChange={(e) => setCampaignTitle(e.target.value)}
-                        placeholder="Exclusive Weekend Secret: 20% Off Natural Elixirs"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        placeholder="Enter email subject line"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Hero Headline <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Hero Headline <span className="text-red-600">*</span>
                     </label>
-                    <div className="relative">
-                      <Sparkles className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Sparkles className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                       <input
                         type="text"
                         required
                         value={headline}
                         onChange={(e) => setHeadline(e.target.value)}
-                        placeholder="Unlock Radiant Skin with Pure Botanical Luxury"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        placeholder="Enter campaign hero headline"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* 3. 2-COLUMN GRID: PROMO VOUCHER CODE & DISCOUNT OFFER NOTE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Promotional Voucher Code
                     </label>
-                    <div className="flex items-center">
-                      <div className="relative flex-1">
-                        <Tag className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-                        <input
-                          type="text"
-                          placeholder="e.g. GLOW20"
-                          value={discountCode}
-                          onChange={(e) =>
-                            setDiscountCode(e.target.value.toUpperCase().replace(/\s+/g, ''))
-                          }
-                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-[#01390f] rounded-l-lg pl-8 pr-3 text-xs font-bold font-mono focus:outline-none focus:border-[#01390f] focus:bg-white uppercase transition-colors"
-                        />
-                      </div>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                      <input
+                        type="text"
+                        placeholder="Enter Promo Mhira Code"
+                        value={discountCode}
+                        onChange={(e) =>
+                          setDiscountCode(e.target.value.toUpperCase().replace(/\s+/g, ''))
+                        }
+                        className="w-full h-9 bg-transparent text-[#01390f] text-xs font-bold font-mono focus:outline-none uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
+                      />
                       <button
                         type="button"
                         onClick={() => {
                           const randomCode = 'MHIRA' + Math.floor(1000 + Math.random() * 9000);
                           setDiscountCode(randomCode);
                         }}
-                        className="h-[34px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-3 text-xs font-semibold text-slate-700 cursor-pointer flex items-center justify-center shrink-0 transition-colors select-none"
+                        className="ml-2 px-2 py-1 rounded bg-slate-100 hover:bg-[#01390f]/10 text-[10px] font-bold text-[#01390f] uppercase cursor-pointer shrink-0 transition-colors select-none"
                         title="Auto-generate promo code"
                       >
-                        <span className="text-[10px] font-bold text-[#01390f] uppercase">
-                          Auto
-                        </span>
+                        Auto
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Discount Offer Note
                     </label>
-                    <div className="relative">
-                      <Tag className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                       <input
                         type="text"
                         value={discountNote}
                         onChange={(e) => setDiscountNote(e.target.value)}
-                        placeholder="e.g. 20% OFF Site-wide + Free Shipping"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        placeholder="Enter discount offer note"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* 4. 2-COLUMN GRID: ACTION BUTTON TEXT & DESTINATION URL */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Action Button Text
                     </label>
-                    <div className="relative">
-                      <Send className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Send className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                       <input
                         type="text"
                         value={ctaText}
                         onChange={(e) => setCtaText(e.target.value)}
-                        placeholder="Claim Your Botanical Offer"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        placeholder="Enter action button label"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Destination URL
                     </label>
-                    <div className="relative">
-                      <Globe className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                       <input
                         type="text"
                         value={ctaUrl}
                         onChange={(e) => setCtaUrl(e.target.value)}
-                        placeholder={`${FRONTEND_BASE_URL}/collection`}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-mono font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        placeholder="Enter destination URL"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-mono font-semibold focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
@@ -1124,55 +1275,531 @@ export default function MarketingEmailCampaigns() {
 
                 {/* 5. PROMOTIONAL BODY COPY */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                    Promotional Story / Body Copy <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                      Promotional Story / Body Copy <span className="text-red-600">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAutoGenerateStory}
+                      className="text-[11px] font-bold text-[#01390f] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Auto-generate Story</span>
+                    </button>
+                  </div>
                   <textarea
                     rows={4}
                     required
                     value={bodyText}
                     onChange={(e) => setBodyText(e.target.value)}
-                    placeholder="Describe the botanical ingredients, artisan formulation, and promotional details..."
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white leading-relaxed resize-none transition-colors"
+                    placeholder="Enter promotional story and campaign details..."
+                    className="w-full bg-transparent border-b-2 border-slate-200 focus:border-[#01390f] text-slate-800 py-2 text-xs font-medium focus:outline-none leading-relaxed resize-none transition-colors placeholder:text-slate-300 placeholder:font-normal"
                   />
                 </div>
 
-                {/* STATUS HELPER NOTICE */}
-                <div className="pt-1 text-xs text-slate-500">
+                {/* STATUS HELPER NOTICE AT THE BOTTOM */}
+                <div className="pt-1 text-xs text-slate-400">
                   <span>
-                    Campaign will be dispatched immediately via the Mhira Natural Gmail SMTP engine once submitted.
+                    {isPublished
+                      ? 'Note: This campaign is set to Live and will be dispatched immediately via the Mhira Natural Gmail SMTP engine once saved.'
+                      : 'Note: This campaign is set to Draft and will be saved without dispatching emails until switched to Live.'}
                   </span>
                 </div>
               </div>
 
               {/* ACTION BUTTONS FOOTER */}
-              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
+              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-between gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setEditingCampaign(null);
-                  }}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                  onClick={() => handleOpenPreviewModal()}
+                  className="px-4 py-2.5 rounded-full bg-white hover:bg-emerald-50 text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer flex items-center gap-1.5 border border-[#01390f]/30 whitespace-nowrap"
                 >
-                  Cancel
+                  <Eye className="w-3.5 h-3.5 text-[#01390f]" />
+                  <span>Preview Email UI</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
-                >
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  <span className="whitespace-nowrap">
-                    {sending
-                      ? 'Sending...'
-                      : editingCampaign
-                        ? 'Save & Resend'
-                        : 'Send Campaign'}
-                  </span>
-                </button>
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setEditingCampaign(null);
+                    }}
+                    className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer border border-[#d5ead7] whitespace-nowrap"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    className="px-6 py-2.5 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 whitespace-nowrap bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
+                  >
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : isPublished ? <Send className="w-3.5 h-3.5" /> : null}
+                    <span className="whitespace-nowrap">
+                      {sending
+                        ? 'Sending...'
+                        : !isPublished
+                          ? 'Save as Draft'
+                          : editingCampaign
+                            ? 'Save & Resend'
+                            : 'Send Campaign'}
+                    </span>
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* EMAIL UI/UX DESIGN & LOGO PREVIEW MODAL */}
+      {isPreviewModalOpen && previewCampaignData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/65 backdrop-blur-xs p-3 sm:p-6 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[92vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL TOP BAR */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#01390f]/10 border border-[#01390f]/20 flex items-center justify-center text-[#01390f] shrink-0">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800">
+                    Email UI/UX &amp; Logo Live Preview
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Exact HTML layout &amp; Mhira Natural brand logo delivered to customer Gmail inboxes
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Switch Template Preset in Preview */}
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    if (val.startsWith('preset:')) {
+                      const pId = val.replace('preset:', '');
+                      const preset = SMART_MARKETING_PRESETS.find((p) => p.id === pId);
+                      if (preset) {
+                        setPreviewCampaignData({
+                          campaignTitle: preset.campaignTitle,
+                          headline: preset.headline,
+                          bodyText: preset.bodyText,
+                          discountCode: preset.discountCode,
+                          discountNote: preset.discountNote,
+                          ctaText: preset.ctaText,
+                          ctaUrl: preset.ctaUrl,
+                          targetAudience: 'ALL_CUSTOMERS',
+                          recipientEmail: '',
+                        });
+                      }
+                    } else if (val.startsWith('hist:')) {
+                      const hId = val.replace('hist:', '');
+                      const hist = campaignHistory.find((h) => String(h.id) === hId);
+                      if (hist) {
+                        handleOpenPreviewModal(hist);
+                      }
+                    }
+                  }}
+                  className="h-8 bg-white border border-slate-200 rounded-lg px-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#01390f] cursor-pointer"
+                >
+                  <option value="">Switch Preview Template...</option>
+                  <optgroup label="Campaign Presets">
+                    {SMART_MARKETING_PRESETS.map((p) => (
+                      <option key={p.id} value={`preset:${p.id}`}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {campaignHistory.length > 0 && (
+                    <optgroup label="Recent Campaigns">
+                      {campaignHistory.slice(0, 6).map((h) => (
+                        <option key={h.id} value={`hist:${h.id}`}>
+                          {stripEmojis(h.title)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold px-2.5 py-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* GMAIL INBOX ENVELOPE METADATA BAR */}
+            <div className="px-6 py-3 bg-white border-b border-slate-200/80 flex flex-col gap-1 text-xs shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-14">Subject:</span>
+                <span className="font-bold text-slate-900">
+                  {previewCampaignData.campaignTitle || previewCampaignData.headline || 'Exclusive Offer from Mhira Natural'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-14">From:</span>
+                <span className="font-semibold text-[#01390f]">Mhira Natural</span>
+                <span className="text-slate-400 font-mono text-[11px]">&lt;noreply@mhira.shop&gt;</span>
+                <span className="mx-1 text-slate-300">•</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">To:</span>
+                <span className="text-slate-600 font-medium">
+                  {previewCampaignData.targetAudience === 'CUSTOM' && previewCampaignData.recipientEmail
+                    ? previewCampaignData.recipientEmail
+                    : `All Verified Customers (${registeredCustomers.length || 1})`}
+                </span>
+              </div>
+            </div>
+
+            {/* EXACT RENDERED EMAIL HTML CANVAS (MATCHES backend/lib/email.js + NotificationController.js) */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#fcfdfb] p-4 sm:p-8">
+              <div
+                style={{
+                  maxWidth: '480px',
+                  margin: '0 auto',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '24px',
+                  border: '1px solid #e5e7eb',
+                  boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.04)',
+                  padding: '40px 36px',
+                  fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                  color: '#1f2937',
+                }}
+              >
+                {/* 1. Centered Mhira Logo & Brand Title */}
+                <div style={{ textAlign: 'center', margin: '0 auto 12px auto' }}>
+                  <img
+                    src="/mhira_removebg.png"
+                    alt="Mhira Natural"
+                    style={{
+                      display: 'inline-block',
+                      maxHeight: '52px',
+                      height: '52px',
+                      width: 'auto',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    letterSpacing: '2px',
+                    color: '#01390f',
+                    textTransform: 'uppercase',
+                    margin: '0 0 16px 0',
+                    textAlign: 'center',
+                  }}
+                >
+                  MHIRA NATURAL
+                </div>
+
+                {/* 2. Pill Category */}
+                <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
+                      color: '#01390f',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      letterSpacing: '1.2px',
+                      textTransform: 'uppercase',
+                      padding: '4px 14px',
+                      borderRadius: '9999px',
+                    }}
+                  >
+                    EXCLUSIVE MARKETING PROMOTION
+                  </span>
+                </div>
+
+                {/* 3. Main Heading (Title) */}
+                <h1
+                  style={{
+                    margin: '0 0 16px 0',
+                    fontSize: '22px',
+                    fontWeight: 700,
+                    color: '#1f2937',
+                    lineHeight: 1.35,
+                    textAlign: 'center',
+                    letterSpacing: '-0.3px',
+                  }}
+                >
+                  {previewCampaignData.headline || 'Special Announcement'}
+                </h1>
+
+                {/* 4. Secondary Sub-Headline */}
+                <h2
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    color: '#01390f',
+                    lineHeight: 1.35,
+                    margin: '0 0 16px 0',
+                    textAlign: 'center',
+                    letterSpacing: '-0.3px',
+                  }}
+                >
+                  {previewCampaignData.campaignTitle || previewCampaignData.headline || 'Experience Pure Botanical Luxury'}
+                </h2>
+
+                {/* 5. Body Copy Paragraphs */}
+                <div
+                  style={{
+                    fontSize: '13px',
+                    lineHeight: 1.65,
+                    color: '#4b5563',
+                    marginBottom: '20px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {(
+                    previewCampaignData.bodyText ||
+                    'Discover our latest botanical beauty innovations handcrafted with sustainable, natural ingredients.'
+                  )
+                    .split('\n')
+                    .filter((p) => p.trim() !== '')
+                    .map((para, idx) => (
+                      <p key={idx} style={{ margin: '0 0 10px 0' }}>
+                        {para.trim()}
+                      </p>
+                    ))}
+                </div>
+
+                {/* 6. Promotional Voucher / Discount Highlight Card */}
+                {(previewCampaignData.discountCode || previewCampaignData.discountNote) && (
+                  <div
+                    style={{
+                      background: 'linear-gradient(135deg, #01390f 0%, #064e1b 100%)',
+                      borderRadius: '20px',
+                      padding: '24px',
+                      color: '#ffffff',
+                      textAlign: 'center',
+                      margin: '26px 0',
+                      boxShadow: '0 4px 14px rgba(1, 57, 15, 0.15)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        letterSpacing: '2px',
+                        textTransform: 'uppercase',
+                        color: '#bbf7d0',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      LIMITED TIME OFFER
+                    </div>
+                    {previewCampaignData.discountNote && (
+                      <div
+                        style={{
+                          fontSize: '16px',
+                          fontWeight: 700,
+                          marginBottom: '12px',
+                          color: '#ffffff',
+                        }}
+                      >
+                        {previewCampaignData.discountNote}
+                      </div>
+                    )}
+                    {previewCampaignData.discountCode && (
+                      <>
+                        <div
+                          style={{
+                            display: 'inline-block',
+                            backgroundColor: '#ffffff',
+                            color: '#01390f',
+                            padding: '10px 28px',
+                            borderRadius: '9999px',
+                            fontFamily: "'Poppins', Consolas, monospace",
+                            fontSize: '20px',
+                            fontWeight: 800,
+                            letterSpacing: '4px',
+                            border: '2px dashed #01390f',
+                            marginBottom: '10px',
+                          }}
+                        >
+                          {previewCampaignData.discountCode}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#d1fae5', marginTop: '4px' }}>
+                          Use code at checkout to claim your savings
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* 7. CTA Button */}
+                <div style={{ textAlign: 'center', margin: '28px 0 20px 0' }}>
+                  <a
+                    href={previewCampaignData.ctaUrl || `${FRONTEND_BASE_URL}/collection`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-block',
+                      backgroundColor: '#01390f',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      textDecoration: 'none',
+                      padding: '14px 32px',
+                      borderRadius: '9999px',
+                      boxShadow: '0 4px 14px rgba(1, 57, 15, 0.2)',
+                    }}
+                  >
+                    {previewCampaignData.ctaText || 'Shop the Botanical Collection'} &rarr;
+                  </a>
+                </div>
+
+                {/* 8. Notice Box */}
+                <div
+                  style={{
+                    backgroundColor: '#fcfdfa',
+                    border: '1px solid #e5e7eb',
+                    borderLeft: '4px solid #01390f',
+                    borderRadius: '12px',
+                    padding: '14px 18px',
+                    marginTop: '24px',
+                    fontSize: '12px',
+                    color: '#4b5563',
+                    lineHeight: 1.6,
+                    textAlign: 'center',
+                  }}
+                >
+                  You received this exclusive invitation as a distinguished member of the Mhira Natural community. Cash on Delivery is available nationwide across the Philippines.
+                </div>
+
+                {/* 9. Email Footer */}
+                <div
+                  style={{
+                    marginTop: '32px',
+                    paddingTop: '24px',
+                    borderTop: '1px solid #f1f5f9',
+                    textAlign: 'center',
+                    fontSize: '11px',
+                    color: '#9ca3af',
+                    lineHeight: 1.7,
+                  }}
+                >
+                  &copy; {new Date().getFullYear()} Mhira Natural Soap and Cosmetics Manufacturing. All rights reserved.
+                  <br />
+                  <span style={{ fontSize: '10px', color: '#cbd5e1' }}>
+                    Automated System Notification &bull; Confidential &bull; Please do not reply directly to this email.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="px-6 py-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-[11px] text-slate-500 font-medium">
+                Brand Logo: <code className="font-mono text-[#01390f] font-bold">/mhira_removebg.png</code> (CID inline attachment)
+              </span>
+              <div className="flex items-center gap-2">
+                {!isModalOpen && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPreviewModalOpen(false);
+                      handleOpenAddModal();
+                    }}
+                    className="px-4 py-2 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Compose Campaign</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="px-5 py-2 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-xs font-bold uppercase tracking-wider transition-all border border-[#d5ead7] cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW CAMPAIGN DETAILS MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
+      {viewCampaignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-800">
+                  {stripEmojis(viewCampaignModal.title || viewCampaignModal.headline || 'Email Campaign')}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {viewCampaignModal.dispatchedAt
+                    ? new Date(viewCampaignModal.dispatchedAt).toLocaleDateString()
+                    : 'Ongoing'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewCampaignModal(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* MODAL BODY (PARAGRAPH STYLE — NO ICONS, NO LABELS, NO CONTAINERS) */}
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
+              <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="font-semibold text-slate-800">
+                  {viewCampaignModal.targetAudience === 'ALL_CUSTOMERS'
+                    ? 'All Verified Customers'
+                    : viewCampaignModal.recipientEmail || 'Single Recipient'}{' '}
+                  ({viewCampaignModal.recipientsCount || 1} Sent)
+                </p>
+                <p className="text-slate-500">
+                  {viewCampaignModal.dispatchedAt
+                    ? new Date(viewCampaignModal.dispatchedAt).toLocaleDateString()
+                    : 'Not Dispatched'}
+                </p>
+                {(viewCampaignModal.discountCode || viewCampaignModal.discountNote) && (
+                  <p className="font-semibold text-[#01390f]">
+                    {viewCampaignModal.discountCode ? `Code: ${viewCampaignModal.discountCode}` : ''}
+                    {viewCampaignModal.discountCode && viewCampaignModal.discountNote ? ' — ' : ''}
+                    {viewCampaignModal.discountNote || ''}
+                  </p>
+                )}
+                {viewCampaignModal.headline && viewCampaignModal.headline !== viewCampaignModal.title && (
+                  <p className="pt-1 font-semibold text-slate-800">
+                    {stripEmojis(viewCampaignModal.headline)}
+                  </p>
+                )}
+                {viewCampaignModal.bodyText && (
+                  <p className="pt-2 text-slate-700 leading-relaxed whitespace-pre-line font-normal">
+                    {viewCampaignModal.bodyText}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* MODAL FOOTER (CLOSE ONLY) */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewCampaignModal(null)}
+                className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

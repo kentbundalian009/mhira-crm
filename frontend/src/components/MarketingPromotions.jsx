@@ -31,6 +31,7 @@ import {
   FileSpreadsheet,
   Hash,
   Info,
+  Eye,
 } from 'lucide-react';
 import axios from '../axios';
 import { jsPDF } from 'jspdf';
@@ -51,6 +52,7 @@ function MarketingPromotions() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
+  const [viewCouponModal, setViewCouponModal] = useState(null);
   const [copiedCode, setCopiedCode] = useState(null);
 
   // View Mode ('active' = All Coupons | 'archived' = Archive Vault)
@@ -74,6 +76,8 @@ function MarketingPromotions() {
     usageLimit: '',
     expiry: '',
     targetSegment: 'All',
+    isPublished: true,
+    note: '',
   });
 
   const expiryInputRef = useRef(null);
@@ -136,6 +140,8 @@ function MarketingPromotions() {
       usageLimit: '',
       expiry: '',
       targetSegment: 'All',
+      isPublished: true,
+      note: '',
     });
     setIsModalOpen(true);
   };
@@ -151,6 +157,11 @@ function MarketingPromotions() {
     if (normalizedSegment === 'Regular' || normalizedSegment === 'Silver') normalizedSegment = 'Silver Tier';
     if (normalizedSegment === 'New Customers' || normalizedSegment === 'New' || normalizedSegment === 'Bronze') normalizedSegment = 'Bronze Tier';
 
+    const isLive =
+      coupon.isPublished !== undefined
+        ? Boolean(coupon.isPublished)
+        : coupon.status !== 'Draft' && coupon.status !== 'Inactive';
+
     setNewCoupon({
       code: coupon.code || '',
       discount: cleanDiscount,
@@ -158,8 +169,22 @@ function MarketingPromotions() {
       usageLimit: cleanLimit > 0 ? String(cleanLimit) : '',
       expiry: cleanExpiry,
       targetSegment: normalizedSegment,
+      isPublished: isLive,
+      note: coupon.note || '',
     });
     setIsModalOpen(true);
+  };
+
+  const handleAutoGenerateVoucherNote = () => {
+    const codeStr = newCoupon.code ? newCoupon.code.toUpperCase() : 'MHIRA VOUCHER';
+    const discStr = newCoupon.discount ? `${newCoupon.discount}% OFF` : 'Special Discount';
+    const minStr = Number(newCoupon.minSpend) > 0 ? `with a minimum spend of ₱${Number(newCoupon.minSpend).toLocaleString()}` : 'with no minimum spend required';
+    const segStr = newCoupon.targetSegment && newCoupon.targetSegment !== 'All' ? `exclusively for ${newCoupon.targetSegment} members` : 'valid for all verified Mhira Natural shoppers';
+    const expStr = newCoupon.expiry ? `Valid until ${new Date(newCoupon.expiry).toLocaleDateString()}.` : 'Valid on regular and promotional items at checkout.';
+
+    const generated = `Enjoy ${discStr} on your Mhira Natural botanical order using voucher code ${codeStr} (${minStr}), ${segStr}. ${expStr}`;
+    setNewCoupon((prev) => ({ ...prev, note: generated }));
+    showSuccessToast('Auto-generated promotional voucher note.');
   };
 
   const handleSaveCoupon = async (e) => {
@@ -168,9 +193,13 @@ function MarketingPromotions() {
 
     setSubmitting(true);
     try {
+      const isPub = Boolean(newCoupon.isPublished);
       const payload = {
         ...newCoupon,
         usageLimit: Number(newCoupon.usageLimit) > 0 ? Number(newCoupon.usageLimit) : 0,
+        isPublished: isPub,
+        status: isPub ? 'Active' : 'Draft',
+        note: (newCoupon.note || '').trim(),
       };
       if (editingCoupon) {
         await axios.put(`${API_BASE_URL}/api/coupons/${editingCoupon._id}`, payload);
@@ -179,7 +208,16 @@ function MarketingPromotions() {
         await axios.post(`${API_BASE_URL}/api/coupons`, payload);
         showSuccessToast('Targeted promotional coupon created successfully!');
       }
-      setNewCoupon({ code: '', discount: '', minSpend: '', usageLimit: '', expiry: '', targetSegment: 'All' });
+      setNewCoupon({
+        code: '',
+        discount: '',
+        minSpend: '',
+        usageLimit: '',
+        expiry: '',
+        targetSegment: 'All',
+        isPublished: true,
+        note: '',
+      });
       setEditingCoupon(null);
       setIsModalOpen(false);
       fetchCouponsAndSegments();
@@ -270,13 +308,14 @@ function MarketingPromotions() {
         }
       }
 
-      // 3. Status filter
+      // 3. Status filter (Live vs Draft)
       if (statusFilter !== 'All') {
-        const expired = checkIsExpired(c.expiry);
-        const limitReached = Number(c.usageLimit || 0) > 0 && Number(c.usedCount || 0) >= Number(c.usageLimit || 0);
-        const isUnavailable = expired || limitReached;
-        if (statusFilter === 'Active' && isUnavailable) return false;
-        if (statusFilter === 'Expired' && !isUnavailable) return false;
+        const isLive =
+          c.isPublished !== undefined
+            ? Boolean(c.isPublished)
+            : c.status !== 'Draft' && c.status !== 'Inactive';
+        if ((statusFilter === 'Live' || statusFilter === 'Active') && !isLive) return false;
+        if ((statusFilter === 'Draft' || statusFilter === 'Expired') && isLive) return false;
       }
 
       return true;
@@ -461,9 +500,9 @@ function MarketingPromotions() {
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="w-full h-[30px] sm:h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#153E97] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate shadow-2xs"
                   >
-                    <option value="All">All Coupon Statuses</option>
-                    <option value="Active">Active Coupons</option>
-                    <option value="Expired">Expired / Limit Reached</option>
+                    <option value="All">All Status (Live &amp; Draft)</option>
+                    <option value="Live">Live Only</option>
+                    <option value="Draft">Draft Only</option>
                   </select>
                   <ChevronDown className="w-3 h-3 absolute right-1.5 top-1.5 text-slate-400 pointer-events-none" />
                 </div>
@@ -489,20 +528,20 @@ function MarketingPromotions() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
                 <button
                   type="button"
-                  onClick={() => setStatusFilter(statusFilter === 'Active' ? 'All' : 'Active')}
-                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${statusFilter === 'Active'
-                    ? 'bg-blue-50 border-[#153E97] text-[#153E97] font-semibold'
+                  onClick={() => setStatusFilter(statusFilter === 'Live' ? 'All' : 'Live')}
+                  className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${statusFilter === 'Live'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
-                  Active Only
+                  Live Only
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSelectedSegment(selectedSegment === 'Gold Tier' ? 'All' : 'Gold Tier')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedSegment === 'Gold Tier'
-                    ? 'bg-amber-50 border-amber-500 text-amber-900 font-semibold'
+                    ? 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -513,7 +552,7 @@ function MarketingPromotions() {
                   type="button"
                   onClick={() => setSelectedSegment(selectedSegment === 'Silver Tier' ? 'All' : 'Silver Tier')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedSegment === 'Silver Tier'
-                    ? 'bg-slate-100 border-slate-400 text-slate-800 font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -524,7 +563,7 @@ function MarketingPromotions() {
                   type="button"
                   onClick={() => setSelectedSegment(selectedSegment === 'Bronze Tier' ? 'All' : 'Bronze Tier')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${selectedSegment === 'Bronze Tier'
-                    ? 'bg-orange-50 border-orange-400 text-orange-900 font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -564,8 +603,8 @@ function MarketingPromotions() {
                   <th className="py-3.5 px-4 text-right">MINIMUM SPEND</th>
                   <th className="py-3.5 px-4 text-center">USAGE LIMIT</th>
                   <th className="py-3.5 px-4">TARGET AUDIENCE</th>
-                  <th className="py-3.5 px-4 text-center">EXPIRY DATE</th>
-                  <th className="py-3.5 px-4 text-center">STATUS</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">EXPIRY DATE</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">STOREFRONT STATUS</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#153E97] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">
                     ACTION
                   </th>
@@ -613,19 +652,19 @@ function MarketingPromotions() {
                     const usedNum = Number(c.usedCount || 0);
                     const isLimitReached = limitNum > 0 && usedNum >= limitNum;
 
-                    // Status text & style categorization
-                    let statusLabel = 'Active';
-                    let statusStyle = 'bg-blue-500/15 group-hover:bg-blue-500/25 text-[#153E97]';
+                    // Status text & style categorization (Live vs Draft vs Archived)
+                    const isCouponLive =
+                      c.isPublished !== undefined
+                        ? Boolean(c.isPublished)
+                        : c.status !== 'Draft' && c.status !== 'Inactive';
+                    let statusLabel = isCouponLive ? 'Live' : 'Draft';
+                    let statusStyle = isCouponLive
+                      ? 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
+                      : 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900';
 
                     if (c.isArchived) {
                       statusLabel = 'Archived';
-                      statusStyle = 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700';
-                    } else if (expired) {
-                      statusLabel = 'Expired';
-                      statusStyle = 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800';
-                    } else if (isLimitReached) {
-                      statusLabel = 'Limit Reached';
-                      statusStyle = 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900';
+                      statusStyle = 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900';
                     }
 
                     return (
@@ -656,7 +695,7 @@ function MarketingPromotions() {
                         <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           {limitNum > 0 ? (
                             <span
-                              className={`font-bold ${isLimitReached ? 'text-rose-600' : 'text-slate-800'
+                              className={`font-bold ${isLimitReached ? 'text-red-600' : 'text-slate-800'
                                 }`}
                             >
                               {usedNum} / {limitNum}
@@ -668,20 +707,14 @@ function MarketingPromotions() {
                           )}
                         </td>
 
-                        {/* 5. TARGET AUDIENCE (Standardized Pill Badges) */}
+                        {/* 5. TARGET AUDIENCE (Standardized Pill Badges — Blue / Yellow / Red) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${(c.targetSegment || '').includes('Gold') ||
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${(c.targetSegment || '').includes('Gold') ||
                               (c.targetSegment || '').includes('Loyal') ||
                               (c.targetSegment || '') === 'VIP'
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                              : (c.targetSegment || '').includes('Silver') ||
-                                (c.targetSegment || '') === 'Regular'
-                                ? 'bg-slate-100 text-slate-800 border border-slate-300'
-                                : (c.targetSegment || '').includes('Bronze') ||
-                                  (c.targetSegment || '') === 'New'
-                                  ? 'bg-orange-50 text-orange-800 border border-orange-200'
-                                  : 'bg-blue-50 text-[#153E97] border border-blue-200'
+                              ? 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                              : 'bg-blue-50 text-blue-700 border-blue-200'
                               }`}
                           >
                             {c.targetSegment || 'All Shoppers'}
@@ -695,7 +728,7 @@ function MarketingPromotions() {
                             : 'No Expiry'}
                         </td>
 
-                        {/* 7. STATUS (Cell-Tinted Style Matching Days Remaining / Expiry Table) */}
+                        {/* 7. STATUS (Cell-Tinted Style) */}
                         <td
                           className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${statusStyle}`}
                         >
@@ -703,15 +736,24 @@ function MarketingPromotions() {
                         </td>
 
                         {/* 8. ACTION (Sticky Right) */}
-                        <td className="py-3 px-3 bg-slate-50/80 group-hover:bg-blue-50/40 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                        <td className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setViewCouponModal(c)}
+                              title="View Voucher Details"
+                              className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+
                             {viewMode !== 'archived' ? (
                               <>
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEditModal(c)}
                                   title="Edit Coupon"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#153E97] hover:text-white hover:border-[#153E97] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
@@ -720,7 +762,7 @@ function MarketingPromotions() {
                                   type="button"
                                   onClick={() => handleToggleArchive(c)}
                                   title="Archive Coupon"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Archive className="w-3.5 h-3.5" />
                                 </button>
@@ -731,7 +773,7 @@ function MarketingPromotions() {
                                   type="button"
                                   onClick={() => handleToggleArchive(c)}
                                   title="Restore Coupon"
-                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5" />
                                 </button>
@@ -740,7 +782,7 @@ function MarketingPromotions() {
                                   type="button"
                                   onClick={(e) => handleDeleteCoupon(c._id, e)}
                                   title="Delete Permanently"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -758,20 +800,18 @@ function MarketingPromotions() {
         </div>
       </div>
 
-      {/* CREATE / EDIT COUPON MODAL */}
+      {/* CREATE / EDIT COUPON MODAL (MATCHING CREATE PACKAGE SET MODAL UI) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             {/* MODAL HEADER */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-800">
-                  {editingCoupon ? 'Edit Promotional Coupon' : 'Create Promotional Coupon'}
+                  {editingCoupon ? 'Edit Promotional Voucher' : 'Create Promotional Voucher'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  {editingCoupon
-                    ? 'Modify existing voucher code settings, redemption limit, and spend thresholds'
-                    : 'Generate targeted voucher codes with redemption limits and spend thresholds'}
+                  Configure voucher codes, discount rates, spend thresholds, and promotional notes
                 </p>
               </div>
               <button
@@ -786,144 +826,199 @@ function MarketingPromotions() {
               </button>
             </div>
 
+            {/* MODAL FORM BODY */}
             <form onSubmit={handleSaveCoupon} className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm">
-              <div className="p-6 flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar">
-                {/* 1. 2-COLUMN GRID: PROMO VOUCHER CODE & USAGE LIMIT */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto custom-scrollbar">
+
+                {/* 1. PUBLISH TO STOREFRONT TOGGLE (CLEAN INLINE WITH UNDERLINE AT THE VERY TOP) */}
+                <div
+                  onClick={() => setNewCoupon((prev) => ({ ...prev, isPublished: !prev.isPublished }))}
+                  className="flex items-center gap-3 pb-3 border-b border-slate-100 cursor-pointer select-none group"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNewCoupon((prev) => ({ ...prev, isPublished: !prev.isPublished }));
+                    }}
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${newCoupon.isPublished
+                      ? 'bg-[#01390f] text-white border-[#01390f]'
+                      : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    {newCoupon.isPublished ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                    )}
+                  </button>
+                  <div className="flex flex-col flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
+                        Publish to storefront immediately{' '}
+                        <span className="text-[11px] font-normal text-slate-400">(Visible to customers)</span>
+                      </span>
+
+
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {newCoupon.isPublished
+                        ? 'Live in Customer Checkout immediately upon saving'
+                        : 'Saved as draft (hidden from customers until published)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. 2-COLUMN GRID: PROMO VOUCHER CODE & USAGE LIMIT */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* PROMO VOUCHER CODE WITH QUICK-GENERATE */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Promo Voucher Code <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Promo Voucher Code <span className="text-red-600">*</span>
                     </label>
-                    <div className="flex items-center">
-                      <div className="relative flex-1">
-                        <Tag className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. MHIRA20OFF"
-                          value={newCoupon.code}
-                          onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
-                          className="w-full h-[34px] bg-slate-50 border border-slate-200 text-[#153E97] rounded-l-lg pl-8 pr-3 text-xs font-bold font-mono focus:outline-none focus:border-[#153E97] focus:bg-white uppercase transition-colors"
-                        />
-                      </div>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter Promo Mhira Code"
+                        value={newCoupon.code}
+                        onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                        className="w-full h-9 bg-transparent text-[#01390f] text-xs font-bold font-mono focus:outline-none uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
+                      />
                       <button
                         type="button"
                         onClick={() => {
                           const randomCode = 'MHIRA' + Math.floor(1000 + Math.random() * 9000);
                           setNewCoupon({ ...newCoupon, code: randomCode });
                         }}
-                        className="h-[34px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-3 text-xs font-semibold text-slate-700 cursor-pointer flex items-center justify-center shrink-0 transition-colors select-none"
+                        className="ml-2 px-2 py-1 rounded bg-slate-100 hover:bg-[#01390f]/10 text-[10px] font-bold text-[#01390f] uppercase cursor-pointer shrink-0 transition-colors select-none"
                         title="Auto-generate promo code"
                       >
-                        <span className="text-[10px] font-bold text-[#153E97] uppercase">Auto</span>
+                        Auto
                       </button>
                     </div>
                   </div>
 
                   {/* USAGE / REDEMPTION LIMIT */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Usage Limit (Max Redemptions)
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Usage Limit <span className="text-[10px] text-slate-400 font-normal normal-case">(Max Redemptions)</span>
                     </label>
-                    <div className="flex items-center">
-                      <div className="h-[34px] bg-slate-100 border-y border-l border-slate-200 rounded-l-lg px-2.5 text-xs font-bold text-slate-500 flex items-center justify-center shrink-0">
-                        <Hash className="w-3.5 h-3.5 text-slate-500" />
-                      </div>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                       <input
                         type="number"
                         min="0"
-                        placeholder="0 (Unlimited)"
+                        placeholder="Enter usage limit (0 = unlimited)"
                         value={newCoupon.usageLimit}
                         onChange={(e) => setNewCoupon({ ...newCoupon, usageLimit: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white font-mono transition-colors"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold font-mono focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 2. 2-COLUMN GRID: DISCOUNT PERCENTAGE & MIN SPEND */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* DISCOUNT PERCENTAGE */}
+                {/* 3. 2-COLUMN GRID: DISCOUNT PERCENTAGE & MIN SPEND */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* DISCOUNT PERCENTAGE WITH QUICK PRESETS */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Discount Percentage (%) <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Discount Percentage (%) <span className="text-red-600">*</span>
                     </label>
-                    <div className="flex items-center">
-                      <div className="h-[34px] bg-slate-100 border-y border-l border-slate-200 rounded-l-lg px-2.5 text-xs font-bold text-slate-500 flex items-center justify-center shrink-0">
-                        <Percent className="w-3.5 h-3.5 text-slate-500" />
-                      </div>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Percent className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
                       <input
                         type="number"
                         min="1"
                         max="100"
                         required
-                        placeholder="e.g. 20"
+                        placeholder="Enter discount percentage"
                         value={newCoupon.discount}
                         onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white font-mono transition-colors"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold font-mono focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
                       />
+                      <div className="relative flex items-center ml-1 shrink-0">
+                        <select
+                          value={['5', '10', '15', '20', '25', '30', '40', '50'].includes(String(newCoupon.discount)) ? String(newCoupon.discount) : ''}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setNewCoupon({ ...newCoupon, discount: e.target.value });
+                            }
+                          }}
+                          className="h-7 bg-slate-100 hover:bg-slate-200/80 rounded px-2 pr-5 text-[10px] font-bold text-slate-600 cursor-pointer focus:outline-none appearance-none transition-colors"
+                        >
+                          <option value="">Presets</option>
+                          <option value="5">5% OFF</option>
+                          <option value="10">10% OFF</option>
+                          <option value="15">15% OFF</option>
+                          <option value="20">20% OFF</option>
+                          <option value="25">25% OFF</option>
+                          <option value="30">30% OFF</option>
+                          <option value="40">40% OFF</option>
+                          <option value="50">50% OFF</option>
+                        </select>
+                        <ChevronDown className="w-3 h-3 absolute right-1.5 text-slate-500 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
 
                   {/* MIN SPEND REQUIREMENT */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Min Spend Requirement (₱)
                     </label>
-                    <div className="flex items-center">
-                      <div className="h-[34px] bg-slate-100 border-y border-l border-slate-200 rounded-l-lg px-3 text-xs font-bold text-slate-500 flex items-center justify-center shrink-0">
-                        ₱
-                      </div>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
                       <input
                         type="number"
                         min="0"
-                        placeholder="0 (No minimum)"
+                        placeholder="Enter minimum spend amount"
                         value={newCoupon.minSpend}
                         onChange={(e) => setNewCoupon({ ...newCoupon, minSpend: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-r-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white font-mono transition-colors"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold font-mono focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 3. 2-COLUMN GRID: TARGET SEGMENT & EXPIRATION DATE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 4. 2-COLUMN GRID: TARGET SEGMENT & EXPIRATION DATE */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* TARGET CUSTOMER SEGMENT */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Target Customer Segment
                     </label>
-                    <div className="relative">
-                      <Users className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Users className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <select
                         value={newCoupon.targetSegment}
                         onChange={(e) => setNewCoupon({ ...newCoupon, targetSegment: e.target.value })}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white cursor-pointer appearance-none transition-colors"
+                        className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-semibold focus:outline-none cursor-pointer appearance-none"
                       >
                         <option value="All">All Shoppers (Public)</option>
-                        <option value="Gold Tier">Gold Tier (3+ orders or ₱5k+ spend)</option>
-                        <option value="Silver Tier">Silver Tier (1+ order or ₱1k+ spend)</option>
-                        <option value="Bronze Tier">Bronze Tier (New customer / 0 orders)</option>
+                        <option value="Gold Tier">Gold Tier</option>
+                        <option value="Silver Tier">Silver Tier</option>
+                        <option value="Bronze Tier">Bronze Tier</option>
                       </select>
-                      <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="w-3.5 h-3.5 absolute right-1 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
 
                   {/* EXPIRATION DATE */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                         Expiration Date
                       </label>
                       {newCoupon.expiry ? (
                         <button
                           type="button"
                           onClick={() => setNewCoupon({ ...newCoupon, expiry: '' })}
-                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-0.5 transition-colors"
+                          className="text-[10px] font-bold text-red-600 hover:text-red-700 cursor-pointer flex items-center gap-0.5 transition-colors"
                           title="Clear expiration date"
                         >
-                          <X className="w-3 h-3" /> Clear (No Expiry)
+                          <X className="w-3 h-3" /> Clear
                         </button>
                       ) : (
                         <span className="text-[10px] text-slate-400 font-medium">Optional</span>
@@ -934,45 +1029,68 @@ function MarketingPromotions() {
                         try {
                           expiryInputRef.current?.showPicker();
                           expiryInputRef.current?.focus();
-                        } catch (err) {}
+                        } catch (err) { }
                       }}
-                      className="relative cursor-pointer flex items-center"
+                      className="relative cursor-pointer flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors"
                     >
-                      <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-[#153E97] pointer-events-none z-10" />
+                      <Calendar className="w-3.5 h-3.5 text-[#01390f] shrink-0 mr-2 pointer-events-none" />
                       <input
                         ref={expiryInputRef}
                         type="date"
-                        placeholder="mm/dd/yyyy"
+                        placeholder="Select expiration date"
                         min={todayDate}
                         value={newCoupon.expiry || ''}
                         onChange={(e) => setNewCoupon({ ...newCoupon, expiry: e.target.value })}
                         onClick={(e) => {
                           try {
                             e.currentTarget.showPicker();
-                          } catch (err) {}
+                          } catch (err) { }
                         }}
                         onFocus={(e) => {
                           try {
                             e.currentTarget.showPicker();
-                          } catch (err) {}
+                          } catch (err) { }
                         }}
-                        className="w-full h-[34px] bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:ring-1 focus:ring-[#153E97]/20 cursor-pointer transition-colors [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-75 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* STATUS HELPER NOTICE */}
-                <div className="pt-1 text-xs text-slate-500">
+                {/* 5. VOUCHER NOTE / DESCRIPTION AT THE BOTTOM (MATCHING PACKAGE SET DETAILS) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      Voucher Note (Terms &amp; Description)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAutoGenerateVoucherNote}
+                      className="text-[11px] font-bold text-[#01390f] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Auto-generate Note</span>
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={newCoupon.note || ''}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, note: e.target.value })}
+                    placeholder="Enter voucher terms, promotional note, or eligibility description..."
+                    className="w-full bg-transparent border-b-2 border-slate-200 focus:border-[#01390f] py-2 text-xs font-medium text-slate-800 focus:outline-none leading-relaxed transition-colors resize-none placeholder:text-slate-300 placeholder:font-normal"
+                  />
+                </div>
+
+                {/* STATUS HELPER NOTICE AT THE BOTTOM */}
+                <div className="pt-1 text-xs text-slate-400 flex items-center justify-between gap-2">
                   <span>
-                    {editingCoupon
-                      ? 'Changes to this coupon will take effect immediately across checkout.'
-                      : 'Coupon will be live immediately across customer checkout once saved.'}
+                    {newCoupon.isPublished
+                      ? 'Note: This voucher is set to Live and can be redeemed immediately by customers at checkout.'
+                      : 'Note: This voucher is set to Draft and will remain hidden from checkout until switched to Live.'}
                   </span>
                 </div>
               </div>
 
-              {/* ACTION BUTTONS FOOTER */}
+              {/* ACTION BUTTONS FOOTER (MATCHING CREATE PACKAGE SET MODAL) */}
               <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
@@ -980,28 +1098,97 @@ function MarketingPromotions() {
                     setIsModalOpen(false);
                     setEditingCoupon(null);
                   }}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap"
+                  className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer border border-[#d5ead7]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap bg-[#153E97] hover:bg-[#11327c] text-white cursor-pointer disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  <span className="whitespace-nowrap">
+                  <span>
                     {submitting
-                      ? editingCoupon
-                        ? 'Saving...'
-                        : 'Creating...'
+                      ? 'Saving...'
                       : editingCoupon
-                        ? 'Save Changes'
-                        : 'Create Coupon'}
+                        ? 'Update Voucher'
+                        : 'Save Voucher'}
                   </span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW COUPON MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
+      {viewCouponModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-800 font-mono">
+                  {viewCouponModal.code}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {viewCouponModal.expiry && !isNaN(new Date(viewCouponModal.expiry).getTime())
+                    ? new Date(viewCouponModal.expiry).toLocaleDateString()
+                    : 'No Expiry'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewCouponModal(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* MODAL BODY (PARAGRAPH STYLE — NO ICONS, NO LABELS, NO CONTAINERS) */}
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
+              <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="font-semibold text-slate-800">
+                  {viewCouponModal.targetSegment || 'All Shoppers'}
+                </p>
+                <p className="text-slate-500">
+                  {viewCouponModal.expiry && !isNaN(new Date(viewCouponModal.expiry).getTime())
+                    ? new Date(viewCouponModal.expiry).toLocaleDateString()
+                    : 'No Expiry'}{' '}
+                  •{' '}
+                  {Number(viewCouponModal.usageLimit || 0) > 0
+                    ? `${Number(viewCouponModal.usedCount || 0)} / ${Number(viewCouponModal.usageLimit)} Used`
+                    : 'Unlimited Usage'}
+                </p>
+                <p className="font-semibold text-[#01390f]">
+                  {String(viewCouponModal.discount || '0').includes('%') ||
+                    String(viewCouponModal.discount || '0').includes('₱')
+                    ? `${viewCouponModal.discount} OFF`
+                    : `${viewCouponModal.discount}% OFF`}
+                  {Number(viewCouponModal.minSpend || 0) > 0
+                    ? ` (Min. Spend ₱${Number(viewCouponModal.minSpend).toFixed(2)})`
+                    : ' (No Minimum Spend)'}
+                </p>
+                {viewCouponModal.description && (
+                  <p className="pt-2 text-slate-700 leading-relaxed whitespace-pre-line font-normal">
+                    {viewCouponModal.description}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* MODAL FOOTER (CLOSE ONLY) */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewCouponModal(null)}
+                className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

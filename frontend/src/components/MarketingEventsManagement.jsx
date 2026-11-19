@@ -20,6 +20,7 @@ import {
   Archive,
   Layers,
   Info,
+  Check,
 } from 'lucide-react';
 import axios, { API, API_BASE_URL } from '../axios';
 import { jsPDF } from 'jspdf';
@@ -628,7 +629,7 @@ function MarketingEventsManagement() {
                     setSelectedStatus(selectedStatus === 'published' ? 'All' : 'published')
                   }
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedStatus === 'published'
-                    ? 'bg-blue-50 border-[#153E97] text-[#153E97] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -639,7 +640,7 @@ function MarketingEventsManagement() {
                   type="button"
                   onClick={() => setSelectedStatus(selectedStatus === 'draft' ? 'All' : 'draft')}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedStatus === 'draft'
-                    ? 'bg-slate-100 border-slate-400 text-slate-800 font-semibold'
+                    ? 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -654,7 +655,7 @@ function MarketingEventsManagement() {
                     )
                   }
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedCategory === 'Announcement'
-                    ? 'bg-blue-50 border-[#153E97] text-[#153E97] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -773,9 +774,15 @@ function MarketingEventsManagement() {
                           </div>
                         </td>
 
-                        {/* 2. CATEGORY (Standard Pill Badge) */}
+                        {/* 2. CATEGORY (Standard Pill Badge — Blue / Yellow) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-[#153E97] border border-blue-200">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${(evt.category || '').toLowerCase().includes('promo') ||
+                              (evt.category || '').toLowerCase().includes('event')
+                              ? 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                              : 'bg-blue-50 text-blue-700 border-blue-200'
+                              }`}
+                          >
                             {evt.category || 'Announcement'}
                           </span>
                         </td>
@@ -801,13 +808,13 @@ function MarketingEventsManagement() {
                           </span>
                         </td>
 
-                        {/* 5. STOREFRONT STATUS (Clean tinted cell, dot removed) */}
+                        {/* 5. STOREFRONT STATUS (Blue / Yellow / Red Tinted Cell) */}
                         <td
                           className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${isItemArchived
-                              ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                              ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                               : isLive
-                                ? 'bg-blue-500/15 group-hover:bg-blue-500/25 text-[#153E97]'
-                                : 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                                ? 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
+                                : 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
                             }`}
                         >
                           {isItemArchived ? (
@@ -819,13 +826,13 @@ function MarketingEventsManagement() {
                               className="cursor-pointer hover:opacity-80 active:scale-95 transition-transform"
                               title="Click to toggle publish status"
                             >
-                              {isLive ? 'Published' : 'Draft'}
+                              {isLive ? 'Live' : 'Draft'}
                             </button>
                           )}
                         </td>
 
                         {/* 6. ACTION (Sticky Right) */}
-                        <td className="py-3 px-3 bg-slate-50/80 group-hover:bg-blue-50/40 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
+                        <td className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                           <div className="flex items-center justify-center gap-1.5">
                             {/* Eye (View) */}
                             <button
@@ -853,7 +860,7 @@ function MarketingEventsManagement() {
                                 <button
                                   type="button"
                                   onClick={() => setArchiveTargetEvent(evt)}
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   title="Move to Archive Vault"
                                 >
                                   <Archive className="w-3.5 h-3.5" />
@@ -865,7 +872,7 @@ function MarketingEventsManagement() {
                                 <button
                                   type="button"
                                   onClick={() => setArchiveTargetEvent(evt)}
-                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   title="Restore to All Broadcasts"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5" />
@@ -875,7 +882,7 @@ function MarketingEventsManagement() {
                                 <button
                                   type="button"
                                   onClick={(e) => confirmDeleteEvent(evt, e)}
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   title="Permanently Delete"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -896,7 +903,7 @@ function MarketingEventsManagement() {
 
       {/* CREATE / EDIT ANNOUNCEMENT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             {/* MODAL HEADER */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
@@ -919,23 +926,65 @@ function MarketingEventsManagement() {
               </button>
             </div>
 
+            {/* MODAL FORM BODY */}
             <form
               onSubmit={handleSubmit}
               className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm"
             >
-              <div className="p-6 flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto custom-scrollbar">
                 {modalError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-medium">
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
                     {modalError}
                   </div>
                 )}
 
-                {/* 1. BANNER IMAGE UPLOAD */}
+                {/* 1. PUBLISH TO STOREFRONT TOGGLE (CLEAN INLINE WITH UNDERLINE) */}
+                <div
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }))
+                  }
+                  className="flex items-center gap-3 pb-3 border-b border-slate-100 cursor-pointer select-none group"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }));
+                    }}
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${formData.isPublished
+                        ? 'bg-[#01390f] text-white border-[#01390f]'
+                        : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    {formData.isPublished ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                    )}
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
+                      Publish to storefront immediately{' '}
+                      <span className="text-[11px] font-normal text-slate-400">
+                        (Visible to customers)
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {formData.isPublished
+                        ? 'Live in Customer Events & Promos storefront (/events) immediately upon saving'
+                        : 'Saved as draft (hidden from customers until published)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. BANNER IMAGE UPLOAD */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                       Announcement Banner Image{' '}
-                      <span className="text-[11px] font-normal text-slate-400">(Max 2MB)</span>
+                      <span className="text-[11px] font-normal normal-case text-slate-400">
+                        (Max 2MB)
+                      </span>
                     </label>
                     {formData.bannerImage && (
                       <span className="text-[11px] font-mono text-slate-400">1 banner added</span>
@@ -945,7 +994,7 @@ function MarketingEventsManagement() {
                   <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
                     <label
                       title="Upload Banner Image"
-                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#153E97] hover:text-white hover:border-[#153E97] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
+                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <input
@@ -957,19 +1006,19 @@ function MarketingEventsManagement() {
                     </label>
 
                     {formData.bannerImage ? (
-                      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs shrink-0">
+                      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs shrink-0">
                         <img
                           src={formData.bannerImage}
                           alt="Banner Preview"
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute bottom-1.5 left-1.5 bg-[#153E97] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                        <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
                           Banner
                         </span>
                         <button
                           type="button"
                           onClick={() => setFormData((prev) => ({ ...prev, bannerImage: '' }))}
-                          className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                          className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                           title="Remove banner image"
                         >
                           ✕
@@ -984,10 +1033,10 @@ function MarketingEventsManagement() {
                   </div>
                 </div>
 
-                {/* 2. ANNOUNCEMENT TITLE */}
+                {/* 3. ANNOUNCEMENT TITLE */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                    Announcement Title <span className="text-rose-500">*</span>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                    Announcement Title <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
@@ -996,45 +1045,45 @@ function MarketingEventsManagement() {
                     value={formData.title}
                     onChange={handleInputChange}
                     placeholder="e.g. Grand Anniversary Sale & New Product Launch"
-                    className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors"
+                    className="w-full h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                   />
                 </div>
 
-                {/* 3. 2-COLUMN GRID: CATEGORY & EVENT DATE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 4. 3-COLUMN GRID: CATEGORY, EVENT DATE & LOCATION / VENUE */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Category
                     </label>
-                    <div className="relative">
-                      <Tag className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <input
                         type="text"
                         name="category"
                         value={formData.category}
                         onChange={handleInputChange}
-                        placeholder="e.g. Promo / Event / Announcement"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors"
+                        placeholder="e.g. Promo / Event"
+                        className="w-full h-9 bg-transparent text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                         Event Date
                       </label>
                       {formData.eventDate ? (
                         <button
                           type="button"
                           onClick={() => setFormData((prev) => ({ ...prev, eventDate: '' }))}
-                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-0.5 transition-colors"
+                          className="text-[10px] font-bold text-red-600 hover:text-red-700 cursor-pointer flex items-center gap-0.5 transition-colors"
                           title="Clear event date"
                         >
-                          <X className="w-3 h-3" /> Clear (Ongoing)
+                          <X className="w-3 h-3" /> Clear
                         </button>
                       ) : (
-                        <span className="text-[10px] text-slate-400 font-medium">Optional</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Optional</span>
                       )}
                     </div>
                     <div
@@ -1044,9 +1093,9 @@ function MarketingEventsManagement() {
                           eventDateInputRef.current?.focus();
                         } catch (err) {}
                       }}
-                      className="relative cursor-pointer flex items-center"
+                      className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] cursor-pointer transition-colors"
                     >
-                      <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-[#153E97] pointer-events-none z-10" />
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <input
                         ref={eventDateInputRef}
                         type="date"
@@ -1064,59 +1113,33 @@ function MarketingEventsManagement() {
                             e.currentTarget.showPicker();
                           } catch (err) {}
                         }}
-                        className="w-full h-[34px] bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:ring-1 focus:ring-[#153E97]/20 cursor-pointer transition-colors [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                        className="w-full h-9 bg-transparent text-slate-800 px-0.5 text-xs font-semibold focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* 4. 2-COLUMN GRID: LOCATION / VENUE & STOREFRONT STATUS */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Location / Venue
                     </label>
-                    <div className="relative">
-                      <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <input
                         type="text"
                         name="location"
                         value={formData.location}
                         onChange={handleInputChange}
-                        placeholder="e.g. Online Store / SM Mall"
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors"
+                        placeholder="e.g. Online / SM Mall"
+                        className="w-full h-9 bg-transparent text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none"
                       />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Storefront Status
-                    </label>
-                    <div className="relative">
-                      <Eye className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-                      <select
-                        value={formData.isPublished ? 'published' : 'draft'}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            isPublished: e.target.value === 'published',
-                          }))
-                        }
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-8 text-xs font-semibold focus:outline-none focus:border-[#153E97] focus:bg-white cursor-pointer appearance-none transition-colors"
-                      >
-                        <option value="published">Published (Live on Storefront)</option>
-                        <option value="draft">Draft (Hidden from Storefront)</option>
-                      </select>
-                      <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
                 </div>
 
                 {/* 5. ANNOUNCEMENT DETAILS */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                    Announcement Details <span className="text-rose-500">*</span>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                    Announcement Details <span className="text-red-600">*</span>
                   </label>
                   <textarea
                     rows={4}
@@ -1125,33 +1148,34 @@ function MarketingEventsManagement() {
                     value={formData.description}
                     onChange={handleInputChange}
                     placeholder="Enter full details of the announcement or event..."
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#153E97] focus:bg-white transition-colors resize-none"
+                    className="w-full bg-transparent border-b-2 border-slate-200 text-slate-800 py-2 px-0.5 text-xs font-medium placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors resize-none"
                   />
                 </div>
 
-                {/* STATUS HELPER NOTICE */}
-                <div className="pt-1 text-xs text-slate-500">
+                {/* 6. HELPER NOTE */}
+                <div className="pt-1 text-xs text-slate-400">
                   <span>
-                    {selectedEvent
-                      ? 'Changes to this announcement will take effect immediately across the customer storefront.'
-                      : 'Announcement will be live immediately across the customer storefront once saved as Published.'}
+                    <strong className="text-slate-500 font-semibold">Note:</strong>{' '}
+                    {formData.isPublished
+                      ? 'This announcement will immediately appear on the Customer Events & Promos page (/events) once saved.'
+                      : 'Saved as draft. You can publish it anytime from the Storefront Status column or by editing this broadcast.'}
                   </span>
                 </div>
               </div>
 
-              {/* ACTION BUTTONS FOOTER */}
+              {/* MODAL FOOTER */}
               <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap"
+                  className="px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 sm:py-3 rounded-full bg-[#153E97] hover:bg-[#11327c] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                  className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
                 >
                   {submitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1163,7 +1187,9 @@ function MarketingEventsManagement() {
                       ? 'Saving...'
                       : selectedEvent
                         ? 'Save Changes'
-                        : 'Save Announcement'}
+                        : formData.isPublished
+                          ? 'Publish Announcement'
+                          : 'Save as Draft'}
                   </span>
                 </button>
               </div>
@@ -1174,17 +1200,16 @@ function MarketingEventsManagement() {
 
       {/* VIEW MODAL */}
       {viewEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-800">
                   {viewEventModal.title}
                 </h3>
-                <p className="text-xs text-slate-400 font-mono">
-                  {viewEventModal.eventDate
-                    ? new Date(viewEventModal.eventDate).toLocaleDateString()
-                    : 'Ongoing'}
+                <p className="text-xs text-slate-400">
+                  Announcement broadcast details, venue schedule, and storefront status
                 </p>
               </div>
               <button
@@ -1196,99 +1221,54 @@ function MarketingEventsManagement() {
               </button>
             </div>
 
+            {/* MODAL BODY (VIEW ONLY — CLEAN PARAGRAPH STYLE, NO ICONS OR CONTAINERS) */}
             <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
+              {/* BANNER IMAGE (PRODUCT STOREFRONT IMAGES SIZE) */}
               {viewEventModal.bannerImage && (
-                <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-xs bg-slate-100 border border-slate-200/60">
-                  <img
-                    src={viewEventModal.bannerImage}
-                    alt="Banner"
-                    className="w-full h-full object-cover"
-                  />
+                <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0">
+                    <img
+                      src={viewEventModal.bannerImage}
+                      alt="Banner"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                      Banner
+                    </span>
+                  </div>
                 </div>
               )}
 
-              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/60 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Location:</span>
-                  <span className="font-bold text-slate-900">{viewEventModal.location}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Category:</span>
-                  <span className="font-bold text-[#153E97]">{viewEventModal.category}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Status:</span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${viewEventModal.isArchived
-                      ? 'bg-slate-100 text-slate-600 border-slate-300'
-                      : viewEventModal.isPublished
-                        ? 'bg-blue-50 text-[#153E97] border-blue-200'
-                        : 'bg-slate-100 text-slate-600 border-slate-200'
-                      }`}
-                  >
-                    {viewEventModal.isArchived
-                      ? 'Archived in Vault'
-                      : viewEventModal.isPublished
-                        ? 'Published & Live'
-                        : 'Draft'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-slate-700 block">
-                  Announcement Body:
-                </span>
-                <p className="text-slate-600 leading-relaxed bg-white p-3.5 rounded-xl border border-slate-200/70 text-xs whitespace-pre-line">
-                  {viewEventModal.description}
+              {/* PARAGRAPH STYLE DETAILS (NO ICONS, NO LABELS, NO CONTAINERS) */}
+              <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="font-semibold text-slate-800">
+                  {viewEventModal.location || 'Online / Main Store'}
                 </p>
+                <p className="text-slate-500">
+                  {viewEventModal.eventDate
+                    ? new Date(viewEventModal.eventDate).toLocaleDateString()
+                    : 'Ongoing'}
+                </p>
+                <p className="font-semibold text-[#01390f]">
+                  {viewEventModal.category || 'Announcement'}
+                </p>
+                {viewEventModal.description && (
+                  <p className="pt-2 text-slate-700 leading-relaxed whitespace-pre-line font-normal">
+                    {viewEventModal.description}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
+            {/* MODAL FOOTER (CLOSE ONLY) */}
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0">
               <button
                 type="button"
-                onClick={() => {
-                  const target = viewEventModal;
-                  setViewEventModal(null);
-                  setArchiveTargetEvent(target);
-                }}
-                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${viewEventModal.isArchived
-                  ? 'bg-blue-50 border-blue-200 text-[#153E97] hover:bg-[#153E97] hover:text-white'
-                  : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white'
-                  }`}
-                title={viewEventModal.isArchived ? 'Restore Announcement' : 'Move to Archive Vault'}
+                onClick={() => setViewEventModal(null)}
+                className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
               >
-                {viewEventModal.isArchived ? (
-                  <RotateCcw className="w-4 h-4" />
-                ) : (
-                  <Archive className="w-4 h-4" />
-                )}
+                Close
               </button>
-
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setViewEventModal(null)}
-                  className="px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                >
-                  Close
-                </button>
-                {!viewEventModal.isArchived && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const toEdit = viewEventModal;
-                      setViewEventModal(null);
-                      openEditModal(toEdit);
-                    }}
-                    className="px-5 py-2.5 rounded-full bg-[#153E97] hover:bg-[#11327c] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -1301,8 +1281,8 @@ function MarketingEventsManagement() {
             <div className="flex items-start gap-3.5">
               <div
                 className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${archiveTargetEvent.isArchived
-                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                  : 'bg-amber-50 text-amber-600 border border-amber-100'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
                   }`}
               >
                 {archiveTargetEvent.isArchived ? (
@@ -1341,7 +1321,7 @@ function MarketingEventsManagement() {
                   {archiveTargetEvent.title || 'Untitled Announcement'}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
-                  <span className="inline-block px-2 py-0.5 rounded bg-blue-50 text-[#153E97] font-semibold text-[10px] border border-blue-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px] border border-blue-200">
                     {archiveTargetEvent.category || 'Announcement'}
                   </span>
                   <span>&bull;</span>
@@ -1369,8 +1349,8 @@ function MarketingEventsManagement() {
                 onClick={handleExecuteToggleArchive}
                 disabled={isArchiving}
                 className={`px-6 py-2.5 sm:py-3 rounded-full text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap ${archiveTargetEvent.isArchived
-                  ? 'bg-[#153E97] hover:bg-[#11327c]'
-                  : 'bg-amber-600 hover:bg-amber-700'
+                  ? 'bg-blue-600 hover:bg-blue-700'
+                  : 'bg-red-600 hover:bg-red-700'
                   }`}
               >
                 {isArchiving ? (
@@ -1398,7 +1378,7 @@ function MarketingEventsManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 overflow-hidden border border-slate-100 flex flex-col gap-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0 shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0 shadow-2xs">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -1428,7 +1408,7 @@ function MarketingEventsManagement() {
                   {deleteTargetEvent.title || 'Untitled Announcement'}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
-                  <span className="inline-block px-2 py-0.5 rounded bg-blue-50 text-[#153E97] font-semibold text-[10px] border border-blue-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px] border border-blue-200">
                     {deleteTargetEvent.category || 'Announcement'}
                   </span>
                   <span>&bull;</span>
@@ -1455,7 +1435,7 @@ function MarketingEventsManagement() {
                 type="button"
                 onClick={handleExecuteDelete}
                 disabled={isDeleting}
-                className="px-6 py-2.5 sm:py-3 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                className="px-6 py-2.5 sm:py-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
               >
                 {isDeleting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

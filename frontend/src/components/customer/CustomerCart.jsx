@@ -100,7 +100,13 @@ function Cart() {
 
       if (couponRes.status === "fulfilled" && Array.isArray(couponRes.value?.data)) {
         const activeCoupons = couponRes.value.data
-          .filter((c) => c.status === "Active")
+          .filter(
+            (c) =>
+              c &&
+              !c.isArchived &&
+              c.isPublished !== false &&
+              c.status === "Active"
+          )
           .map((c) => {
             const isPercent = c.discount?.includes("%");
             const numVal = parseFloat(c.discount?.replace(/[^0-9.]/g, "")) || 0;

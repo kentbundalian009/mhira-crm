@@ -52,6 +52,98 @@ const getImageUrl = (url) => {
   return `${API_BASE_URL}/${trimmed.replace(/^\/+/, "")}`;
 };
 
+const normalizeCode = (code) => {
+  const raw = String(code || "").toLowerCase().trim();
+  if (!raw) return "";
+  const fgMatch = raw.match(/^(?:fg-inv-|fg-?)0*(\d+)$/i);
+  if (fgMatch) return `fg-${fgMatch[1]}`;
+  const pkgMatch = raw.match(/^(?:pkg-?)0*(\d+)$/i);
+  if (pkgMatch) return `pkg-${pkgMatch[1]}`;
+  return raw;
+};
+
+const filterActivePackages = (list) => {
+  if (!Array.isArray(list)) return [];
+
+  const archivedIds = new Set();
+  const archivedCodes = new Set();
+
+  try {
+    const invCached = JSON.parse(localStorage.getItem("cached_inventory_products") || "[]");
+    if (Array.isArray(invCached)) {
+      invCached.forEach((inv) => {
+        if (inv && inv.isArchived) {
+          if (inv._id) archivedIds.add(String(inv._id));
+          if (inv.id) archivedIds.add(String(inv.id));
+          if (inv.code) {
+            archivedCodes.add(String(inv.code).toLowerCase().trim());
+            archivedCodes.add(normalizeCode(inv.code));
+          }
+        }
+      });
+    }
+  } catch (e) { }
+
+  try {
+    const mktCached = JSON.parse(localStorage.getItem("cached_marketing_catalog") || "[]");
+    if (Array.isArray(mktCached)) {
+      mktCached.forEach((mkt) => {
+        if (mkt && (mkt.isArchived || mkt.isPublished === false)) {
+          if (mkt._id) archivedIds.add(String(mkt._id));
+          if (mkt.id) archivedIds.add(String(mkt.id));
+          const refId = typeof mkt.productRef === "object" ? (mkt.productRef?._id || mkt.productRef?.id) : mkt.productRef;
+          if (refId) archivedIds.add(String(refId));
+          if (mkt.code) {
+            archivedCodes.add(String(mkt.code).toLowerCase().trim());
+            archivedCodes.add(normalizeCode(mkt.code));
+          }
+        }
+      });
+    }
+  } catch (e) { }
+
+  return list.filter((item) => {
+    if (!item || typeof item !== "object") return false;
+    if (item.isArchived === true || item.isPublished === false) return false;
+
+    const isPackage =
+      item.isBundle === true ||
+      item.category === "Package Sets" ||
+      item.category === "Package Set" ||
+      item.navbarTag === "Package Sets" ||
+      item.category === "Special Bundles" ||
+      (Array.isArray(item.bundleItems) && item.bundleItems.length > 0);
+    if (!isPackage) return false;
+
+    const itemId = item._id ? String(item._id) : item.id ? String(item.id) : "";
+    const itemRef = typeof item.productRef === "object" ? String(item.productRef?._id || item.productRef?.id || "") : String(item.productRef || "");
+    const rawCode = String(item.code || "").toLowerCase().trim();
+    const normCode = normalizeCode(item.code);
+
+    if (itemId && archivedIds.has(itemId)) return false;
+    if (itemRef && archivedIds.has(itemRef)) return false;
+    if (rawCode && archivedCodes.has(rawCode)) return false;
+    if (normCode && archivedCodes.has(normCode)) return false;
+
+    if (Array.isArray(item.bundleItems) && item.bundleItems.length > 0) {
+      const hasArchivedChild = item.bundleItems.some((bi) => {
+        if (!bi) return false;
+        const biRef = typeof bi.productRef === "object" ? String(bi.productRef?._id || bi.productRef?.id || "") : String(bi.productRef || "");
+        const biRawCode = String(bi.code || "").toLowerCase().trim();
+        const biNormCode = normalizeCode(bi.code);
+        return (
+          (biRef && archivedIds.has(biRef)) ||
+          (biRawCode && archivedCodes.has(biRawCode)) ||
+          (biNormCode && archivedCodes.has(biNormCode))
+        );
+      });
+      if (hasArchivedChild) return false;
+    }
+
+    return true;
+  });
+};
+
 function CustomerPackageSet() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -62,7 +154,7 @@ function CustomerPackageSet() {
   const [allPackages, setAllPackages] = useState(() => {
     try {
       const cached = localStorage.getItem("cached_package_sets");
-      return cached ? JSON.parse(cached) : [];
+      return cached ? filterActivePackages(JSON.parse(cached)) : [];
     } catch {
       return [];
     }
@@ -101,15 +193,7 @@ function CustomerPackageSet() {
       const res = await axios.get(`${API_BASE_URL}/api/collections/public`);
       const allItems = Array.isArray(res.data) ? res.data : [];
 
-      const packageItems = allItems.filter(
-        (item) =>
-          item.isBundle === true ||
-          item.category === "Package Sets" ||
-          item.category === "Package Set" ||
-          item.navbarTag === "Package Sets" ||
-          item.category === "Special Bundles" ||
-          (Array.isArray(item.bundleItems) && item.bundleItems.length > 0)
-      );
+      const packageItems = filterActivePackages(allItems);
 
       setAllPackages(packageItems);
       try {
@@ -117,6 +201,7 @@ function CustomerPackageSet() {
       } catch (e) { }
     } catch (e) {
       console.error("Error fetching package sets:", e);
+      setAllPackages((prev) => filterActivePackages(prev));
     } finally {
       setLoading(false);
     }
@@ -129,12 +214,16 @@ function CustomerPackageSet() {
       fetchPackages();
     });
 
-    const handleFocus = () => fetchPackages();
-    window.addEventListener("focus", handleFocus);
+    const handleRefresh = () => fetchPackages();
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+    window.addEventListener("inventory_products_updated", handleRefresh);
 
     return () => {
       unsubscribe();
-      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+      window.removeEventListener("inventory_products_updated", handleRefresh);
     };
   }, []);
 

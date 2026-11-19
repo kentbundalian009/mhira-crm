@@ -21,7 +21,8 @@ export const getCoupons = async (req, res) => {
 
 export const createCoupon = async (req, res) => {
   try {
-    const { code, discount, minSpend, usageLimit, expiry, targetSegment } = req.body;
+    const { code, discount, minSpend, usageLimit, expiry, targetSegment, isPublished, note } = req.body;
+    const published = isPublished !== undefined ? Boolean(isPublished) : true;
     const newCoupon = new Coupon({
       code: code ? code.toUpperCase().trim() : '',
       discount: String(discount || '').trim(),
@@ -29,7 +30,9 @@ export const createCoupon = async (req, res) => {
       usageLimit: Math.max(0, Number(usageLimit) || 0),
       usedCount: 0,
       expiry: expiry || '',
-      status: 'Active',
+      status: published ? 'Active' : 'Draft',
+      isPublished: published,
+      note: note ? String(note).trim() : '',
       targetSegment: targetSegment || 'All',
       isArchived: false,
     });
@@ -42,7 +45,7 @@ export const createCoupon = async (req, res) => {
 
 export const updateCoupon = async (req, res) => {
   try {
-    const { code, discount, minSpend, usageLimit, usedCount, expiry, targetSegment, status, isArchived } = req.body;
+    const { code, discount, minSpend, usageLimit, usedCount, expiry, targetSegment, status, isArchived, isPublished, note } = req.body;
     const updateFields = {};
     if (code !== undefined) updateFields.code = String(code).toUpperCase().trim();
     if (discount !== undefined) updateFields.discount = String(discount).trim();
@@ -51,8 +54,24 @@ export const updateCoupon = async (req, res) => {
     if (usedCount !== undefined) updateFields.usedCount = Math.max(0, Number(usedCount) || 0);
     if (expiry !== undefined) updateFields.expiry = expiry;
     if (targetSegment !== undefined) updateFields.targetSegment = targetSegment || 'All';
+    if (isPublished !== undefined) {
+      updateFields.isPublished = Boolean(isPublished);
+      if (status === undefined) {
+        updateFields.status = Boolean(isPublished) ? 'Active' : 'Draft';
+      }
+    }
+    if (note !== undefined) updateFields.note = String(note).trim();
     if (status !== undefined) updateFields.status = status;
-    if (isArchived !== undefined) updateFields.isArchived = Boolean(isArchived);
+    if (isArchived !== undefined) {
+      updateFields.isArchived = Boolean(isArchived);
+      if (Boolean(isArchived)) {
+        updateFields.status = 'Archived';
+        updateFields.isPublished = false;
+      } else if (status === undefined && isPublished === undefined) {
+        updateFields.status = 'Active';
+        updateFields.isPublished = true;
+      }
+    }
 
     const updated = await Coupon.findByIdAndUpdate(req.params.id, updateFields, { new: true });
     if (!updated) {
@@ -69,7 +88,13 @@ export const updateCouponStatus = async (req, res) => {
     const { status, isArchived } = req.body;
     const updateFields = {};
     if (status !== undefined) updateFields.status = status;
-    if (isArchived !== undefined) updateFields.isArchived = Boolean(isArchived);
+    if (isArchived !== undefined) {
+      updateFields.isArchived = Boolean(isArchived);
+      if (Boolean(isArchived)) {
+        updateFields.status = 'Archived';
+        updateFields.isPublished = false;
+      }
+    }
     const updated = await Coupon.findByIdAndUpdate(req.params.id, updateFields, { new: true });
     res.status(200).json(updated);
   } catch (error) {
@@ -107,7 +132,7 @@ export const validateCoupon = async (req, res) => {
       return res.status(404).json({ valid: false, message: 'Invalid voucher code.' });
     }
 
-    if (coupon.isArchived || coupon.status !== 'Active') {
+    if (coupon.isArchived || coupon.isPublished === false || coupon.status === 'Draft' || coupon.status === 'Inactive') {
       return res.status(400).json({ valid: false, message: 'This voucher is no longer active.' });
     }
 

@@ -627,7 +627,7 @@ function InventorySuppliers() {
                             {item.name}
                           </span>
                           {item.isArchived && (
-                            <span className="inline-flex items-center text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full font-bold border border-rose-200">
+                            <span className="inline-flex items-center text-[10px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full font-bold border border-red-200">
                               Archived
                             </span>
                           )}
@@ -656,7 +656,7 @@ function InventorySuppliers() {
                                 type="button"
                                 onClick={() => handleToggleArchive(item)}
                                 title="Archive Supplier"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <Archive className="w-3.5 h-3.5" />
                               </button>
@@ -667,7 +667,7 @@ function InventorySuppliers() {
                                 type="button"
                                 onClick={() => handleToggleArchive(item)}
                                 title="Restore to Active"
-                                className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
                               </button>
@@ -675,7 +675,7 @@ function InventorySuppliers() {
                                 type="button"
                                 onClick={() => handleDelete(item._id || item.id)}
                                 title="Delete Permanently"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -731,7 +731,7 @@ function InventorySuppliers() {
                 {/* SUPPLIER NAME (TYPE ONLY) */}
                 <div>
                   <label className="block font-semibold text-slate-600 mb-1 whitespace-nowrap">
-                    Supplier Name <span className="text-rose-500 font-bold">*</span>
+                    Supplier Name <span className="text-red-600 font-bold">*</span>
                   </label>
                   <input
                     type="text"

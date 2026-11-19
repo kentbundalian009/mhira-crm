@@ -496,25 +496,25 @@ function LogisticsPerformanceAnalytics() {
   // Helper: Customer Loyalty Tier Badge UI Component
   const renderCustomerBadge = (tier) => {
     const t = (tier || '').toLowerCase();
-    if (t.includes('gold') || t.includes('loyal') || t.includes('platinum')) {
+    if (t.includes('gold') || t.includes('loyal') || t.includes('platinum') || t.includes('vip')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs whitespace-nowrap">
-          <Award className="w-3 h-3 text-amber-600" />
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300 shadow-2xs whitespace-nowrap">
+          <Award className="w-3 h-3 text-yellow-600" />
           Gold Tier
         </span>
       );
     }
     if (t.includes('silver')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs whitespace-nowrap">
-          <ShieldCheck className="w-3 h-3 text-slate-600" />
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs whitespace-nowrap">
+          <ShieldCheck className="w-3 h-3 text-blue-600" />
           Silver Tier
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200 shadow-2xs whitespace-nowrap">
-        <Star className="w-3 h-3 text-orange-600" />
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs whitespace-nowrap">
+        <Star className="w-3 h-3 text-blue-600" />
         Bronze Tier
       </span>
     );
@@ -524,7 +524,7 @@ function LogisticsPerformanceAnalytics() {
   const renderRankMedal = (rank) => {
     if (rank === 1) {
       return (
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 shadow-xs ring-1 ring-amber-300" title="1st Place Champion">
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-50 shadow-xs ring-1 ring-yellow-300" title="1st Place Champion">
           <GoldMedal className="w-5 h-5" size={20} />
         </div>
       );
@@ -538,7 +538,7 @@ function LogisticsPerformanceAnalytics() {
     }
     if (rank === 3) {
       return (
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 shadow-xs ring-1 ring-amber-300" title="3rd Place">
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-50 shadow-xs ring-1 ring-yellow-300" title="3rd Place">
           <BronzeMedal className="w-5 h-5" size={20} />
         </div>
       );
@@ -864,23 +864,31 @@ function LogisticsPerformanceAnalytics() {
     const s = (status || '').toLowerCase();
     if (s === 'delivered') {
       return (
-        <span className="inline-flex items-center gap-1 bg-slate-50 text-[#01390f] border border-[#01390f] px-2 py-0.5 rounded font-bold text-[11px] whitespace-nowrap">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#01390f]"></span>
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
           Delivered
         </span>
       );
     }
     if (s === 'in transit') {
       return (
-        <span className="inline-flex items-center gap-1 bg-slate-50 text-amber-950 border border-amber-500 px-2 py-0.5 rounded font-bold text-[11px] whitespace-nowrap">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
           In Transit
         </span>
       );
     }
+    if (s === 'cancelled' || s === 'returned') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+          {status}
+        </span>
+      );
+    }
     return (
-      <span className="inline-flex items-center gap-1 bg-slate-50 text-amber-950 border border-amber-500 px-2 py-0.5 rounded font-bold text-[11px] whitespace-nowrap">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
         {status || 'Processing'}
       </span>
     );
@@ -905,12 +913,12 @@ function LogisticsPerformanceAnalytics() {
             <h3 className="text-xl font-black text-slate-800 font-mono mt-1">
               ₱{calculatedTotalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </h3>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 mt-1">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 mt-1">
+              <CheckCircle2 className="w-3 h-3 text-blue-600" />
               {stats.fulfillmentRate || '100%'} Fulfillment Rate
             </span>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#01390f]">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
             <DollarSign className="w-5 h-5" />
           </div>
         </div>
@@ -935,7 +943,7 @@ function LogisticsPerformanceAnalytics() {
         {/* KPI 3: Top Customer Champion Spotlight */}
         <div className="bg-white border border-slate-200/70 rounded-2xl p-4.5 shadow-xs flex items-center justify-between">
           <div className="min-w-0 pr-2">
-            <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 uppercase tracking-wider">
+            <div className="flex items-center gap-1 text-[11px] font-bold text-yellow-600 uppercase tracking-wider">
               <span>🏆</span>
               <span>#1 Top Customer</span>
             </div>
@@ -949,7 +957,7 @@ function LogisticsPerformanceAnalytics() {
                   {topThreeCustomers[0].name}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[11px] font-mono text-emerald-800 font-semibold truncate">
+                  <span className="text-[11px] font-mono text-blue-800 font-semibold truncate">
                     @{topThreeCustomers[0].username}
                   </span>
                   {renderCustomerBadge(topThreeCustomers[0].tier, topThreeCustomers[0].badgeLabel)}
@@ -959,7 +967,7 @@ function LogisticsPerformanceAnalytics() {
               <p className="text-xs text-slate-400 italic mt-1">No sales yet</p>
             )}
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-yellow-50 border border-yellow-200 flex items-center justify-center text-yellow-600 shrink-0">
             <Award className="w-5 h-5" />
           </div>
         </div>
@@ -976,7 +984,7 @@ function LogisticsPerformanceAnalytics() {
               {salesData.length} Total Dispatches
             </span>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-700">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
@@ -989,7 +997,7 @@ function LogisticsPerformanceAnalytics() {
             <div>
               <h2 className="text-sm sm:text-base font-black text-slate-800 flex items-center gap-2">
                 <span>Customer Loyalty Podium & Hall of Fame</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-[#01390f] border border-emerald-200">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   Top Spenders
                 </span>
               </h2>
@@ -1015,15 +1023,15 @@ function LogisticsPerformanceAnalytics() {
             {topThreeCustomers[0] && (
               <div
                 onClick={() => setSelectedCustomer(topThreeCustomers[0])}
-                className="relative bg-gradient-to-b from-amber-50/60 to-white border-2 border-amber-300 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
+                className="relative bg-gradient-to-b from-yellow-50/60 to-white border-2 border-yellow-300 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
                 title="Click to view customer details & address"
               >
-                <div className="absolute -top-3 right-4 bg-amber-500 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
+                <div className="absolute -top-3 right-4 bg-yellow-500 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
                   <GoldMedal className="w-3.5 h-3.5" size={14} />
                   <span>Gold</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 font-black text-lg shrink-0 shadow-2xs overflow-hidden group-hover:border-[#01390f] transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-yellow-100 border border-yellow-300 flex items-center justify-center text-yellow-800 font-black text-lg shrink-0 shadow-2xs overflow-hidden group-hover:border-[#01390f] transition-colors">
                     {topThreeCustomers[0].profileImage ? (
                       <img
                         src={topThreeCustomers[0].profileImage}
@@ -1041,7 +1049,7 @@ function LogisticsPerformanceAnalytics() {
                     <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#01390f] group-hover:underline transition-colors" title={topThreeCustomers[0].name}>
                       {topThreeCustomers[0].name}
                     </h3>
-                    <p className="text-xs font-mono text-emerald-800 font-bold truncate">
+                    <p className="text-xs font-mono text-blue-800 font-bold truncate">
                       @{topThreeCustomers[0].username}
                     </p>
                     <div className="mt-1">
@@ -1049,7 +1057,7 @@ function LogisticsPerformanceAnalytics() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-amber-100 flex items-center justify-between text-xs">
+                <div className="mt-4 pt-3 border-t border-yellow-100 flex items-center justify-between text-xs">
                   <div>
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Spent</span>
                     <span className="font-mono font-black text-base text-[#01390f]">
@@ -1058,7 +1066,7 @@ function LogisticsPerformanceAnalytics() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Orders</span>
-                    <span className="font-bold text-slate-700 bg-amber-100/80 px-2 py-0.5 rounded-md text-xs">
+                    <span className="font-bold text-yellow-900 bg-yellow-100/80 px-2 py-0.5 rounded-full text-[10px]">
                       {topThreeCustomers[0].orderCount} Orders
                     </span>
                   </div>
@@ -1073,7 +1081,7 @@ function LogisticsPerformanceAnalytics() {
                 className="relative bg-gradient-to-b from-slate-50 to-white border border-slate-300 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
                 title="Click to view customer details & address"
               >
-                <div className="absolute -top-3 right-4 bg-slate-500 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
+                <div className="absolute -top-3 right-4 bg-slate-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
                   <SilverMedal className="w-3.5 h-3.5" size={14} />
                   <span>Silver</span>
                 </div>
@@ -1096,7 +1104,7 @@ function LogisticsPerformanceAnalytics() {
                     <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#01390f] group-hover:underline transition-colors" title={topThreeCustomers[1].name}>
                       {topThreeCustomers[1].name}
                     </h3>
-                    <p className="text-xs font-mono text-emerald-800 font-bold truncate">
+                    <p className="text-xs font-mono text-blue-800 font-bold truncate">
                       @{topThreeCustomers[1].username}
                     </p>
                     <div className="mt-1">
@@ -1113,7 +1121,7 @@ function LogisticsPerformanceAnalytics() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Orders</span>
-                    <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-xs">
+                    <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full text-[10px]">
                       {topThreeCustomers[1].orderCount} Orders
                     </span>
                   </div>
@@ -1125,15 +1133,15 @@ function LogisticsPerformanceAnalytics() {
             {topThreeCustomers[2] && (
               <div
                 onClick={() => setSelectedCustomer(topThreeCustomers[2])}
-                className="relative bg-gradient-to-b from-orange-50/40 to-white border border-amber-200/80 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
+                className="relative bg-gradient-to-b from-yellow-50/40 to-white border border-yellow-200/80 hover:border-[#01390f] rounded-2xl p-4 flex flex-col justify-between shadow-xs cursor-pointer transition-all group"
                 title="Click to view customer details & address"
               >
-                <div className="absolute -top-3 right-4 bg-amber-700 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
+                <div className="absolute -top-3 right-4 bg-yellow-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5">
                   <BronzeMedal className="w-3.5 h-3.5" size={14} />
                   <span>Bronze</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-100/60 border border-amber-200 flex items-center justify-center text-amber-900 font-black text-lg shrink-0 shadow-2xs overflow-hidden group-hover:border-[#01390f] transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-yellow-100/60 border border-yellow-200 flex items-center justify-center text-yellow-900 font-black text-lg shrink-0 shadow-2xs overflow-hidden group-hover:border-[#01390f] transition-colors">
                     {topThreeCustomers[2].profileImage ? (
                       <img
                         src={topThreeCustomers[2].profileImage}
@@ -1151,7 +1159,7 @@ function LogisticsPerformanceAnalytics() {
                     <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-[#01390f] group-hover:underline transition-colors" title={topThreeCustomers[2].name}>
                       {topThreeCustomers[2].name}
                     </h3>
-                    <p className="text-xs font-mono text-emerald-800 font-bold truncate">
+                    <p className="text-xs font-mono text-blue-800 font-bold truncate">
                       @{topThreeCustomers[2].username}
                     </p>
                     <div className="mt-1">
@@ -1168,7 +1176,7 @@ function LogisticsPerformanceAnalytics() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Orders</span>
-                    <span className="font-bold text-slate-700 bg-amber-100/60 px-2 py-0.5 rounded-md text-xs">
+                    <span className="font-bold text-yellow-900 bg-yellow-100/60 px-2 py-0.5 rounded-full text-[10px]">
                       {topThreeCustomers[2].orderCount} Orders
                     </span>
                   </div>
@@ -1207,7 +1215,7 @@ function LogisticsPerformanceAnalytics() {
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                     }`}
                 >
-                  {tab.isLeaderboard && <Award className="w-3.5 h-3.5 text-amber-500" />}
+                  {tab.isLeaderboard && <Award className="w-3.5 h-3.5 text-yellow-600" />}
                   <span>{tab.label}</span>
                 </button>
               );
@@ -1256,9 +1264,9 @@ function LogisticsPerformanceAnalytics() {
                         setRankTierFilter('All');
                         setRankSort('highest');
                       }}
-                      className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                      className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer w-full"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <RotateCcw className="w-3.5 h-3.5 text-red-500 shrink-0" />
                       <span className="truncate">Reset Filters</span>
                     </button>
                   </div>
@@ -1339,7 +1347,7 @@ function LogisticsPerformanceAnalytics() {
                         type="button"
                         onClick={() => setRankTierFilter(rankTierFilter === tier.id ? 'All' : tier.id)}
                         className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${rankTierFilter === tier.id
-                          ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-bold'
+                          ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                           : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                           }`}
                       >
@@ -1428,7 +1436,7 @@ function LogisticsPerformanceAnalytics() {
                             {/* 2. CUSTOMER PROFILE - CLICKABLE FOR QUICK INFO & ADDRESS */}
                             <td
                               onClick={() => setSelectedCustomer(c)}
-                              className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] hover:!bg-emerald-50/80 transition-all cursor-pointer select-none group/cust"
+                              className="px-4 py-3.5 whitespace-nowrap min-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] hover:!bg-blue-50/80 transition-all cursor-pointer select-none group/cust"
                               title="Click to view customer details & address"
                             >
                               <div className="flex items-center gap-2.5">
@@ -1451,7 +1459,7 @@ function LogisticsPerformanceAnalytics() {
                                     <span className="font-semibold text-xs text-slate-900 group-hover/cust:text-[#01390f] group-hover/cust:underline underline-offset-2 transition-colors truncate" title={c.name}>
                                       {c.name}
                                     </span>
-                                    <span className="text-[10px] text-emerald-700 font-semibold opacity-0 group-hover/cust:opacity-100 transition-opacity bg-emerald-50 px-1 rounded border border-emerald-200/50">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 opacity-0 group-hover/cust:opacity-100 transition-opacity">
                                       View Info
                                     </span>
                                   </div>
@@ -1481,7 +1489,7 @@ function LogisticsPerformanceAnalytics() {
                             <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               {Number(c.totalDiscounts || 0) > 0 ? (
                                 <div className="flex flex-col items-center">
-                                  <span className="font-bold text-emerald-800 text-xs">
+                                  <span className="font-bold text-blue-800 text-xs">
                                     -₱{Number(c.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                   </span>
                                   <span className="text-[10px] text-slate-500 font-sans mt-0.5">
@@ -1567,9 +1575,9 @@ function LogisticsPerformanceAnalytics() {
                         setSelectedDate('');
                         setSelectedSort('newest');
                       }}
-                      className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                      className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer w-full"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <RotateCcw className="w-3.5 h-3.5 text-red-500 shrink-0" />
                       <span className="truncate">Reset Filters</span>
                     </button>
                   </div>
@@ -1651,7 +1659,7 @@ function LogisticsPerformanceAnalytics() {
                             e.stopPropagation();
                             setSelectedDate('');
                           }}
-                          className="absolute right-1.5 top-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                          className="absolute right-1.5 top-1 text-slate-400 hover:text-red-600 cursor-pointer"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1697,7 +1705,7 @@ function LogisticsPerformanceAnalytics() {
                       type="button"
                       onClick={() => setStatusFilter(statusFilter === 'Delivered' ? 'All' : 'Delivered')}
                       className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${statusFilter === 'Delivered'
-                        ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                     >
@@ -1708,7 +1716,7 @@ function LogisticsPerformanceAnalytics() {
                       type="button"
                       onClick={() => setStatusFilter(statusFilter === 'In Transit' ? 'All' : 'In Transit')}
                       className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${statusFilter === 'In Transit'
-                        ? 'bg-amber-50 border-amber-600 text-amber-700 font-semibold'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                     >
@@ -1722,7 +1730,7 @@ function LogisticsPerformanceAnalytics() {
                         setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                       }}
                       className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${selectedDate === new Date().toISOString().split('T')[0]
-                        ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                     >
@@ -1808,7 +1816,7 @@ function LogisticsPerformanceAnalytics() {
                             {/* Customer Name, Username & Badge - CLICKABLE FOR QUICK INFO & ADDRESS */}
                             <td
                               onClick={() => handleOpenCustomerFromSale(sale)}
-                              className="py-3 px-4 min-w-[210px] hover:!bg-emerald-50/80 transition-all cursor-pointer select-none group/cust"
+                              className="py-3 px-4 min-w-[210px] hover:!bg-blue-50/80 transition-all cursor-pointer select-none group/cust"
                               title="Click to view customer details & address"
                             >
                               <div className="flex items-center gap-2.5">
@@ -1832,7 +1840,7 @@ function LogisticsPerformanceAnalytics() {
                                       {sale.customer}
                                     </span>
                                     {renderCustomerBadge(sale.tier, sale.tier ? `${sale.tier} VIP` : 'Customer')}
-                                    <span className="text-[10px] text-emerald-700 font-semibold opacity-0 group-hover/cust:opacity-100 transition-opacity bg-emerald-50 px-1 rounded border border-emerald-200/50">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 opacity-0 group-hover/cust:opacity-100 transition-opacity">
                                       View Info
                                     </span>
                                   </div>
@@ -2009,7 +2017,7 @@ function LogisticsPerformanceAnalytics() {
         >
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-[#01390f]/[0.06] via-emerald-50/40 to-transparent shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-[#01390f]/[0.06] via-blue-50/40 to-transparent shrink-0">
               <div className="flex items-center gap-2.5">
 
                 <div>
@@ -2061,12 +2069,12 @@ function LogisticsPerformanceAnalytics() {
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     {renderCustomerBadge(selectedCustomer.tier, selectedCustomer.badgeLabel)}
                     {selectedCustomer.rank && (
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-yellow-800 bg-yellow-50 border border-yellow-300">
                         Rank #{selectedCustomer.rank}
                       </span>
                     )}
                     {selectedCustomer.accountType && (
-                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded-md">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200">
                         {selectedCustomer.accountType}
                       </span>
                     )}
@@ -2075,21 +2083,21 @@ function LogisticsPerformanceAnalytics() {
               </div>
 
               {/* Delivery Shipping Address Card */}
-              <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-200/80 space-y-2">
+              <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-200/80 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#01390f] flex items-center gap-1.5 uppercase tracking-wider">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                    <MapPin className="w-3.5 h-3.5 text-blue-700" />
                     Delivery Shipping Address
                   </span>
                   {customerAddressText && (
                     <button
                       type="button"
                       onClick={() => handleCopyText(customerAddressText, 'address', 'Address copied to clipboard!')}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white/90 hover:bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-800 hover:text-blue-950 bg-white/90 hover:bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs transition-all cursor-pointer"
                     >
                       {copiedKey === 'address' ? (
                         <>
-                          <Check className="w-3 h-3 text-emerald-600" />
+                          <Check className="w-3 h-3 text-blue-600" />
                           <span>Copied!</span>
                         </>
                       ) : (
@@ -2101,7 +2109,7 @@ function LogisticsPerformanceAnalytics() {
                     </button>
                   )}
                 </div>
-                <p className="text-xs font-medium text-slate-700 leading-relaxed bg-white/95 p-3 rounded-xl border border-emerald-100 shadow-2xs">
+                <p className="text-xs font-medium text-slate-700 leading-relaxed bg-white/95 p-3 rounded-xl border border-blue-100 shadow-2xs">
                   {customerAddressText || 'No delivery address recorded on file for this customer account.'}
                 </p>
               </div>
@@ -2175,14 +2183,14 @@ function LogisticsPerformanceAnalytics() {
 
                   <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Discounts</span>
-                    <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700 mt-0.5 block">
+                    <span className="font-mono font-bold text-xs sm:text-sm text-blue-700 mt-0.5 block">
                       ₱{Number(selectedCustomer.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
 
                   <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Reward Points</span>
-                    <span className="font-mono font-bold text-xs sm:text-sm text-purple-700 mt-0.5 block">
+                    <span className="font-mono font-bold text-xs sm:text-sm text-yellow-800 mt-0.5 block">
                       {selectedCustomer.rewardPoints || 0} pts
                     </span>
                   </div>
@@ -2244,9 +2252,9 @@ function LogisticsPerformanceAnalytics() {
                   handleFilterByCustomer(selectedCustomer);
                   setSelectedCustomer(null);
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-[#01390f] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all cursor-pointer shadow-2xs"
               >
-                <Search className="w-3.5 h-3.5 text-[#01390f]" />
+                <Search className="w-3.5 h-3.5 text-blue-700" />
                 <span>Filter Transactions</span>
               </button>
 

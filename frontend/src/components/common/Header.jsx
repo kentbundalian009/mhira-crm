@@ -65,7 +65,9 @@ function Header() {
       const cached = localStorage.getItem("mhira_db_products");
       if (cached) {
         const list = JSON.parse(cached);
-        if (Array.isArray(list) && list.length > 0) return list;
+        if (Array.isArray(list)) {
+          return list.filter((p) => p && !p.isArchived && p.isPublished !== false);
+        }
       }
     } catch (e) { }
     return [];
@@ -197,19 +199,27 @@ function Header() {
   // Fetch all public products once for instant fast local autocomplete & package sets count
   useEffect(() => {
     let isMounted = true;
-    axios.get(`${API_BASE_URL}/api/collections/public`)
-      .then((res) => {
-        if (!isMounted) return;
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setAllProducts(res.data);
-          try {
-            localStorage.setItem("mhira_db_products", JSON.stringify(res.data));
-          } catch (e) { }
-        }
-      })
-      .catch(() => { });
+    const loadPublicProducts = () => {
+      axios.get(`${API_BASE_URL}/api/collections/public`)
+        .then((res) => {
+          if (!isMounted) return;
+          if (Array.isArray(res.data)) {
+            const activeOnly = res.data.filter((p) => p && !p.isArchived && p.isPublished !== false);
+            setAllProducts(activeOnly);
+          }
+        })
+        .catch(() => { });
+    };
 
-    return () => { isMounted = false; };
+    loadPublicProducts();
+    window.addEventListener("inventory_products_updated", loadPublicProducts);
+    window.addEventListener("storage", loadPublicProducts);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("inventory_products_updated", loadPublicProducts);
+      window.removeEventListener("storage", loadPublicProducts);
+    };
   }, []);
 
   // Filter search results in real time - strictly by product name only

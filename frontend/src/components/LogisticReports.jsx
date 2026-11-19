@@ -635,9 +635,9 @@ function LogisticReports() {
                     setSearchTerm("");
                     setDateRange("all");
                   }}
-                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer w-full"
+                  className="h-[22px] flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer w-full"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <RotateCcw className="w-3.5 h-3.5 text-red-500 shrink-0" />
                   <span className="truncate">Reset Search</span>
                 </button>
               </div>
@@ -726,7 +726,7 @@ function LogisticReports() {
                   onClick={() => setReportType("sales-summary")}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
                     reportType === "sales-summary"
-                      ? "bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold"
+                      ? "bg-blue-50 border-blue-400 text-blue-700 font-bold"
                       : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -738,7 +738,7 @@ function LogisticReports() {
                   onClick={() => setReportType("returns-audit")}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${
                     reportType === "returns-audit"
-                      ? "bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold"
+                      ? "bg-blue-50 border-blue-400 text-blue-700 font-bold"
                       : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -808,7 +808,7 @@ function LogisticReports() {
           </div>
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[11px] font-bold text-slate-500 uppercase block whitespace-nowrap">Processed Returns</span>
-            <span className="text-xl font-extrabold text-amber-700 block mt-0.5 whitespace-nowrap">{returns.length} Requests</span>
+            <span className="text-xl font-extrabold text-yellow-800 block mt-0.5 whitespace-nowrap">{returns.length} Requests</span>
           </div>
         </div>
 
@@ -859,13 +859,22 @@ function LogisticReports() {
                           {new Date(o.createdAt || Date.now()).toLocaleDateString()}
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                            (o.status || "").toLowerCase() === "delivered" || (o.status || "").toLowerCase() === "completed"
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                              : "bg-blue-100 text-blue-800 border border-blue-200"
-                          }`}>
-                            {o.status || "Completed"}
-                          </span>
+                          {(() => {
+                            const st = (o.status || "").toLowerCase();
+                            const isDelivered = st === "delivered" || st === "completed";
+                            const isCancelled = st === "cancelled" || st === "canceled";
+                            const isPending = st === "pending" || st === "to ship" || st === "to pay";
+                            const colorClass = isCancelled
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : isPending
+                              ? "bg-yellow-50 text-yellow-800 border-yellow-300"
+                              : "bg-blue-50 text-blue-700 border-blue-200";
+                            return (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 border ${colorClass}`}>
+                                {o.status || "Completed"}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap text-slate-700 font-medium">
                           {o.courier || "J&T Express"}
@@ -922,9 +931,21 @@ function LogisticReports() {
                           {r.condition || "Inspection Verified"}
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
-                            {r.status || "Approved"}
-                          </span>
+                          {(() => {
+                            const rst = (r.status || "").toLowerCase();
+                            const isApproved = rst === "approved" || rst === "restocked" || rst === "completed";
+                            const isRejected = rst === "rejected" || rst === "cancelled" || rst === "disposed" || rst === "scrap";
+                            const colorClass = isRejected
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : isApproved
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-yellow-50 text-yellow-800 border-yellow-300";
+                            return (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 border ${colorClass}`}>
+                                {r.status || "Approved"}
+                              </span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))

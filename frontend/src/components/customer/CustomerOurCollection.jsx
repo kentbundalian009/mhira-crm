@@ -216,6 +216,83 @@ const matchesCategory = (product, catId) => {
   return pCat.includes(target) || target.includes(pCat) || pNav.includes(target);
 };
 
+const normalizeCode = (code) => {
+  const raw = String(code || "").toLowerCase().trim();
+  if (!raw) return "";
+  const fgMatch = raw.match(/^(?:fg-inv-|fg-?)0*(\d+)$/i);
+  if (fgMatch) return `fg-${fgMatch[1]}`;
+  const pkgMatch = raw.match(/^(?:pkg-?)0*(\d+)$/i);
+  if (pkgMatch) return `pkg-${pkgMatch[1]}`;
+  return raw;
+};
+
+const filterActiveRetailProducts = (list) => {
+  if (!Array.isArray(list)) return [];
+
+  const archivedIds = new Set();
+  const archivedCodes = new Set();
+
+  try {
+    const invCached = JSON.parse(localStorage.getItem("cached_inventory_products") || "[]");
+    if (Array.isArray(invCached)) {
+      invCached.forEach((inv) => {
+        if (inv && inv.isArchived) {
+          if (inv._id) archivedIds.add(String(inv._id));
+          if (inv.id) archivedIds.add(String(inv.id));
+          if (inv.code) {
+            archivedCodes.add(String(inv.code).toLowerCase().trim());
+            archivedCodes.add(normalizeCode(inv.code));
+          }
+        }
+      });
+    }
+  } catch (e) {}
+
+  try {
+    const mktCached = JSON.parse(localStorage.getItem("cached_marketing_catalog") || "[]");
+    if (Array.isArray(mktCached)) {
+      mktCached.forEach((mkt) => {
+        if (mkt && (mkt.isArchived || mkt.isPublished === false)) {
+          if (mkt._id) archivedIds.add(String(mkt._id));
+          if (mkt.id) archivedIds.add(String(mkt.id));
+          const refId = typeof mkt.productRef === "object" ? (mkt.productRef?._id || mkt.productRef?.id) : mkt.productRef;
+          if (refId) archivedIds.add(String(refId));
+          if (mkt.code) {
+            archivedCodes.add(String(mkt.code).toLowerCase().trim());
+            archivedCodes.add(normalizeCode(mkt.code));
+          }
+        }
+      });
+    }
+  } catch (e) {}
+
+  return list.filter((p) => {
+    if (!p || typeof p !== "object") return false;
+    if (p.isArchived === true || p.isPublished === false) return false;
+    if (
+      p.isBundle === true ||
+      p.category === "Package Sets" ||
+      p.category === "Package Set" ||
+      p.navbarTag === "Package Sets" ||
+      (Array.isArray(p.bundleItems) && p.bundleItems.length > 0)
+    ) {
+      return false;
+    }
+
+    const pId = p._id ? String(p._id) : p.id ? String(p.id) : "";
+    const pRef = typeof p.productRef === "object" ? String(p.productRef?._id || p.productRef?.id || "") : String(p.productRef || "");
+    const rawCode = String(p.code || "").toLowerCase().trim();
+    const normCode = normalizeCode(p.code);
+
+    if (pId && archivedIds.has(pId)) return false;
+    if (pRef && archivedIds.has(pRef)) return false;
+    if (rawCode && archivedCodes.has(rawCode)) return false;
+    if (normCode && archivedCodes.has(normCode)) return false;
+
+    return true;
+  });
+};
+
 function OurCollection() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -227,15 +304,14 @@ function OurCollection() {
             const cached = localStorage.getItem("mhira_db_products");
             if (cached && cached !== "undefined" && cached !== "null") {
                 const list = JSON.parse(cached);
-                if (Array.isArray(list) && list.length > 0) {
-                    const valid = list.filter(p => p && typeof p === "object");
-                    if (valid.length > 0) return valid;
+                if (Array.isArray(list)) {
+                    return filterActiveRetailProducts(list);
                 }
             }
         } catch (e) {
             console.warn("Failed to parse cached products:", e);
         }
-        return DEFAULT_CATALOG;
+        return [];
     });
     const [loading, setLoading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(() => searchParams.get("category") || "All");
@@ -330,26 +406,15 @@ function OurCollection() {
         try {
             const response = await API.get('/api/collections/public');
             const rawProducts = Array.isArray(response.data) ? response.data : (response.data?.products || response.data?.items || response.data?.data || []);
-            const valid = Array.isArray(rawProducts) ? rawProducts.filter(p => p && typeof p === 'object') : [];
+            const retailProducts = filterActiveRetailProducts(rawProducts);
 
-            // Filter out Package Sets from retail collection
-            const retailProducts = valid.filter(p =>
-                p &&
-                p.category !== 'Package Sets' &&
-                p.category !== 'Package Set' &&
-                p.navbarTag !== 'Package Sets'
-            );
-
-            const finalList = retailProducts.length > 0 ? retailProducts : (valid.length > 0 ? valid : DEFAULT_CATALOG);
-            setAllProducts(finalList);
+            setAllProducts(retailProducts);
             try {
-                if (finalList.length > 0) {
-                    localStorage.setItem("mhira_db_products", JSON.stringify(finalList));
-                }
+                localStorage.setItem("mhira_db_products", JSON.stringify(retailProducts));
             } catch (e) {}
         } catch (error) {
             console.warn("Error fetching public collection:", error);
-            setAllProducts(prev => (prev && prev.length > 0 ? prev : DEFAULT_CATALOG));
+            setAllProducts(prev => filterActiveRetailProducts(prev));
         } finally {
             setLoading(false);
         }
@@ -365,8 +430,19 @@ function OurCollection() {
             }
         });
 
+        const handleProductsUpdated = () => {
+            fetchPublicProducts();
+        };
+
+        window.addEventListener("inventory_products_updated", handleProductsUpdated);
+        window.addEventListener("storage", handleProductsUpdated);
+        window.addEventListener("focus", handleProductsUpdated);
+
         return () => {
             unsubscribe();
+            window.removeEventListener("inventory_products_updated", handleProductsUpdated);
+            window.removeEventListener("storage", handleProductsUpdated);
+            window.removeEventListener("focus", handleProductsUpdated);
         };
     }, [fetchPublicProducts, fetchFgCategories]);
 

@@ -189,7 +189,10 @@ function Home() {
   }, []);
 
   const carouselData = sections['carousel'] || {};
-  const rawCarouselImages = (carouselData.images || []).filter(isValidMedia);
+  const isCarouselPublished = carouselData.isPublished !== false;
+  const rawCarouselImages = isCarouselPublished
+    ? (carouselData.images || []).filter(isValidMedia)
+    : [];
 
   const heroImages = rawCarouselImages;
 
@@ -220,7 +223,7 @@ function Home() {
 
     return activeList
       .map((ad, index) => {
-        if (!ad) return null;
+        if (!ad || ad.isPublished === false) return null;
         const validImgs = (ad.images || []).filter(isValidMedia);
 
         // RULE: 0 Media Items = DO NOT SHOW on Customer Home!
@@ -248,7 +251,8 @@ function Home() {
 
   // Pop-Up Ad Trigger Logic
   const popupData = sections['popup-ad'] || {};
-  const rawPopupImages = (popupData.images || []).filter(isValidMedia);
+  const isPopupPublished = popupData.isPublished !== false;
+  const rawPopupImages = isPopupPublished ? (popupData.images || []).filter(isValidMedia) : [];
   const popupText =
     popupData.text && popupData.text !== "Discover our latest organic handcrafted skin care collections & special promotional discounts today!"
       ? popupData.text
@@ -257,7 +261,10 @@ function Home() {
   useEffect(() => {
     if (!sections || Object.keys(sections).length === 0) return;
     const currentPopup = sections['popup-ad'];
-    if (!currentPopup) return;
+    if (!currentPopup || currentPopup.isPublished === false) {
+      setIsPopupOpen(false);
+      return;
+    }
 
     const validImages = (currentPopup.images || []).filter(isValidMedia);
     const hasMedia = validImages.length > 0;
@@ -510,8 +517,9 @@ function Home() {
 
       <HeaderContainer />
 
-      {/* SECTION 1: HERO CAROUSEL BANNER */}
-      {heroImages.length > 0 ? (
+      {/* SECTION 1: HERO CAROUSEL BANNER (HIDDEN WHEN IN DRAFT) */}
+      {isCarouselPublished && (
+        heroImages.length > 0 ? (
         <section className="relative w-full h-[540px] md:h-[650px] bg-slate-950 overflow-hidden shrink-0">
           {heroImages.map((imgUrl, idx) => {
             const fullImgPath = getImageUrl(imgUrl);
@@ -668,7 +676,7 @@ function Home() {
             </p>
           </div>
         </section>
-      )}
+      ))}
 
       {/* SECTION 2: PROMOTIONAL CAMPAIGNS (DYNAMIC REUSABLE ALTERNATING TEMPLATES) */}
       {promotionalAds.length > 0 && (
@@ -745,7 +753,7 @@ function Home() {
       )}
 
       {/* POP-UP SPECIAL OFFER MODAL */}
-      {isPopupOpen && (
+      {isPopupOpen && isPopupPublished && (
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsPopupOpen(false);

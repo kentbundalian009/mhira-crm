@@ -46,6 +46,7 @@ const DEFAULT_STORY = {
   ],
   bannerImage: "",
   closingTagline: "Mhira Natural — Simple care. Natural beauty. Everyday you.",
+  isPublished: true,
 };
 
 function CustomerAbout() {
@@ -89,134 +90,139 @@ function CustomerAbout() {
 
   const founderImgUrl = story.founderImage ? getImageUrl(story.founderImage) : "";
   const bannerImgUrl = story.bannerImage ? getImageUrl(story.bannerImage) : "";
+  const isStoryPublished = story.isPublished !== false;
 
   return (
     <div className="bg-white min-h-screen flex flex-col font-['Poppins',sans-serif] text-gray-800 antialiased">
       <HeaderContainer />
 
       <main className="flex-1 max-w-4xl mx-auto px-6 py-16 w-full">
-        {/* OPTIONAL HERO / BRAND BANNER IF MARKETING UPLOADED ONE */}
-        {bannerImgUrl && (
-          <div className="mb-10 w-full h-52 sm:h-72 rounded-2xl overflow-hidden border border-gray-100 shadow-sm relative">
-            <img
-              src={bannerImgUrl}
-              alt="Mhira Natural Brand Banner"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent flex items-end p-6">
-              <span className="text-white text-xs sm:text-sm font-semibold tracking-wide drop-shadow-md">
-                Mhira Natural Soap and Cosmetics Manufacturing
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* MAIN EDITORIAL HEADLINE */}
-        <h1 className="text-2xl sm:text-3xl font-bold italic tracking-tight text-[#243746] mb-8 leading-tight">
-          {story.headline || DEFAULT_STORY.headline}
-        </h1>
-
-        {/* CONTENT SECTIONS */}
-        <div className="text-xs sm:text-sm text-gray-600 space-y-8 leading-relaxed font-normal">
-          <p className="text-gray-600">
-            {story.intro || DEFAULT_STORY.intro}
-          </p>
-
-          {/* FOUNDER SECTION */}
-          <section className="space-y-4">
-            <h2 className="text-sm sm:text-base font-bold text-[#243746] tracking-wide">
-              Founder
-            </h2>
-
-            <div className="flex flex-col sm:flex-row items-start gap-6 pt-1">
-              {/* FOUNDER PICTURE */}
-              <div className="shrink-0">
-                <div className="w-44 h-56 sm:w-48 sm:h-60 rounded-xl overflow-hidden bg-slate-100 border border-[#E1E9EF] flex flex-col items-center justify-center text-slate-400 p-2 text-center relative shadow-xs">
-                  {founderImgUrl && !imgError ? (
-                    <img
-                      src={founderImgUrl}
-                      alt={story.founderName || "Founder"}
-                      className="w-full h-full object-cover rounded-lg"
-                      onError={() => setImgError(true)}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-4">
-                      <User size={44} className="text-slate-300 mb-2" />
-                      <span className="text-xs font-semibold text-slate-500">
-                        {story.founderName || "Mirasol P. Bituin"}
-                      </span>
-                      <span className="text-[11px] text-slate-400 font-medium">
-                        {story.founderRole || "Founder"}
-                      </span>
-                    </div>
-                  )}
+        {isStoryPublished && (
+          <>
+            {/* OPTIONAL HERO / BRAND BANNER IF MARKETING UPLOADED ONE */}
+            {bannerImgUrl && (
+              <div className="mb-10 w-full h-52 sm:h-72 rounded-2xl overflow-hidden border border-gray-100 shadow-sm relative">
+                <img
+                  src={bannerImgUrl}
+                  alt="Mhira Natural Brand Banner"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent flex items-end p-6">
+                  <span className="text-white text-xs sm:text-sm font-semibold tracking-wide drop-shadow-md">
+                    Mhira Natural Soap and Cosmetics Manufacturing
+                  </span>
                 </div>
-                {founderImgUrl && !imgError && (
-                  <div className="mt-2 text-center">
-                    <span className="text-xs font-semibold text-[#243746] block">
-                      {story.founderName || "Mirasol P. Bituin"}
-                    </span>
-                    <span className="text-[11px] text-gray-500 font-medium">
-                      {story.founderRole || "Founder"}
-                    </span>
-                  </div>
-                )}
               </div>
+            )}
 
-              {/* FOUNDER TEXT */}
-              <div className="space-y-3 flex-1">
-                <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-                  {story.founderBio1 || DEFAULT_STORY.founderBio1}
-                </p>
-                {(story.founderBio2 || DEFAULT_STORY.founderBio2) && (
-                  <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-                    {story.founderBio2 || DEFAULT_STORY.founderBio2}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
+            {/* MAIN EDITORIAL HEADLINE */}
+            <h1 className="text-2xl sm:text-3xl font-bold italic tracking-tight text-[#243746] mb-8 leading-tight">
+              {story.headline || DEFAULT_STORY.headline}
+            </h1>
 
-          {/* VISION SECTION */}
-          <section className="space-y-2">
-            <h2 className="text-sm sm:text-base font-bold text-[#243746] tracking-wide">
-              {story.visionTitle || "Vision"}
-            </h2>
-            <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-              {story.visionText || DEFAULT_STORY.visionText}
-            </p>
-          </section>
+            {/* CONTENT SECTIONS */}
+            <div className="text-xs sm:text-sm text-gray-600 space-y-8 leading-relaxed font-normal">
+              <p className="text-gray-600">
+                {story.intro || DEFAULT_STORY.intro}
+              </p>
 
-          {/* TAGLINE SECTION */}
-          <section className="space-y-2">
-            <h2 className="text-sm sm:text-base font-bold text-[#243746] tracking-wide">
-              {story.taglineTitle || "Tagline"}
-            </h2>
-            <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-              {story.taglineText || DEFAULT_STORY.taglineText}
-            </p>
-          </section>
-
-          {/* BRAND PILLARS */}
-          {Array.isArray(story.pillars) &&
-            story.pillars.map((pillar, idx) => (
-              <section key={idx} className="space-y-2">
+              {/* FOUNDER SECTION */}
+              <section className="space-y-4">
                 <h2 className="text-sm sm:text-base font-bold text-[#243746] tracking-wide">
-                  {pillar.title}
+                  Founder
+                </h2>
+
+                <div className="flex flex-col sm:flex-row items-start gap-6 pt-1">
+                  {/* FOUNDER PICTURE */}
+                  <div className="shrink-0">
+                    <div className="w-44 h-56 sm:w-48 sm:h-60 rounded-xl overflow-hidden bg-slate-100 border border-[#E1E9EF] flex flex-col items-center justify-center text-slate-400 p-2 text-center relative shadow-xs">
+                      {founderImgUrl && !imgError ? (
+                        <img
+                          src={founderImgUrl}
+                          alt={story.founderName || "Founder"}
+                          className="w-full h-full object-cover rounded-lg"
+                          onError={() => setImgError(true)}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-4">
+                          <User size={44} className="text-slate-300 mb-2" />
+                          <span className="text-xs font-semibold text-slate-500">
+                            {story.founderName || "Mirasol P. Bituin"}
+                          </span>
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {story.founderRole || "Founder"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {founderImgUrl && !imgError && (
+                      <div className="mt-2 text-center">
+                        <span className="text-xs font-semibold text-[#243746] block">
+                          {story.founderName || "Mirasol P. Bituin"}
+                        </span>
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          {story.founderRole || "Founder"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* FOUNDER TEXT */}
+                  <div className="space-y-3 flex-1">
+                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                      {story.founderBio1 || DEFAULT_STORY.founderBio1}
+                    </p>
+                    {(story.founderBio2 || DEFAULT_STORY.founderBio2) && (
+                      <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                        {story.founderBio2 || DEFAULT_STORY.founderBio2}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* VISION SECTION */}
+              <section className="space-y-2">
+                <h2 className="text-sm sm:text-base font-bold text-[#243746] tracking-wide">
+                  {story.visionTitle || "Vision"}
                 </h2>
                 <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-                  {pillar.description}
+                  {story.visionText || DEFAULT_STORY.visionText}
                 </p>
               </section>
-            ))}
 
-          {/* CLOSING TAGLINE */}
-          <div className="pt-2">
-            <p className="text-xs sm:text-sm md:text-base italic font-semibold text-[#246C94]">
-              {story.closingTagline || DEFAULT_STORY.closingTagline}
-            </p>
-          </div>
-        </div>
+              {/* TAGLINE SECTION */}
+              <section className="space-y-2">
+                <h2 className="text-sm sm:text-base font-bold text-[#243746] tracking-wide">
+                  {story.taglineTitle || "Tagline"}
+                </h2>
+                <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                  {story.taglineText || DEFAULT_STORY.taglineText}
+                </p>
+              </section>
+
+              {/* BRAND PILLARS */}
+              {Array.isArray(story.pillars) &&
+                story.pillars.map((pillar, idx) => (
+                  <section key={idx} className="space-y-2">
+                    <h2 className="text-sm sm:text-base font-bold text-[#243746] tracking-wide">
+                      {pillar.title}
+                    </h2>
+                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                      {pillar.description}
+                    </p>
+                  </section>
+                ))}
+
+              {/* CLOSING TAGLINE */}
+              <div className="pt-2">
+                <p className="text-xs sm:text-sm md:text-base italic font-semibold text-[#246C94]">
+                  {story.closingTagline || DEFAULT_STORY.closingTagline}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
       <Footer />

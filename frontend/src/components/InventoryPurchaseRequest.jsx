@@ -167,8 +167,8 @@ function InventoryPurchaseRequest() {
         return {
           key: 'Critical Alert',
           label: 'Critical Alert',
-          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/70 font-semibold',
-          dotClass: 'bg-rose-500',
+          badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
+          dotClass: 'bg-red-600',
           suggestedOrderQty: Math.max(10, restock * 2 - val),
         };
       }
@@ -176,8 +176,8 @@ function InventoryPurchaseRequest() {
         return {
           key: 'Restock Warning',
           label: 'Restock Warning',
-          badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/70 font-semibold',
-          dotClass: 'bg-amber-500',
+          badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold',
+          dotClass: 'bg-yellow-500',
           suggestedOrderQty: Math.max(5, restock * 2 - val),
         };
       }
@@ -185,16 +185,16 @@ function InventoryPurchaseRequest() {
         return {
           key: 'Healthy',
           label: 'Healthy',
-          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
-          dotClass: 'bg-emerald-500',
+          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+          dotClass: 'bg-blue-600',
           suggestedOrderQty: 0,
         };
       }
       return {
         key: 'Overstock',
         label: 'Overstock',
-        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
-        dotClass: 'bg-blue-500',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+        dotClass: 'bg-blue-600',
         suggestedOrderQty: 0,
       };
     },
@@ -1258,7 +1258,7 @@ function InventoryPurchaseRequest() {
                       setCurrentPage(1);
                     }}
                     className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
-                        ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold shadow-2xs'
+                        ? 'bg-red-50 text-red-700 border-red-300 font-bold shadow-2xs'
                         : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
                       }`}
                     title={
@@ -1269,7 +1269,7 @@ function InventoryPurchaseRequest() {
                   >
                     <AlertTriangle
                       className={`w-3.5 h-3.5 shrink-0 ${conditionFilter === 'Critical Alert' || conditionFilter === 'Critical'
-                          ? 'text-rose-600'
+                          ? 'text-red-600'
                           : 'text-slate-500'
                         }`}
                     />
@@ -1404,12 +1404,12 @@ function InventoryPurchaseRequest() {
                       if (!hideZeroQty) setShowZeroOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${hideZeroQty
-                        ? 'bg-red-50 text-red-700 border border-red-300'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-400 font-bold'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={hideZeroQty ? 'Showing: 0 Qty Hidden (Click to show)' : 'Click to Hide 0 Quantity items'}
                   >
-                    <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                    <EyeOff className={`w-3.5 h-3.5 ${hideZeroQty ? 'text-blue-600' : 'text-slate-500'}`} />
                     <span>Hide 0 Qty</span>
                   </button>
 
@@ -1421,7 +1421,7 @@ function InventoryPurchaseRequest() {
                       if (!showZeroOnly) setHideZeroQty(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[30px] sm:h-[22px] w-full shadow-2xs ${showZeroOnly
-                        ? 'bg-rose-50 text-rose-700 border border-rose-300'
+                        ? 'bg-red-50 text-red-700 border border-red-300 font-bold'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={
@@ -1430,7 +1430,7 @@ function InventoryPurchaseRequest() {
                         : 'Filter 0 Qty Only'
                     }
                   >
-                    <Boxes className="w-3.5 h-3.5 text-slate-500" />
+                    <Boxes className={`w-3.5 h-3.5 ${showZeroOnly ? 'text-red-600' : 'text-slate-500'}`} />
                     <span>0 Qty Only</span>
                   </button>
 
@@ -1531,7 +1531,7 @@ function InventoryPurchaseRequest() {
 
                         {/* 3. CATEGORY (Pill Badge) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                             {item.category || 'Materials'}
                           </span>
                         </td>
@@ -1563,7 +1563,7 @@ function InventoryPurchaseRequest() {
                         {/* 8. STATUS / CONDITION (Dot removed, clean badge) */}
                         <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <span
-                            className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${item.badgeClass}`}
+                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.badgeClass}`}
                           >
                             {item.conditionLabel}
                           </span>
@@ -1635,7 +1635,7 @@ function InventoryPurchaseRequest() {
                     </span>
                   </div>
                   <span
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${previewRequest.badgeClass}`}
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${previewRequest.badgeClass}`}
                   >
                     {previewRequest.conditionLabel}
                   </span>
@@ -1654,7 +1654,7 @@ function InventoryPurchaseRequest() {
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">
                       Reorder Point
                     </span>
-                    <span className="font-bold text-amber-700 text-sm">
+                    <span className="font-bold text-yellow-800 text-sm">
                       {previewRequest.restockWarningPoint ?? 'N/A'} {previewRequest.uom}
                     </span>
                   </div>
@@ -1692,9 +1692,9 @@ function InventoryPurchaseRequest() {
                 onClick={() => {
                   handleDownloadRawMatPDF(previewRequest);
                 }}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-rose-200 flex items-center gap-1.5 whitespace-nowrap"
+                className="px-5 py-2.5 sm:py-3 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
               >
-                <FileDown className="w-4 h-4 text-rose-600" />
+                <FileDown className="w-4 h-4 text-blue-600" />
                 <span>Download PDF</span>
               </button>
             </div>

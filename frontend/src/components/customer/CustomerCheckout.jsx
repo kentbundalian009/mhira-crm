@@ -310,7 +310,15 @@ function CustomerCheckout() {
         // Fetch active coupons for quick selection
         axios.get(`${API_BASE_URL}/api/coupons`).then((res) => {
           if (Array.isArray(res.data)) {
-            setAvailableCoupons(res.data.filter((c) => c.status === "Active"));
+            setAvailableCoupons(
+              res.data.filter(
+                (c) =>
+                  c &&
+                  !c.isArchived &&
+                  c.isPublished !== false &&
+                  c.status === "Active"
+              )
+            );
           }
         }).catch(() => {});
       } catch (err) {

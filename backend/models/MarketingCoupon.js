@@ -35,8 +35,17 @@ const couponSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Active', 'Inactive', 'Expired', 'Archived'],
+      enum: ['Active', 'Inactive', 'Expired', 'Archived', 'Live', 'Draft'],
       default: 'Active',
+    },
+    isPublished: {
+      type: Boolean,
+      default: true,
+    },
+    note: {
+      type: String,
+      default: '',
+      trim: true,
     },
     targetSegment: {
       type: String,

@@ -5,6 +5,7 @@ import {
   handlePayMongoWebhook,
   getPaymentConfig,
   payExistingOrder,
+  syncPayMongoOrderReference,
 } from "../controllers/PaymentController.js";
 
 const router = express.Router();
@@ -16,6 +17,10 @@ router.get("/config", getPaymentConfig);
 router.post("/create-checkout-session", createPayMongoCheckoutSession);
 router.post("/paymongo-checkout", createPayMongoCheckoutSession);
 router.post("/pay-order/:orderId", payExistingOrder);
+
+// Auto-Sync PayMongo Reference & Process Record
+router.get("/sync-order-reference/:orderId", syncPayMongoOrderReference);
+router.post("/sync-order-reference/:orderId", syncPayMongoOrderReference);
 
 // Verification
 router.get("/verify-session/:sessionId", verifyPayMongoPayment);

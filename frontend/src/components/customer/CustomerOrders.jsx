@@ -32,6 +32,7 @@ import {
   ChevronUp,
   CreditCard,
   Loader2,
+  PackageCheck,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
@@ -181,8 +182,8 @@ function StarRatingWidget({
               }}
               className={`p-0.5 transition-all duration-150 rounded-xs focus:outline-none cursor-pointer ${
                 isLit
-                  ? "scale-115 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.85)]"
-                  : "scale-100 text-slate-300 hover:text-amber-200"
+                  ? "scale-115 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.85)]"
+                  : "scale-100 text-slate-300 hover:text-yellow-200"
               }`}
               title={`Rate ${star} Star${star > 1 ? "s" : ""}`}
             >
@@ -190,7 +191,7 @@ function StarRatingWidget({
                 size={size}
                 className={`transition-colors duration-150 ${
                   isLit
-                    ? "fill-amber-400 stroke-amber-500"
+                    ? "fill-yellow-400 stroke-yellow-500"
                     : "fill-transparent stroke-slate-300"
                 }`}
               />
@@ -199,7 +200,7 @@ function StarRatingWidget({
         })}
       </div>
       {showLabel && (
-        <span className="text-xs font-bold text-amber-600 transition-all ml-1">
+        <span className="text-xs font-bold text-yellow-800 transition-all ml-1">
           {activeStar > 0 ? `${activeStar} / 5 Stars` : "Select Stars"}
         </span>
       )}
@@ -266,25 +267,50 @@ function CustomerOrders() {
   const userId = getUserId();
 
   const tabs = [
-    { id: "All", label: "All", icon: ShoppingBag, hasDot: false },
-    { id: "To Pay", label: "To Pay", icon: Clock, hasDot: true },
-    { id: "To Ship", label: "To Ship", icon: Package, hasDot: true },
-    { id: "To Receive", label: "To Receive", icon: Truck, hasDot: true },
-    { id: "To Review", label: "To Review", icon: Star, hasDot: false },
-    { id: "Returns", label: "Returns", icon: RotateCcw, hasDot: true },
+    { id: "All", label: "All Orders", icon: ShoppingBag, hasDot: false },
+    { id: "Order Placed", label: "Order Placed", icon: Clock, hasDot: true },
+    { id: "Waiting for Courier", label: "Waiting for Courier", icon: Package, hasDot: true },
+    { id: "In Transit", label: "In Transit", icon: Truck, hasDot: true },
+    { id: "Delivered", label: "Delivered", icon: CheckCircle2, hasDot: false },
+    { id: "Cancel", label: "Cancel / Returns", icon: RotateCcw, hasDot: true },
   ];
 
   // Fetch Orders from Backend API
   const fetchOrders = async (silent = false) => {
-    if (!userId) return;
     try {
       if (!silent && allOrders.length === 0) {
         setLoading(true);
       }
-      const res = await axios.get(
-        `${API_BASE_URL}/api/orders/user/${encodeURIComponent(userId)}?status=All`
-      );
-      if (Array.isArray(res.data)) {
+      let targetUserId = userId;
+      if (!targetUserId) {
+        try {
+          const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+          targetUserId = storedUser._id || storedUser.id || storedUser.email;
+        } catch (e) {}
+      }
+
+      let res = null;
+      if (targetUserId) {
+        try {
+          res = await axios.get(
+            `${API_BASE_URL}/api/orders/user/${encodeURIComponent(targetUserId)}?status=All`
+          );
+        } catch (err) {
+          console.warn("User orders fetch notice:", err?.message);
+        }
+      }
+
+      // If no orders returned from user endpoint (e.g. staff previewing orders), try admin/staff orders endpoint
+      if (!res || !Array.isArray(res.data) || res.data.length === 0) {
+        try {
+          const allRes = await axios.get(`${API_BASE_URL}/api/orders`);
+          if (Array.isArray(allRes.data) && allRes.data.length > 0) {
+            res = allRes;
+          }
+        } catch (e) {}
+      }
+
+      if (res && Array.isArray(res.data)) {
         const sorted = [...res.data].sort((a, b) => {
           const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -374,86 +400,104 @@ function CustomerOrders() {
     const s = (order.status || "").toLowerCase().trim();
     const ps = (order.paymentStatus || "").toLowerCase().trim();
 
-    // 0. All: shows ALL orders (most recent on top)
-    if (tabName === "All") {
+    // 0. All Orders
+    if (tabName === "All" || tabName === "All Orders") {
       return true;
     }
 
-    // 1. Order Placed = To Pay
-    if (tabName === "To Pay") {
+    // 1. Order Placed / To Pay
+    if (tabName === "Order Placed" || tabName === "To Pay") {
       if (
         s === "cancelled" ||
+        s === "cancel" ||
         s === "completed" ||
         s === "delivered" ||
         s === "to review" ||
         s === "in transit" ||
+        s === "in-transit" ||
         s === "to receive" ||
+        s === "to-receive" ||
         s === "out for delivery" ||
         s === "waiting for courier" ||
+        s === "waiting-for-courier" ||
         s === "waiting-courier" ||
-        s === "to ship"
+        s === "to ship" ||
+        s === "to-ship"
       ) {
         return false;
       }
       return (
         s === "order placed" ||
+        s === "order-placed" ||
         s === "to pay" ||
+        s === "to-pay" ||
         s === "pending" ||
         ps === "pending payment" ||
         ps === "unpaid"
       );
     }
 
-    // 2. Waiting for Courier = To Ship
-    if (tabName === "To Ship") {
+    // 2. Waiting for Courier / To Ship
+    if (tabName === "Waiting for Courier" || tabName === "To Ship") {
       if (
         s === "cancelled" ||
+        s === "cancel" ||
         s === "completed" ||
         s === "delivered" ||
         s === "to review" ||
         s === "in transit" ||
+        s === "in-transit" ||
         s === "to receive" ||
+        s === "to-receive" ||
         s === "out for delivery"
       ) {
         return false;
       }
       return (
         s === "waiting for courier" ||
+        s === "waiting-for-courier" ||
         s === "waiting-courier" ||
         s === "to ship" ||
+        s === "to-ship" ||
         s === "processing" ||
         s === "preparing"
       );
     }
 
-    // 3. In Transit = To Receive
-    if (tabName === "To Receive") {
-      if (s === "cancelled" || s === "completed" || s === "delivered" || s === "to review") {
+    // 3. In Transit / To Receive
+    if (tabName === "In Transit" || tabName === "To Receive") {
+      if (s === "cancelled" || s === "cancel" || s === "completed" || s === "delivered" || s === "to review") {
         return false;
       }
       return (
         s === "in transit" ||
+        s === "in-transit" ||
         s === "to receive" ||
+        s === "to-receive" ||
         s === "shipped" ||
         s === "out for delivery"
       );
     }
 
-    // 4. Delivered = To Review (until customer reviews it!)
-    // After customer reviews it, it moves to All!
-    if (tabName === "To Review") {
-      const reviewed = isOrderReviewed(order, userId);
-      if (reviewed) return false;
-      return s === "delivered" || s === "to review" || s === "completed";
+    // 4. Delivered / To Review
+    if (tabName === "Delivered" || tabName === "To Review") {
+      if (s === "cancelled" || s === "cancel") return false;
+      return s === "delivered" || s === "to review" || s === "completed" || s === "paid";
     }
 
-    // 5. Returns: Returns / Refund requests
-    if (tabName === "Returns") {
+    // 5. Cancel / Returns: Returns / Refund requests & Cancelled orders
+    if (tabName === "Cancel" || tabName === "Cancel / Returns" || tabName === "Returns" || tabName === "Cancelled") {
       return (
+        s === "cancelled" ||
+        s === "cancel" ||
         s === "returns" ||
         s === "return" ||
         s === "return refund" ||
-        s === "returned"
+        s === "returned" ||
+        order.cancellationRequest?.status === "Requested" ||
+        order.cancellationRequest?.status === "Approved" ||
+        order.returnRequest?.status === "Requested" ||
+        order.returnRequest?.status === "Approved"
       );
     }
 
@@ -935,6 +979,159 @@ function CustomerOrders() {
     }
   };
 
+  // Download Standard Courier Airway Bill / Shipping Label PDF (Waybill)
+  const handleDownloadWaybillPdf = (order) => {
+    if (!order) return;
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [100, 150] }); // 100x150mm standard thermal sticker format
+      const orderIdShort = order._id ? String(order._id).slice(-8).toUpperCase() : "ORDER";
+      const courierName = (order.courier || "J&T Express").trim();
+      const trackingNo = order.trackingNumber || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
+      const customerName = order.customerName || order.userId?.name || order.user?.name || "Customer";
+      const customerPhone = order.phone || order.shippingPhone || order.contactNumber || order.userId?.phoneNumber || order.phoneNumber || "0917-000-0000";
+      const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const totalAmount = Number(order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+      const isCod = (order.paymentMethod || "").toLowerCase().includes("cod") || (order.paymentMethod || "").toLowerCase().includes("cash on delivery");
+
+      // 1. Header Box - Courier & Service Type
+      doc.setFillColor(1, 57, 15);
+      doc.rect(0, 0, 100, 15, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(courierName.toUpperCase(), 5, 7.5);
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.text("AIRWAY BILL & SHIPPING LABEL", 5, 12);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("STANDARD EXP", 72, 7.5);
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.text(new Date().toLocaleDateString(), 74, 12);
+
+      // 2. Barcode Simulation Box
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 15, 100, 21, "F");
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(4, 17, 92, 17);
+
+      doc.setFillColor(15, 23, 42);
+      let bx = 9;
+      for (let i = 0; i < 44; i++) {
+        const barWidth = (i % 3 === 0 || i % 7 === 0) ? 1.4 : 0.6;
+        if (i % 6 !== 0) {
+          doc.rect(bx, 19, barWidth, 9.5, "F");
+        }
+        bx += barWidth + 1.1;
+      }
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("courier", "bold");
+      doc.setFontSize(8.5);
+      doc.text(`* ${trackingNo} *`, 50, 32, { align: "center" });
+
+      // 3. Payment Method & Amount Box (Crucial for Courier Rider)
+      doc.setDrawColor(30, 41, 59);
+      if (isCod) {
+        doc.setFillColor(254, 240, 138); // Yellow highlight for COD
+        doc.rect(4, 36, 92, 13, "FD");
+        doc.setTextColor(113, 63, 18);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.text("CASH ON DELIVERY (COD)", 7, 41);
+        doc.setFontSize(9.5);
+        doc.text(`AMOUNT TO COLLECT: PHP ${totalAmount}`, 7, 46.5);
+      } else {
+        doc.setFillColor(219, 234, 254); // Blue highlight for Prepaid
+        doc.rect(4, 36, 92, 13, "FD");
+        doc.setTextColor(30, 58, 138);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.text("PREPAID / NON-COD  [ DO NOT COLLECT CASH ]", 7, 41);
+        doc.setFontSize(8);
+        const refStr = order.paymentDetails?.referenceNumber ? ` | Ref: ${order.paymentDetails.referenceNumber}` : "";
+        doc.text(`PAID ONLINE (${order.paymentDetails?.paymentMethodType || order.paymentMethod || "E-PAYMENT"}${refStr}) - PHP ${totalAmount}`, 7, 46.5);
+      }
+
+      // 4. Consignee (Receiver / TO)
+      doc.setDrawColor(203, 213, 225);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(4, 51, 92, 28, "FD");
+      doc.setTextColor(71, 85, 105);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text("RECIPIENT / SHIP TO:", 7, 55);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(8.5);
+      doc.text(customerName.toUpperCase(), 7, 60);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text(`Phone: ${customerPhone}`, 7, 64);
+      const splitAddress = doc.splitTextToSize(formatShippingAddress(order.shippingAddress) || "Customer Delivery Address", 86);
+      doc.text(splitAddress, 7, 68);
+
+      // 5. Shipper (Sender / FROM)
+      doc.rect(4, 81, 92, 16, "FD");
+      doc.setTextColor(71, 85, 105);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text("SENDER / RETURN TO:", 7, 85);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(7.5);
+      doc.text("MHIRA NATURAL SKINCARE", 7, 89);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.text("Logistics & Supply Chain Hub, Manila, Philippines | Tel: 0917-123-4567", 7, 93);
+
+      // 6. Order Contents & Itemized Summary
+      doc.rect(4, 99, 92, 27, "FD");
+      doc.setTextColor(71, 85, 105);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text("PARCEL CONTENTS & ORDER INFO:", 7, 103);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.text(`Order Ref: #${orderIdShort} | Date Placed: ${orderDate}`, 7, 107);
+
+      let itemY = 111;
+      const itemsList = order.items || [];
+      const totalItemsCount = itemsList.reduce((acc, it) => acc + (it.quantity || 1), 0);
+      itemsList.slice(0, 3).forEach((it) => {
+        const itemLine = `• ${(it.name || "Product").substring(0, 38)} (x${it.quantity || 1})`;
+        doc.text(itemLine, 7, itemY);
+        itemY += 3.5;
+      });
+      if (itemsList.length > 3) {
+        doc.text(`+ ${itemsList.length - 3} more items...`, 7, itemY);
+      }
+      doc.setFont("helvetica", "bold");
+      doc.text(`Total Pcs: ${totalItemsCount} units | Declared Value: PHP ${totalAmount}`, 7, 123);
+
+      // 7. Rider Signature & Verification Box
+      doc.rect(4, 128, 92, 17);
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text("DISPATCH / RIDER HANDOVER:", 7, 132);
+      doc.text("RECIPIENT SIGNATURE:", 54, 132);
+      doc.line(7, 140, 45, 140);
+      doc.line(54, 140, 92, 140);
+      doc.text(`Carrier: ${courierName}`, 7, 143.5);
+      doc.text("Date Received:", 54, 143.5);
+
+      const fileName = `Waybill_${courierName.replace(/\s+/g, "_")}_${trackingNo}.pdf`;
+      doc.save(fileName);
+      showSuccessToast(`Waybill generated & downloaded: ${fileName}`);
+    } catch (err) {
+      console.error("Error generating Waybill PDF:", err);
+      showErrorToast("Failed to generate Waybill shipping label.");
+    }
+  };
+
   // Handle Quick Star Rating Click
   const handleQuickStarClick = (order, item, starNumber) => {
     setSelectedProductForReview({
@@ -1201,36 +1398,58 @@ function CustomerOrders() {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-start">
-          {/* ================= LEFT SIDEBAR (CLEAN TEXT-ONLY CATEGORIES MATCHING COLLECTION) ================= */}
-          <aside className="w-full md:w-56 flex-shrink-0">
-            <nav className="flex md:flex-col overflow-x-auto scrollbar-none gap-5 sm:gap-6 md:gap-0 pb-2 md:pb-0 md:space-y-0.5">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const count = getTabCount(tab.id);
-                const showRedDot = tab.hasDot && count > 0;
+        <div className="flex flex-col md:flex-row gap-6 lg:gap-8 items-start">
+          {/* ================= LEFT SIDEBAR (CLEAN TABS CONTAINER) ================= */}
+          <aside className="w-full md:w-60 flex-shrink-0">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-2.5 sm:p-3 shadow-2xs space-y-1">
+              <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
+                <span>Order Status</span>
+                <span className="text-[10px] font-mono text-slate-500 font-bold">
+                  {allOrders.length} Total
+                </span>
+              </div>
+              <nav className="flex md:flex-col overflow-x-auto scrollbar-none gap-1 pt-1">
+                {tabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const count = getTabCount(tab.id);
+                  const Icon = tab.icon;
 
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`py-1 text-xs sm:text-sm leading-snug transition-colors text-left cursor-pointer shrink-0 md:w-full whitespace-nowrap inline-flex items-center gap-1.5 relative ${
-                      isActive
-                        ? "text-[#01390f] font-bold"
-                        : "text-[#26332E] hover:text-[#01390f] font-normal"
-                    }`}
-                  >
-                    <span className="relative">
-                      {tab.label}
-                      {showRedDot && (
-                        <span className="absolute -top-0.5 -right-2 w-1.5 h-1.5 bg-[#c81e1e] rounded-full" />
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 md:w-full text-left gap-2 ${
+                        isActive
+                          ? "bg-blue-50 text-blue-900 font-bold border border-blue-200 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        {Icon && (
+                          <Icon
+                            size={14}
+                            className={isActive ? "text-blue-700" : "text-slate-400"}
+                          />
+                        )}
+                        <span className="truncate">{tab.label}</span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                          isActive
+                            ? "bg-blue-200/80 text-blue-900"
+                            : count > 0
+                            ? (tab.id === "Cancel" ? "bg-red-50 text-red-700 border border-red-200" : "bg-slate-100 text-slate-600")
+                            : "bg-slate-50 text-slate-400"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
           </aside>
 
           {/* ================= RIGHT MAIN CONTENT AREA ================= */}
@@ -1251,7 +1470,7 @@ function CustomerOrders() {
               </p>
               <Link
                 to="/collection"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#246C94] hover:bg-[#1D5777] text-white text-xs font-semibold transition-all shadow-sm"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold transition-all shadow-md active:scale-98"
               >
                 <ShoppingBag size={14} /> Start Shopping
               </Link>
@@ -1275,19 +1494,17 @@ function CustomerOrders() {
               /* ==========================================================
                  UNIFIED ORDER CARD (Matches CustomerProductDetail & Our Collection UI)
                  ========================================================== */
-              const statusConfig = isCompleted
-                ? { label: "Completed", bg: "bg-emerald-50 text-emerald-800 border-emerald-200/60" }
-                : isDelivered
-                ? { label: "To Review", bg: "bg-emerald-50 text-emerald-800 border-emerald-200/60" }
+              const statusConfig = (isCompleted || isDelivered)
+                ? { label: isCompleted ? "Delivered / Completed" : "Delivered", bg: "bg-blue-50 text-blue-700 border-blue-200" }
                 : isCancelled
-                ? { label: "Cancelled", bg: "bg-rose-50 text-rose-800 border-rose-200/60" }
+                ? { label: "Cancelled", bg: "bg-red-50 text-red-700 border-red-200" }
                 : isReturned
-                ? { label: "Return Requested", bg: "bg-amber-50 text-amber-800 border-amber-200/60" }
+                ? { label: "Return Requested", bg: "bg-red-50 text-red-700 border-red-200" }
                 : isToReceive
-                ? { label: "To Receive", bg: "bg-blue-50 text-blue-800 border-blue-200/60" }
+                ? { label: "In Transit", bg: "bg-blue-50 text-blue-700 border-blue-200" }
                 : isToShip
-                ? { label: "To Ship", bg: "bg-amber-50 text-amber-800 border-amber-200/60" }
-                : { label: "To Pay", bg: "bg-purple-50 text-purple-800 border-purple-200/60" };
+                ? { label: "Waiting for Courier", bg: "bg-yellow-50 text-yellow-800 border-yellow-300" }
+                : { label: "Order Placed", bg: "bg-yellow-50 text-yellow-800 border-yellow-300" };
 
               const orderDateStr = order.createdAt
                 ? new Date(order.createdAt).toLocaleDateString("en-US", {
@@ -1305,12 +1522,12 @@ function CustomerOrders() {
                   {/* CARD HEADER: STATUS PILL, ORDER #, AND ESTIMATED ARRIVAL */}
                   <div className="p-4 sm:p-5 border-b border-[#E1E9EF] flex flex-wrap items-center justify-between gap-3 bg-white">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-                      <span className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold border ${statusConfig.bg}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusConfig.bg}`}>
                         {statusConfig.label}
                       </span>
                       {order.cancellationRequest?.status === "Pending" && (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 inline-flex items-center gap-1 animate-pulse">
-                          <Clock size={10} className="text-amber-600" />
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 inline-flex items-center gap-1 animate-pulse">
+                          <Clock size={10} className="text-red-600" />
                           Cancellation Pending Review
                         </span>
                       )}
@@ -1324,7 +1541,7 @@ function CustomerOrders() {
                           title="Copy Order ID"
                         >
                           {copiedOrderId === (rawOrderId || orderIdDisplay) ? (
-                            <Check size={12} className="text-emerald-600" />
+                            <Check size={12} className="text-blue-600" />
                           ) : (
                             <Copy size={12} />
                           )}
@@ -1341,23 +1558,28 @@ function CustomerOrders() {
                     </div>
 
                     <div className="text-xs font-medium">
-                      {isCompleted ? (
-                        <span className="inline-flex items-center gap-1.5 text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60 font-semibold">
-                          <CheckCircle2 size={13} className="text-emerald-700" />
-                          <span>Completed</span>
-                        </span>
-                      ) : isDelivered ? (
-                        <span className="inline-flex items-center gap-1.5 text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60 font-semibold">
-                          <Star size={13} className="text-emerald-700 fill-emerald-600" />
-                          <span>To Review</span>
+                      {(isCompleted || isDelivered) ? (
+                        <span className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 text-[10px] font-bold">
+                          <CheckCircle2 size={11} className="text-blue-600" />
+                          <span>Delivered</span>
                         </span>
                       ) : isCancelled ? (
-                        <span className="inline-flex items-center gap-1.5 text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200/60 font-semibold">
+                        <span className="inline-flex items-center gap-1.5 text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200 text-[10px] font-bold">
                           <span>Cancelled</span>
                         </span>
+                      ) : isToReceive ? (
+                        <span className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 text-[10px] font-bold">
+                          <Truck size={11} className="text-blue-600" />
+                          <span>In Transit (Handed over to Rider)</span>
+                        </span>
+                      ) : isToShip ? (
+                        <span className="inline-flex items-center gap-1.5 text-yellow-800 bg-yellow-50 px-2 py-0.5 rounded-full border border-yellow-300 text-[10px] font-bold">
+                          <Package size={11} className="text-yellow-600" />
+                          <span>Packing / Waiting for Courier</span>
+                        </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-slate-700 bg-slate-50 px-3 py-1 rounded-full border border-slate-200 font-medium">
-                          <CalendarDays size={13} className="text-[#246C94]" />
+                        <span className="inline-flex items-center gap-1.5 text-yellow-800 bg-yellow-50 px-2 py-0.5 rounded-full border border-yellow-300 text-[10px] font-bold">
+                          <Clock size={11} className="text-yellow-600" />
                           <span>{getEstimatedArrival(order)}</span>
                         </span>
                       )}
@@ -1366,11 +1588,11 @@ function CustomerOrders() {
 
                   {/* WEATHER / DELAY ADVISORY (SHOWN ONLY IF DELAYED) */}
                   {order.estimatedDelivery?.isDelayed && (
-                    <div className="mx-4 sm:mx-6 mt-4 bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-950">
-                      <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div className="mx-4 sm:mx-6 mt-4 bg-yellow-50/90 border border-yellow-300 rounded-xl p-3 flex items-start gap-2.5 text-xs text-yellow-950">
+                      <AlertTriangle size={15} className="text-yellow-600 shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
-                        <span className="font-semibold block text-amber-900">Delivery Schedule Advisory</span>
-                        <span className="text-[11px] text-amber-800/90 leading-tight block">
+                        <span className="font-semibold block text-yellow-900">Delivery Schedule Advisory</span>
+                        <span className="text-[11px] text-yellow-800/90 leading-tight block">
                           {order.estimatedDelivery?.delayReason || 'Your parcel might experience a slight delay due to inclement weather conditions / typhoon.'}
                         </span>
                       </div>
@@ -1389,41 +1611,29 @@ function CustomerOrders() {
                       </span>
                     </div>
 
-                    {(order.courier || order.trackingNumber || (order.trackingTimeline && order.trackingTimeline.length > 0)) && (
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                        {order.courier && (
-                          <span className="font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">
-                            {order.courier}
-                          </span>
-                        )}
-                        {order.trackingNumber && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard?.writeText(order.trackingNumber);
-                              setCopiedTrackingId(order._id);
-                              showSuccessToast("Tracking number copied!");
-                              setTimeout(() => setCopiedTrackingId(null), 2000);
-                            }}
-                            className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 cursor-pointer flex items-center gap-1 transition-colors"
-                            title="Click to copy tracking number"
-                          >
-                            {copiedTrackingId === order._id ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
-                            <span>{order.trackingNumber}</span>
-                          </button>
-                        )}
-                        {order.trackingTimeline && order.trackingTimeline.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedOrderForTimeline(order)}
-                            className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-[#246C94] bg-[#EAF3E4] hover:bg-[#EAF3E4]/80 border border-[#79A94B]/30 transition-colors cursor-pointer flex items-center gap-1"
-                          >
-                            <Clock size={11} />
-                            <span>Track</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                      {order.courier && (
+                        <span className="font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                          {order.courier}
+                        </span>
+                      )}
+                      {order.trackingNumber && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(order.trackingNumber);
+                            setCopiedTrackingId(order._id);
+                            showSuccessToast("Tracking number copied!");
+                            setTimeout(() => setCopiedTrackingId(null), 2000);
+                          }}
+                          className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 cursor-pointer flex items-center gap-1 transition-colors"
+                          title="Click to copy tracking number"
+                        >
+                          {copiedTrackingId === order._id ? <Check size={11} className="text-blue-600" /> : <Copy size={11} />}
+                          <span>{order.trackingNumber}</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* ITEMS LIST (INITIAL 1 ITEM DISPLAY + VIEW MORE EXPANDER) */}
@@ -1509,12 +1719,12 @@ function CustomerOrders() {
                                   [order._id]: !prev[order._id],
                                 }))
                               }
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#246C94] hover:text-[#1D5777] bg-[#246C94]/5 hover:bg-[#246C94]/10 border border-[#246C94]/15 px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-full transition-colors cursor-pointer shadow-2xs"
                             >
                               <span>
                                 {isExpanded
                                   ? "View less"
-                                  : `View more (${order.items.length - 1} more ${order.items.length - 1 === 1 ? "item" : "items"})`}
+                                  : `View all ${order.items.length} items`}
                               </span>
                               {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                             </button>
@@ -1526,18 +1736,44 @@ function CustomerOrders() {
 
                   {/* TOTAL AMOUNT & PAYMENT BAR */}
                   <div className="px-4 sm:px-6 py-3.5 bg-slate-50/40 border-t border-[#E1E9EF] flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-md bg-white text-slate-700 font-semibold border border-slate-200">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
                         {order.paymentMethod || "Cash on Delivery"}
                       </span>
-                      <span
-                        className={`px-2.5 py-1 rounded-full font-semibold ${
-                          getEffectivePaymentStatus(order) === "Paid"
-                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200/60"
-                            : "bg-amber-50 text-amber-800 border border-amber-200/60"
-                        }`}
-                      >
-                        {getEffectivePaymentStatus(order)}
+                      {(() => {
+                        const isCod = (order.paymentMethod || "").toLowerCase().includes("cod") || (order.paymentMethod || "").toLowerCase().includes("cash on delivery");
+                        const isPaid = (order.paymentStatus || "").toLowerCase() === "paid" || isCompleted || isDelivered;
+                        const payRef = order.paymentDetails?.referenceNumber;
+                        return (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isPaid
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-yellow-50 text-yellow-800 border-yellow-300"
+                              }`}
+                            >
+                              {isPaid
+                                ? (isCod ? "COD Collected • Paid" : "Online Paid")
+                                : (isCod ? "COD • To Collect" : "Payment Pending")}
+                            </span>
+                            {isPaid && payRef && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+                                Ref: {payRef}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      {/* Warehouse Inventory Stock Status Pill */}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                        order.inventoryDeducted || isToReceive || isDelivered || isCompleted
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : "bg-yellow-50 text-yellow-800 border-yellow-300"
+                      }`}>
+                        {order.inventoryDeducted || isToReceive || isDelivered || isCompleted
+                          ? "✓ Finished Goods Deducted"
+                          : "⏳ Stock Reserved"}
                       </span>
                     </div>
 
@@ -1549,60 +1785,116 @@ function CustomerOrders() {
                     </div>
                   </div>
 
-                  {/* ACTION SECTION: TO RECEIVE (IN TRANSIT ONLY) */}
-                  {activeTab === "To Receive" && !isCompleted && !isDelivered && (
-                    <div className="px-4 sm:px-6 py-3.5 bg-slate-50/50 border-t border-[#E1E9EF] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-2 text-slate-700">
-                        <Truck size={15} className="text-[#01390f] shrink-0" />
-                        <span>Your parcel is in transit with the courier partner.</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
-                        {/* Track Parcel */}
-                        {(order.trackingTimeline?.length > 0 || order.trackingNumber || order.courier) && (
+                  {/* CONSOLIDATED ACTION FOOTER (SINGLE CLEAN ACTION BAR) */}
+                  <div className="px-4 sm:px-6 py-3 border-t border-slate-100 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                    {/* LEFT: CONTEXTUAL GUIDANCE / STAR RATING */}
+                    <div className="text-slate-500 flex items-center gap-2 flex-wrap">
+                      {isToPay && (
+                        <span className="text-yellow-800 font-medium inline-flex items-center gap-1.5">
+                          <Clock size={13} className="text-yellow-600" />
+                          <span>Awaiting online payment (GCash, Maya, Card) via PayMongo.</span>
+                        </span>
+                      )}
+                      {isToShip && !isToPay && (
+                        <span className="text-blue-700 font-medium inline-flex items-center gap-1.5">
+                          <Package size={13} className="text-blue-600" />
+                          <span>Fulfillment team is preparing package for courier dispatch.</span>
+                        </span>
+                      )}
+                      {isToReceive && (
+                        <span className="text-blue-700 font-medium inline-flex items-center gap-1.5">
+                          <Truck size={13} className="text-blue-600" />
+                          <span>Parcel is in transit with courier rider. Out for delivery.</span>
+                        </span>
+                      )}
+                      {(isDelivered || isCompleted) && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {!isOrderReviewed(order, userId) ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                                <Star size={13} className="text-yellow-500 fill-yellow-400" /> Rate:
+                              </span>
+                              <StarRatingWidget
+                                value={0}
+                                size={16}
+                                onCommit={(star) => {
+                                  const firstItem = (order.items && order.items[0]) || {};
+                                  handleQuickStarClick(order, firstItem, star);
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200">
+                              <CheckCircle2 size={11} className="text-blue-600" />
+                              <span>Reviewed ⭐</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {isCancelled && (
+                        <span className="text-red-700 font-medium inline-flex items-center gap-1.5">
+                          <XCircle size={13} className="text-red-600" />
+                          <span>Order was cancelled.</span>
+                        </span>
+                      )}
+                      {isReturned && (
+                        <span className="text-red-700 font-medium inline-flex items-center gap-1.5">
+                          <RotateCcw size={13} className="text-red-600" />
+                          <span>Return / replacement request registered.</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* RIGHT: CONSOLIDATED ACTION BUTTONS (EXACTLY ONCE EACH) */}
+                    <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
+                      {/* Contextual Action 1: Pay Now */}
+                      {isToPay && (
+                        <button
+                          type="button"
+                          disabled={payingOrderId === order._id}
+                          onClick={() => handlePayNow(order)}
+                          className="px-4 py-2 rounded-full text-xs font-bold text-white bg-[#01390f] hover:bg-[#0a5219] transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {payingOrderId === order._id ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              <span>Connecting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard size={13} />
+                              <span>Pay Now</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {/* Contextual Action 2: Cancel Order */}
+                      {isToPay && !isCancelled && (
+                        order.cancellationRequest?.status === "Pending" ? (
+                          <span className="px-2.5 py-1.5 rounded-full text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 flex items-center gap-1.5 select-none animate-pulse">
+                            <Clock size={11} className="text-red-600" />
+                            <span>Cancellation Pending Review</span>
+                          </span>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => setSelectedOrderForTimeline(order)}
-                            className="px-3.5 py-2 rounded-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                            onClick={() => {
+                              setSelectedOrderForCancel(order);
+                              setCancelReason("Changed mind");
+                            }}
+                            className="px-3.5 py-2 rounded-full text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+                            title="Request order cancellation"
                           >
-                            <Clock size={13} className="text-[#01390f]" />
-                            <span>Track Parcel</span>
+                            <X size={13} className="text-red-600" />
+                            <span>Cancel Order</span>
                           </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                        )
+                      )}
 
-                  {/* ACTION SECTION: COMPLETED / TO REVIEW (DELIVERED) */}
-                  {(isCompleted || activeTab === "To Review" || isDelivered) && (() => {
-                    const hasReviewed = isOrderReviewed(order, userId);
-
-                    return (
-                      <div className="px-4 sm:px-6 py-3.5 border-t border-[#E1E9EF] bg-slate-50/30 flex flex-wrap items-center justify-between gap-3">
-                        {/* LEFT: RATINGS WIDGET OR REVIEWED BADGE */}
-                        {!hasReviewed ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                              <Star size={13} className="text-amber-500 fill-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]" /> Rate:
-                            </span>
-                            <StarRatingWidget
-                              value={0}
-                              size={17}
-                              onCommit={(star) => {
-                                const firstItem = (order.items && order.items[0]) || {};
-                                handleQuickStarClick(order, firstItem, star);
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/60">
-                            <CheckCircle2 size={13} className="text-emerald-600" />
-                            <span>Reviewed ⭐</span>
-                          </span>
-                        )}
-
-                        {/* RIGHT: BUTTONS */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          {/* 1. View receipt */}
+                      {/* Contextual Action 3: Delivered buttons */}
+                      {(isDelivered || isCompleted) && (
+                        <>
                           <button
                             type="button"
                             onClick={() => handleOpenReceiptModal(order)}
@@ -1610,38 +1902,9 @@ function CustomerOrders() {
                             title="View Official Sales Receipt"
                           >
                             <FileText size={13} className="text-slate-500" />
-                            <span>View receipt</span>
+                            <span>Receipt PDF</span>
                           </button>
 
-                          {/* 2. View order */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenOrderModal(order)}
-                            className="px-3.5 py-2 rounded-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                            title="View Order Details & Summary"
-                          >
-                            <Eye size={13} className="text-slate-500" />
-                            <span>View order</span>
-                          </button>
-
-                          {/* 3. Refund / Return button (Show if not returned) */}
-                          {!isReturned ? (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedOrderForReturn(order)}
-                              className="px-3.5 py-2 rounded-full text-xs font-semibold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
-                              title="Request Return or Refund"
-                            >
-                              <RotateCcw size={13} className="text-rose-600" />
-                              <span>Refund / Return</span>
-                            </button>
-                          ) : (
-                            <span className="px-3 py-1.5 rounded-full text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200">
-                              Return Requested
-                            </span>
-                          )}
-
-                          {/* 4. Order Received Button (strictly shown if order is not yet 'Completed' - clicking it marks Completed and moves to All) */}
                           {order.status !== "Completed" && (
                             <button
                               type="button"
@@ -1653,96 +1916,65 @@ function CustomerOrders() {
                             </button>
                           )}
 
-                          {/* 5. Add to Cart icon */}
-                          <button
-                            type="button"
-                            onClick={() => handleAddToCartFromOrder(order)}
-                            className="p-2.5 rounded-full text-xs font-semibold text-[#01390f] bg-white hover:bg-[#EDF7EE] border border-gray-200 hover:border-[#01390f]/30 transition-all cursor-pointer shadow-2xs flex items-center justify-center active:scale-95"
-                            title="Add items to cart"
-                            aria-label="Add items to cart"
-                          >
-                            <ShoppingCart size={14} className="text-[#01390f]" />
-                          </button>
+                          {!isReturned ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderForReturn(order)}
+                              className="px-3.5 py-2 rounded-full text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+                            >
+                              <RotateCcw size={13} className="text-red-600" />
+                              <span>Return Item</span>
+                            </button>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-red-700 bg-red-50 border border-red-200">
+                              Return Requested
+                            </span>
+                          )}
 
-                          {/* 6. Buy again */}
                           <button
                             type="button"
                             onClick={() => handleBuyAgain(order)}
                             className="px-4 py-2 rounded-full text-xs font-bold text-white bg-[#01390f] hover:bg-[#0a5219] transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1.5"
                           >
                             <ShoppingBag size={13} />
-                            <span>Buy again</span>
+                            <span>Buy Again</span>
                           </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                        </>
+                      )}
 
-                  {/* ACTION SECTION: OTHER STAGES (TO PAY / TO SHIP / CANCELLED / RETURNED) */}
-                  {!isDelivered && !isToReceive && !isCompleted && activeTab !== "To Review" && (
-                    <div className="px-4 sm:px-6 py-3.5 border-t border-[#E1E9EF] bg-slate-50/30 flex items-center justify-between gap-3">
-                      <div className="text-xs text-slate-500">
-                        {isToPay && "Awaiting online payment (GCash, Maya, Card) via PayMongo."}
-                        {isToShip && !isToPay && "Our fulfillment team is preparing your package for courier pickup."}
-                        {isCancelled && "This order was cancelled."}
-                        {isReturned && "Return / replacement requested."}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* Cancel order button: strictly available ONLY when still in To Pay / Order Placed */}
-                        {isToPay && !isCancelled && (
-                          order.cancellationRequest?.status === "Pending" ? (
-                            <div className="px-3.5 py-2 rounded-full text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-300 flex items-center gap-1.5 shadow-2xs select-none">
-                              <Clock size={13} className="text-amber-600 animate-spin" />
-                              <span>Cancellation Pending Review</span>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedOrderForCancel(order);
-                                setCancelReason("Changed mind");
-                              }}
-                              className="px-3.5 py-2 rounded-full text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200/80 hover:bg-rose-100 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
-                              title="Request order cancellation"
-                            >
-                              <X size={13} className="text-rose-600" />
-                              <span>Cancel order</span>
-                            </button>
-                          )
-                        )}
+                      {/* Universal Action 1: Waybill PDF (Single Occurrence) */}
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadWaybillPdf(order)}
+                        className="px-3.5 py-2 rounded-full text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        title="Download 100x150mm Courier Shipping Label"
+                      >
+                        <Printer size={13} className="text-blue-600" />
+                        <span>Waybill PDF</span>
+                      </button>
 
-                        {isToPay && (
-                          <button
-                            type="button"
-                            disabled={payingOrderId === order._id}
-                            onClick={() => handlePayNow(order)}
-                            className="px-4 py-2 rounded-full text-xs font-bold text-white bg-[#01390f] hover:bg-[#0a5219] transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1.5"
-                          >
-                            {payingOrderId === order._id ? (
-                              <>
-                                <Loader2 size={13} className="animate-spin" />
-                                <span>Connecting...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CreditCard size={13} />
-                                <span>Pay Now (GCash/Card)</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                        {/* ONLY View order is shown for To Pay, To Ship, Cancelled, Returned! NO View receipt! NO Buy again! */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenOrderModal(order)}
-                          className="px-3.5 py-2 rounded-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                        >
-                          <Eye size={13} className="text-slate-500" />
-                          <span>View order</span>
-                        </button>
-                      </div>
+                      {/* Universal Action 2: Process Records (Single Occurrence) */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrderForTimeline(order)}
+                        className="px-3.5 py-2 rounded-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        title="View Process Records, Payments & Audit Trail"
+                      >
+                        <Clock size={13} className="text-slate-500" />
+                        <span>Process Records</span>
+                      </button>
+
+                      {/* Details View */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenOrderModal(order)}
+                        className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                        title="View Full Order Summary"
+                      >
+                        <Eye size={14} />
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                   {/* SUBTLE SUPPORT BAR */}
                   <button
@@ -1771,14 +2003,14 @@ function CustomerOrders() {
             {/* HEADER */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full bg-red-50 text-red-700 border border-red-200 flex items-center justify-center shrink-0">
                   <RotateCcw className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">
                     Request Item Return
                   </h3>
-                  <p className="text-[11px] text-rose-600 font-medium">
+                  <p className="text-[11px] text-red-700 font-medium">
                     Free returns at your convenience • 7-Day Guarantee
                   </p>
                 </div>
@@ -1837,7 +2069,7 @@ function CustomerOrders() {
                 <button
                   type="submit"
                   disabled={submittingReturn}
-                  className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-6 py-2.5 rounded-full transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                  className="bg-red-600 hover:bg-red-700 text-white font-semibold text-xs px-6 py-2.5 rounded-full transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {submittingReturn ? "Submitting..." : "Submit Return Request"}
                 </button>
@@ -1926,7 +2158,7 @@ function CustomerOrders() {
                 />
                 <div className="flex items-center justify-between text-[11px] mt-1">
                   <span className="text-slate-500 font-medium">Write 30+ characters</span>
-                  <span className={`font-semibold ${reviewComment.trim().length >= 30 ? "text-emerald-700" : "text-slate-400"}`}>
+                  <span className={`font-semibold ${reviewComment.trim().length >= 30 ? "text-blue-700" : "text-slate-400"}`}>
                     {reviewComment.trim().length >= 30 ? `✓ ${reviewComment.trim().length} chars` : `${reviewComment.trim().length} / 30`}
                   </span>
                 </div>
@@ -2245,7 +2477,7 @@ function CustomerOrders() {
                       </div>
                       <div className="flex justify-between text-slate-600">
                         <span>Shipping</span>
-                        <span className="font-medium text-emerald-700">FREE</span>
+                        <span className="font-medium text-blue-700">FREE</span>
                       </div>
 
                       {/* SHADED GRAND TOTAL BAR */}
@@ -2291,15 +2523,15 @@ function CustomerOrders() {
                 <div className="bg-[#01390f] text-white p-6 relative flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <Eye className="w-5 h-5 text-emerald-300" />
-                      <span className="text-xs font-black tracking-widest uppercase text-emerald-200">
+                      <Eye className="w-5 h-5 text-blue-200" />
+                      <span className="text-xs font-black tracking-widest uppercase text-blue-100">
                         Order Details & Summary
                       </span>
                     </div>
                     <h3 className="text-lg font-bold text-white tracking-tight">
                       Mhira Natural Botanicals
                     </h3>
-                    <p className="text-[11px] text-teal-100 opacity-90">
+                    <p className="text-[11px] text-blue-100 opacity-90">
                       Order #{orderIdShort} • {orderDateFormatted}
                     </p>
                   </div>
@@ -2330,10 +2562,10 @@ function CustomerOrders() {
                       <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
                         Payment Status
                       </span>
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         getEffectivePaymentStatus(order) === "Paid"
-                          ? "text-emerald-700 bg-emerald-100/70"
-                          : "text-amber-800 bg-amber-100/70"
+                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                          : "bg-yellow-50 text-yellow-800 border border-yellow-300"
                       }`}>
                         <CheckCircle2 size={11} /> {getEffectivePaymentStatus(order)}
                       </span>
@@ -2400,7 +2632,7 @@ function CustomerOrders() {
                     </div>
                     <div className="flex justify-between text-slate-500">
                       <span>Shipping Fee</span>
-                      <span className="text-emerald-700 font-semibold">FREE</span>
+                      <span className="text-blue-700 font-semibold">FREE</span>
                     </div>
                     <div className="flex justify-between items-center text-sm font-bold text-slate-900 pt-3 border-t border-slate-200">
                       <span>Grand Total Paid</span>
@@ -2448,7 +2680,7 @@ function CustomerOrders() {
           >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center">
                   <Camera size={18} />
                 </div>
                 <div>
@@ -2519,7 +2751,7 @@ function CustomerOrders() {
         </div>
       )}
 
-      {/* CUSTOMER PARCEL TRACKING JOURNEY MODAL */}
+      {/* CUSTOMER PARCEL TRACKING & PROCESS RECORDS MODAL */}
       {selectedOrderForTimeline && (
         <div
           onClick={() => setSelectedOrderForTimeline(null)}
@@ -2527,15 +2759,15 @@ function CustomerOrders() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 cursor-default"
+            className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 cursor-default"
           >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#246C94] text-white flex items-center justify-center shadow-xs">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shadow-xs">
                   <Truck size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#243746]">Delivery Tracking Journey</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Process Records & Audit Trail</h3>
                   <p className="text-[11px] text-slate-500 font-mono">
                     Order #{String(selectedOrderForTimeline._id).slice(-8).toUpperCase()}
                   </p>
@@ -2550,96 +2782,138 @@ function CustomerOrders() {
               </button>
             </div>
 
-            <div className="max-h-96 overflow-y-auto pr-1 space-y-4 border-l-2 border-[#79A94B]/40 ml-2 pl-4 py-1">
+            {/* 3 Status KPI Cards in Modal */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              {/* Payment Card */}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Payment Audit</span>
+                {(() => {
+                  const isCod = (selectedOrderForTimeline.paymentMethod || "").toLowerCase().includes("cod") || (selectedOrderForTimeline.paymentMethod || "").toLowerCase().includes("cash on delivery");
+                  const s = (selectedOrderForTimeline.status || "").toLowerCase();
+                  const isPaid = (selectedOrderForTimeline.paymentStatus || "").toLowerCase() === "paid" || s === "delivered" || s === "completed";
+                  const payRef = selectedOrderForTimeline.paymentDetails?.referenceNumber;
+                  return (
+                    <div className="space-y-1">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block ${isPaid ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-yellow-50 text-yellow-800 border border-yellow-300"}`}>
+                        {isPaid ? (isCod ? "COD Collected" : "Online Paid") : (isCod ? "COD To Collect" : "Payment Pending")}
+                      </span>
+                      {payRef && (
+                        <p className="text-[10px] font-mono font-bold text-blue-800 truncate" title={payRef}>
+                          Ref: {payRef}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+                <p className="text-[10px] text-slate-500 truncate">{selectedOrderForTimeline.paymentMethod || "COD"}</p>
+              </div>
+
+              {/* Warehouse Inventory Sync Card */}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Warehouse Stock</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block ${
+                  selectedOrderForTimeline.inventoryDeducted || (selectedOrderForTimeline.status || '').toLowerCase().includes('transit') || (selectedOrderForTimeline.status || '').toLowerCase() === 'delivered' || (selectedOrderForTimeline.status || '').toLowerCase() === 'completed'
+                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                    : "bg-yellow-50 text-yellow-800 border border-yellow-300"
+                }`}>
+                  {selectedOrderForTimeline.inventoryDeducted || (selectedOrderForTimeline.status || '').toLowerCase().includes('transit') || (selectedOrderForTimeline.status || '').toLowerCase() === 'delivered' || (selectedOrderForTimeline.status || '').toLowerCase() === 'completed'
+                    ? "Stock Deducted"
+                    : "Stock Reserved"}
+                </span>
+                <p className="text-[10px] text-slate-500 truncate">Finished Goods</p>
+              </div>
+
+              {/* Waybill Status Card */}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Waybill Label</span>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadWaybillPdf(selectedOrderForTimeline)}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Printer size={9} className="text-blue-600" />
+                  <span>Waybill PDF</span>
+                </button>
+                <p className="text-[10px] font-mono text-slate-500 truncate">{selectedOrderForTimeline.trackingNumber || "Assigned"}</p>
+              </div>
+            </div>
+
+            {/* Chronological Timeline */}
+            <div className="max-h-80 overflow-y-auto pr-1 space-y-4 border-l-2 border-blue-200 ml-2 pl-4 py-1">
               {(selectedOrderForTimeline.trackingTimeline || []).map((step, sIdx) => {
                 const titleLower = (step.title || "").toLowerCase();
-                const hasExplicitDelivered = (selectedOrderForTimeline.trackingTimeline || []).some((st) =>
-                  (st.title || "").toLowerCase().includes("delivered")
-                );
-                const isDeliveredStep =
-                  titleLower.includes("delivered") ||
-                  (!hasExplicitDelivered &&
-                    sIdx === (selectedOrderForTimeline.trackingTimeline || []).length - 1 &&
-                    (selectedOrderForTimeline.status === "Delivered" ||
-                      selectedOrderForTimeline.status === "Completed" ||
-                      selectedOrderForTimeline.proofOfDelivery?.image));
+                const isCancellation = titleLower.includes("cancel") || titleLower.includes("declined");
+                const isWarning = titleLower.includes("waiting") || titleLower.includes("pending") || titleLower.includes("delay");
 
                 return (
                   <div key={sIdx} className="relative space-y-1">
-                    <div className="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-[#79A94B] ring-4 ring-white" />
-                    <h5 className="text-xs font-bold text-[#243746]">{step.title}</h5>
+                    <div className={`absolute -left-[23px] top-1 w-3 h-3 rounded-full ring-4 ring-white ${
+                      isCancellation
+                        ? "bg-red-500"
+                        : isWarning
+                        ? "bg-yellow-500"
+                        : "bg-blue-600"
+                    }`} />
+                    <div className="flex items-center justify-between gap-2">
+                      <h5 className="text-xs font-bold text-slate-900">{step.title}</h5>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {step.actor || "Logistics Team"}
+                      </span>
+                    </div>
                     <p className="text-[11px] text-slate-600 leading-snug">{step.description}</p>
                     <span className="text-[10px] font-mono text-slate-400 block">
                       {new Date(step.timestamp).toLocaleString()}
                     </span>
-
-                    {/* Proof of Delivery Photo embedded directly under Delivered Milestone */}
-                    {isDeliveredStep && selectedOrderForTimeline.proofOfDelivery?.image && (
-                      <div className="mt-3 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                            <Camera size={13} className="text-emerald-700" /> Proof of Delivery (Photo)
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            Received by: <strong className="text-slate-800 font-semibold">{selectedOrderForTimeline.proofOfDelivery.recipientName || 'Customer'}</strong>
-                          </span>
-                        </div>
-                        <div
-                          className="rounded-xl overflow-hidden border border-emerald-200/60 bg-white shadow-2xs group relative cursor-pointer"
-                          onClick={() => window.open(selectedOrderForTimeline.proofOfDelivery.image, '_blank')}
-                          title="Click to view full photo"
-                        >
-                          <img
-                            src={selectedOrderForTimeline.proofOfDelivery.image}
-                            alt="Proof of Delivery Photo"
-                            className="w-full max-h-56 object-cover transition-transform group-hover:scale-[1.02] duration-200"
-                          />
-                        </div>
-                        {selectedOrderForTimeline.proofOfDelivery.notes && (
-                          <p className="text-[11px] text-slate-600 italic">
-                            Courier note: "{selectedOrderForTimeline.proofOfDelivery.notes}"
-                          </p>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
 
-              {/* Fallback if tracking timeline has no items but order has POD photo */}
-              {(!selectedOrderForTimeline.trackingTimeline || selectedOrderForTimeline.trackingTimeline.length === 0) &&
-                selectedOrderForTimeline.proofOfDelivery?.image && (
-                  <div className="mt-3 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                        <Camera size={13} className="text-emerald-700" /> Proof of Delivery (Photo)
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        Received by: <strong className="text-slate-800 font-semibold">{selectedOrderForTimeline.proofOfDelivery.recipientName || 'Customer'}</strong>
-                      </span>
-                    </div>
-                    <div
-                      className="rounded-xl overflow-hidden border border-emerald-200/60 bg-white shadow-2xs group relative cursor-pointer"
-                      onClick={() => window.open(selectedOrderForTimeline.proofOfDelivery.image, '_blank')}
-                      title="Click to view full photo"
-                    >
-                      <img
-                        src={selectedOrderForTimeline.proofOfDelivery.image}
-                        alt="Proof of Delivery Photo"
-                        className="w-full max-h-56 object-cover"
-                      />
-                    </div>
+              {/* Proof of Delivery Photo embedded directly under Delivered Milestone */}
+              {selectedOrderForTimeline.proofOfDelivery?.image && (
+                <div className="mt-3 p-3 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                      <Camera size={13} className="text-blue-700" /> Proof of Delivery (Photo)
+                    </span>
+                    <span className="text-[11px] text-slate-600">
+                      Received by: <strong className="text-slate-800 font-semibold">{selectedOrderForTimeline.proofOfDelivery.recipientName || 'Customer'}</strong>
+                    </span>
                   </div>
+                  <div
+                    className="rounded-xl overflow-hidden border border-blue-200/60 bg-white shadow-2xs group relative cursor-pointer"
+                    onClick={() => window.open(selectedOrderForTimeline.proofOfDelivery.image, '_blank')}
+                    title="Click to view full photo"
+                  >
+                    <img
+                      src={selectedOrderForTimeline.proofOfDelivery.image}
+                      alt="Proof of Delivery Photo"
+                      className="w-full max-h-56 object-cover transition-transform group-hover:scale-[1.02] duration-200"
+                    />
+                  </div>
+                  {selectedOrderForTimeline.proofOfDelivery.notes && (
+                    <p className="text-[11px] text-slate-600 italic">
+                      Courier note: "{selectedOrderForTimeline.proofOfDelivery.notes}"
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => handleDownloadWaybillPdf(selectedOrderForTimeline)}
+                className="px-4 py-2 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+              >
+                <Printer size={13} className="text-blue-600" />
+                <span>Waybill PDF</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedOrderForTimeline(null)}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                className="px-5 py-2 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-xs font-bold transition-all shadow-xs cursor-pointer border border-[#d5ead7]"
               >
-                Done
+                Close
               </button>
             </div>
           </div>
@@ -2658,7 +2932,7 @@ function CustomerOrders() {
           >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-2xs">
+                <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-700 flex items-center justify-center border border-red-200 shadow-2xs">
                   <AlertTriangle size={20} />
                 </div>
                 <div>
@@ -2714,7 +2988,7 @@ function CustomerOrders() {
                 type="button"
                 disabled={isSubmittingCancel}
                 onClick={handleConfirmCancelOrder}
-                className="px-6 py-2.5 sm:py-3 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                className="px-6 py-2.5 sm:py-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
               >
                 {isSubmittingCancel ? (
                   <>

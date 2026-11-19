@@ -691,3 +691,216 @@ export const payExistingOrder = async (req, res) => {
   }
 };
 
+/**
+ * 6. Auto-Fetch / Sync PayMongo Payment Reference & Process Record for an Order
+ * GET /api/payments/sync-order-reference/:orderId
+ * POST /api/payments/sync-order-reference/:orderId
+ */
+export const syncPayMongoOrderReference = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ success: false, message: "Invalid order ID." });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found." });
+    }
+
+    let authHeader;
+    try {
+      authHeader = getPayMongoAuthHeader();
+    } catch (authErr) {
+      return res.status(500).json({ success: false, message: authErr.message });
+    }
+
+    let matchedPayment = null;
+    let matchSource = "";
+
+    // 1. Try querying via checkoutSessionId if present
+    if (order.checkoutSessionId) {
+      try {
+        const sessionRes = await fetch(`https://api.paymongo.com/v1/checkout_sessions/${order.checkoutSessionId}`, {
+          method: "GET",
+          headers: { Authorization: authHeader },
+        });
+        const sessionJson = await sessionRes.json();
+        if (sessionRes.ok && sessionJson?.data) {
+          const payments = sessionJson.data.attributes?.payments || [];
+          const paidP = payments.find((p) => (p.attributes?.status || "").toLowerCase() === "paid") || payments[0];
+          if (paidP) {
+            matchedPayment = paidP;
+            matchSource = "checkout_session";
+          }
+        }
+      } catch (err) {
+        console.warn("[PayMongo Sync] Session lookup note:", err.message);
+      }
+    }
+
+    // 2. Try querying via paymentIntentId if present
+    if (!matchedPayment && order.paymentIntentId) {
+      try {
+        const intentRes = await fetch(`https://api.paymongo.com/v1/payment_intents/${order.paymentIntentId}`, {
+          method: "GET",
+          headers: { Authorization: authHeader },
+        });
+        const intentJson = await intentRes.json();
+        if (intentRes.ok && intentJson?.data) {
+          const payments = intentJson.data.attributes?.payments || [];
+          const paidP = payments.find((p) => (p.attributes?.status || "").toLowerCase() === "paid") || payments[0];
+          if (paidP) {
+            matchedPayment = paidP;
+            matchSource = "payment_intent";
+          }
+        }
+      } catch (err) {
+        console.warn("[PayMongo Sync] Payment Intent lookup note:", err.message);
+      }
+    }
+
+    // 3. Fallback: Search PayMongo recent payments list
+    if (!matchedPayment) {
+      try {
+        const paymentsRes = await fetch("https://api.paymongo.com/v1/payments?limit=50", {
+          method: "GET",
+          headers: { Authorization: authHeader },
+        });
+        const paymentsJson = await paymentsRes.json();
+        if (paymentsRes.ok && Array.isArray(paymentsJson?.data)) {
+          const shortId = String(order._id).slice(-8).toUpperCase();
+          const midId = String(order._id).slice(-12).toUpperCase();
+          const fullId = String(order._id);
+          const orderCentavos = Math.round(Number(order.totalAmount || 0) * 100);
+
+          matchedPayment = paymentsJson.data.find((p) => {
+            const desc = (p.attributes?.description || "").toUpperCase();
+            if (desc.includes(shortId) || desc.includes(midId) || desc.includes(fullId)) {
+              return true;
+            }
+            if (order.customerEmail && p.attributes?.billing?.email) {
+              const emailMatch = p.attributes.billing.email.toLowerCase() === order.customerEmail.toLowerCase();
+              const amtMatch = Math.abs((p.attributes.amount || 0) - orderCentavos) < 100;
+              if (emailMatch && amtMatch) return true;
+            }
+            return false;
+          });
+          if (matchedPayment) {
+            matchSource = "payments_list";
+          }
+        }
+      } catch (err) {
+        console.warn("[PayMongo Sync] Payments list lookup note:", err.message);
+      }
+    }
+
+    if (!matchedPayment) {
+      return res.status(200).json({
+        success: true,
+        matched: false,
+        message: "No PayMongo transaction record found yet for this order.",
+        order,
+      });
+    }
+
+    // Extract transaction details
+    const refNumber =
+      matchedPayment.attributes?.external_reference_number ||
+      matchedPayment.id ||
+      matchedPayment.attributes?.payment_intent_id ||
+      matchedPayment.attributes?.source?.id ||
+      "";
+
+    const channel = (
+      matchedPayment.attributes?.source?.type ||
+      matchedPayment.attributes?.payment_method_type ||
+      "GCash / Online"
+    ).toUpperCase();
+
+    const grossAmount = matchedPayment.attributes?.amount
+      ? matchedPayment.attributes.amount / 100
+      : Number(order.totalAmount || 0);
+
+    const fee = matchedPayment.attributes?.fee
+      ? matchedPayment.attributes.fee / 100
+      : 0;
+
+    const netAmount = matchedPayment.attributes?.net_amount
+      ? matchedPayment.attributes.net_amount / 100
+      : grossAmount - fee;
+
+    const billing = matchedPayment.attributes?.billing || {};
+    const paidAtDate = matchedPayment.attributes?.paid_at
+      ? new Date(matchedPayment.attributes.paid_at * 1000)
+      : new Date();
+
+    const isPaid = (matchedPayment.attributes?.status || "").toLowerCase() === "paid";
+
+    // Update order paymentDetails
+    order.paymentDetails = {
+      ...(order.paymentDetails || {}),
+      referenceNumber: refNumber,
+      paymentId: matchedPayment.id,
+      paymentIntentId: matchedPayment.attributes?.payment_intent_id || order.paymentIntentId || "",
+      sourceId: matchedPayment.attributes?.source?.id || "",
+      paymentMethodType: channel,
+      grossAmount,
+      fee,
+      netAmount,
+      billingDetails: billing,
+      paymongoStatus: matchedPayment.attributes?.status || "paid",
+      verifiedAt: new Date(),
+      verifiedBy: "PayMongo Auto-Sync API",
+      matchSource,
+    };
+
+    if (isPaid) {
+      order.paymentStatus = "Paid";
+      order.paidAt = order.paidAt || paidAtDate;
+      if (order.status === "Order Placed" || order.status === "To Pay") {
+        order.status = "To Ship";
+      }
+    }
+
+    // Add Timeline audit event
+    if (!order.trackingTimeline) order.trackingTimeline = [];
+    const alreadyLogged = order.trackingTimeline.some(
+      (t) => t.title?.includes("PayMongo") && (t.description?.includes(refNumber) || t.description?.includes(matchedPayment.id))
+    );
+
+    if (!alreadyLogged) {
+      order.trackingTimeline.push({
+        title: "PayMongo Reference Auto-Captured",
+        description: `Verified online payment via PayMongo API (${channel}). Reference No: ${refNumber}. Gross: ₱${grossAmount.toFixed(2)}, Fee: ₱${fee.toFixed(2)}, Net: ₱${netAmount.toFixed(2)}.`,
+        timestamp: new Date(),
+        status: order.status,
+        actor: "PayMongo Auto-Sync System",
+      });
+    }
+
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      matched: true,
+      referenceNumber: refNumber,
+      paymentId: matchedPayment.id,
+      channel,
+      grossAmount,
+      fee,
+      netAmount,
+      billing,
+      paymongoStatus: matchedPayment.attributes?.status,
+      order,
+      message: `PayMongo transaction successfully synced! Reference: ${refNumber}`,
+    });
+  } catch (error) {
+    console.error("Error in syncPayMongoOrderReference:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to sync PayMongo reference.",
+    });
+  }
+};
+

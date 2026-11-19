@@ -205,13 +205,14 @@ function MarketingAllProductsCatalog() {
 
   const uniqueInvCategories = useMemo(() => {
     const cats = inventoryProducts
+      .filter((p) => p && !p.isArchived)
       .map((p) => p.category || p.itemGroup || '')
       .filter(Boolean);
     return Array.from(new Set(cats)).sort();
   }, [inventoryProducts]);
 
   const filteredInventoryProducts = useMemo(() => {
-    const list = [...inventoryProducts];
+    const list = inventoryProducts.filter((inv) => inv && !inv.isArchived);
     // Sort recent finished goods first (newest date or highest code)
     list.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -263,6 +264,7 @@ function MarketingAllProductsCatalog() {
 
   const filteredPkgInventoryProducts = useMemo(() => {
     return inventoryProducts.filter((p) => {
+      if (!p || p.isArchived) return false;
       const matchCat =
         selectedPkgInvCategory === 'All' ||
         (p.category || p.itemGroup || '').toLowerCase() === selectedPkgInvCategory.toLowerCase();
@@ -410,21 +412,33 @@ function MarketingAllProductsCatalog() {
 
       const catData = catalogRes.status === "fulfilled" ? catalogRes.value.data : null;
       const safeCatalog = Array.isArray(catData) ? catData : (catData?.products || catData?.items || catData?.data || []);
-      setCatalogProducts(safeCatalog);
-      try {
-        if (safeCatalog.length > 0) {
-          localStorage.setItem('cached_marketing_catalog', JSON.stringify(safeCatalog));
-          localStorage.setItem('mhira_db_products', JSON.stringify(safeCatalog));
-        }
-      } catch (e) { }
-
       const invData = inventoryRes.status === "fulfilled" ? inventoryRes.value.data : null;
       const safeInv = Array.isArray(invData) ? invData : (invData?.products || invData?.items || invData?.data || []);
+
+      setCatalogProducts(safeCatalog);
       setInventoryProducts(safeInv);
+
       try {
-        if (safeInv.length > 0) {
-          localStorage.setItem('cached_inventory_products', JSON.stringify(safeInv));
-        }
+        localStorage.setItem('cached_marketing_catalog', JSON.stringify(safeCatalog));
+        localStorage.setItem('cached_inventory_products', JSON.stringify(safeInv));
+
+        const archivedInvIds = new Set();
+        const archivedInvCodes = new Set();
+        safeInv.forEach((inv) => {
+          if (inv && inv.isArchived) {
+            if (inv._id) archivedInvIds.add(String(inv._id));
+            if (inv.code) archivedInvCodes.add(String(inv.code).toLowerCase().trim());
+          }
+        });
+
+        const publicRetail = safeCatalog.filter((item) => {
+          if (!item || item.isArchived || item.isPublished === false || isPackageSet(item)) return false;
+          const refId = typeof item.productRef === 'object' ? (item.productRef?._id || item.productRef?.id) : item.productRef;
+          if (refId && archivedInvIds.has(String(refId))) return false;
+          if (item.code && archivedInvCodes.has(String(item.code).toLowerCase().trim())) return false;
+          return true;
+        });
+        localStorage.setItem('mhira_db_products', JSON.stringify(publicRetail));
       } catch (e) { }
     } catch (err) {
       console.error('Error fetching catalog data:', err);
@@ -463,6 +477,17 @@ function MarketingAllProductsCatalog() {
     );
     const syncedName = matchedInv?.itemName || item.itemName || item.itemDescription || matchedInv?.itemDescription || '';
 
+    const resolvedImages =
+      Array.isArray(item.images) && item.images.length > 0
+        ? item.images
+        : item.image
+          ? [item.image]
+          : Array.isArray(matchedInv?.images) && matchedInv.images.length > 0
+            ? matchedInv.images
+            : matchedInv?.image
+              ? [matchedInv.image]
+              : [];
+
     setFormData({
       productRef: item.productRef?._id || item.productRef || '',
       code: item.code || '',
@@ -473,7 +498,7 @@ function MarketingAllProductsCatalog() {
       brand: item.brand || 'Mhira Natural',
       quantity: item.quantity || 0,
       uom: item.uom || 'pcs',
-      images: item.images || [],
+      images: resolvedImages,
       price: item.price || 0,
       originalPrice: item.originalPrice || 0,
       promoBadge: item.promoBadge || '',
@@ -505,11 +530,23 @@ function MarketingAllProductsCatalog() {
         (item.code && String(inv.code || inv.itemCode || '').toLowerCase() === String(item.code).toLowerCase())
     );
     const syncedName = matchedInv?.itemName || item.itemName || item.itemDescription || matchedInv?.itemDescription || 'Product';
+    const resolvedImages =
+      Array.isArray(item.images) && item.images.length > 0
+        ? item.images
+        : item.image
+          ? [item.image]
+          : Array.isArray(matchedInv?.images) && matchedInv.images.length > 0
+            ? matchedInv.images
+            : matchedInv?.image
+              ? [matchedInv.image]
+              : ['/mhira_removebg.png'];
 
     setViewProductModal({
       ...item,
       itemName: syncedName,
       itemDescription: syncedName,
+      images: resolvedImages,
+      image: resolvedImages[0] || item.image || matchedInv?.image || '/mhira_removebg.png',
     });
     setProductReviews([]);
     if (item._id) {
@@ -1347,21 +1384,21 @@ function MarketingAllProductsCatalog() {
               href="/collection"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 rounded-md transition-all shadow-2xs hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-all shadow-2xs hover:scale-105 active:scale-95"
               title="Open Customer All Products Catalog (http://localhost:5173/collection)"
             >
-              <span>ALL PRODUCTS</span>
-              <ExternalLink className="w-3 h-3 text-emerald-700" />
+              <span>All Products</span>
+              <ExternalLink className="w-2.5 h-2.5 text-blue-700" />
             </a>
             <a
               href="/packages"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#01390f] bg-[#EDF7EE] hover:bg-[#d8eed9] border border-[#d5ead7] rounded-md transition-all shadow-2xs hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-all shadow-2xs hover:scale-105 active:scale-95"
               title="Open Customer Package Sets (http://localhost:5173/packages)"
             >
-              <span>PACKAGE SETS</span>
-              <ExternalLink className="w-3 h-3 text-[#01390f]" />
+              <span>Package Sets</span>
+              <ExternalLink className="w-2.5 h-2.5 text-blue-700" />
             </a>
           </div>
         </div>
@@ -1408,12 +1445,12 @@ function MarketingAllProductsCatalog() {
                   onClick={handleClearAllFilters}
                   disabled={activeFiltersCount === 0}
                   className={`flex items-center justify-center sm:justify-start gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-center sm:text-left w-full h-[32px] sm:h-[28px] lg:h-[22px] disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap shadow-2xs sm:shadow-none ${activeFiltersCount > 0
-                    ? 'bg-emerald-50/80 border-emerald-200/90 text-[#01390f] hover:bg-emerald-100/90'
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
                     : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent text-slate-700 hover:bg-slate-100'
                     }`}
                   title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                 >
-                  <RotateCcw className={`w-3.5 h-3.5 shrink-0 ${activeFiltersCount > 0 ? 'text-[#01390f]' : 'text-slate-500'}`} />
+                  <RotateCcw className={`w-3.5 h-3.5 shrink-0 ${activeFiltersCount > 0 ? 'text-blue-700' : 'text-slate-500'}`} />
                   <span className="whitespace-nowrap">
                     Reset Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
                   </span>
@@ -1533,7 +1570,7 @@ function MarketingAllProductsCatalog() {
                     if (next) setShowZeroOnly(false);
                   }}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${hideZeroQty
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -1548,7 +1585,7 @@ function MarketingAllProductsCatalog() {
                     if (next) setHideZeroQty(false);
                   }}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${showZeroOnly
-                    ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold'
+                    ? 'bg-red-50 border-red-300 text-red-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -1559,7 +1596,7 @@ function MarketingAllProductsCatalog() {
                   type="button"
                   onClick={() => setOnSaleOnly(!onSaleOnly)}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${onSaleOnly
-                    ? 'bg-amber-50 border-amber-500 text-amber-800 font-semibold'
+                    ? 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -1708,16 +1745,16 @@ function MarketingAllProductsCatalog() {
                               <span className="font-semibold text-xs text-slate-900 group-hover/name:text-[#01390f] group-hover/name:underline underline-offset-2 transition-colors truncate">
                                 {displayName}
                               </span>
-                              {(isPkg || row.isOnSale) && (
+                              {(isPkg || row.isOnSale || row.promoBadge) && (
                                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                   {isPkg && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200 uppercase tracking-wide">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
                                       Package Set (
                                       {Array.isArray(row.bundleItems) ? row.bundleItems.length : 0} items)
                                     </span>
                                   )}
-                                  {row.isOnSale && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30 uppercase tracking-wide">
+                                  {(row.isOnSale || row.promoBadge) && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-yellow-50 text-yellow-800 border-yellow-300">
                                       {row.promoBadge || 'On Sale'}
                                     </span>
                                   )}
@@ -1763,7 +1800,7 @@ function MarketingAllProductsCatalog() {
 
                           {/* 4. CATEGORY */}
                           <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
                               {row.category || 'Standard'}
                             </span>
                           </td>
@@ -1793,36 +1830,38 @@ function MarketingAllProductsCatalog() {
                             {uomVal}
                           </td>
 
-                          {/* 10. STATUS (Tinted cell matching the Expiry status style) */}
+                          {/* 10. STATUS (Tinted cell matching Blue / Yellow / Red palette) */}
                           <td
-                            className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${row.isPublished
-                              ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
-                              : 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
+                            className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${row.isArchived
+                              ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
+                              : row.isPublished
+                                ? 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
+                                : 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
                               }`}
                           >
-                            <span>{row.isPublished ? 'Live' : 'Draft'}</span>
+                            <span>{row.isArchived ? 'Archived' : row.isPublished ? 'Live' : 'Draft'}</span>
                           </td>
 
                           {/* 11. ACTION (Sticky Right) */}
-                          <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px] transition-colors">
+                          <td className="py-3 px-3 bg-white group-hover:bg-slate-50 text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-28 min-w-[110px] transition-colors">
                             <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isPkg) {
+                                    setViewPackageModal(row);
+                                  } else {
+                                    handleOpenViewModal(row);
+                                  }
+                                }}
+                                title={isPkg ? 'View Package Set Details' : 'View Product Details'}
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+
                               {viewMode !== 'archived' ? (
                                 <>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (isPkg) {
-                                        setViewPackageModal(row);
-                                      } else {
-                                        handleOpenViewModal(row);
-                                      }
-                                    }}
-                                    title={isPkg ? 'View Package Set Details' : 'View Product Details'}
-                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </button>
-
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1846,7 +1885,7 @@ function MarketingAllProductsCatalog() {
                                     type="button"
                                     onClick={() => handleToggleArchive(row)}
                                     title="Archive Product"
-                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   >
                                     <Archive className="w-3.5 h-3.5" />
                                   </button>
@@ -1857,7 +1896,7 @@ function MarketingAllProductsCatalog() {
                                     type="button"
                                     onClick={() => handleToggleArchive(row)}
                                     title="Restore to Active Catalog"
-                                    className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                    className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   >
                                     <RotateCcw className="w-3.5 h-3.5" />
                                   </button>
@@ -1866,7 +1905,7 @@ function MarketingAllProductsCatalog() {
                                     type="button"
                                     onClick={(e) => handleDeleteCatalog(row._id, e)}
                                     title="Delete Permanently"
-                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                    className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1897,8 +1936,8 @@ function MarketingAllProductsCatalog() {
           <div
             className={`bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col my-auto transition-all duration-300 ease-in-out animate-in fade-in zoom-in-95 ${!isProductChosen
               ? isInvDropdownOpen
-                ? 'h-[540px] sm:h-[560px] max-h-[90vh]'
-                : 'h-[245px] sm:h-[250px]'
+                ? 'h-[580px] sm:h-[600px] max-h-[90vh]'
+                : 'h-[295px] sm:h-[305px]'
               : 'h-[85vh] sm:h-[88vh] max-h-[88vh]'
               }`}
           >
@@ -1923,26 +1962,62 @@ function MarketingAllProductsCatalog() {
 
             <form onSubmit={handleSaveCatalog} className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm">
               <div
-                className={`p-6 flex flex-col gap-4 flex-1 custom-scrollbar ${!isProductChosen ? 'overflow-visible' : 'overflow-y-auto'
+                className={`p-6 flex flex-col gap-5 flex-1 custom-scrollbar ${!isProductChosen ? 'overflow-visible' : 'overflow-y-auto'
                   }`}
               >
-                {/* SELECT FROM FINISHED GOODS INVENTORY DROPDOWN (ONLY IN ADD MODE) */}
+                {/* 1. PUBLISH TO STOREFRONT TOGGLE (ALWAYS ON TOP) */}
+                <div
+                  onClick={() => setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }))}
+                  className="flex items-center gap-3 pb-3 border-b border-slate-100 cursor-pointer select-none group"
+                  title="Click to toggle storefront publish status"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }));
+                    }}
+                    aria-label="Toggle publish to storefront"
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${formData.isPublished
+                      ? 'bg-[#01390f] text-white border-[#01390f]'
+                      : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    {formData.isPublished ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-slate-400 transition-colors" />
+                    )}
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
+                      Publish to storefront immediately{' '}
+                      <span className="text-[11px] font-normal text-slate-400">(Visible to customers)</span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {formData.isPublished
+                        ? 'Live in storefront catalog immediately upon saving'
+                        : 'Saved as draft (hidden from customers until published)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. SELECT FROM FINISHED GOODS INVENTORY DROPDOWN (ONLY IN ADD MODE) */}
                 {!selectedCatalogItem && (
-                  <div className="flex flex-col gap-1.5 relative" ref={invDropdownRef}>
+                  <div className="flex flex-col gap-2 relative" ref={invDropdownRef}>
                     <div
                       className="flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsInvDropdownOpen((prev) => !prev)}
                     >
-                      <label className="block text-xs font-semibold text-slate-700 cursor-pointer">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer">
                         Select From Finished Goods Inventory
                       </label>
                     </div>
 
                     {/* DUAL SEARCH & SEGMENT CONTROLS */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      {/* 1. SEGMENT FILTER */}
-                      <div className="sm:col-span-1 relative">
-                        <Tag className="w-4 h-4 absolute left-3 top-2.5 pointer-events-none text-slate-400" />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-1 relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                        <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                         <select
                           value={selectedInvCategory}
                           onChange={(e) => {
@@ -1951,7 +2026,7 @@ function MarketingAllProductsCatalog() {
                           }}
                           onClick={() => setIsInvDropdownOpen(true)}
                           onFocus={() => setIsInvDropdownOpen(true)}
-                          className="w-full bg-slate-50/50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-9 pr-8 py-2 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 cursor-pointer appearance-none truncate transition-all h-[34px]"
+                          className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-semibold focus:outline-none cursor-pointer appearance-none truncate"
                         >
                           <option value="All">All Categories ({uniqueInvCategories.length})</option>
                           {uniqueInvCategories.map((cat) => (
@@ -1960,12 +2035,11 @@ function MarketingAllProductsCatalog() {
                             </option>
                           ))}
                         </select>
-                        <ChevronDown className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                        <ChevronDown className="absolute right-1 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                       </div>
 
-                      {/* 2. SMART MULTI-ATTRIBUTE SEARCH */}
-                      <div className="sm:col-span-2 relative">
-                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <div className="sm:col-span-2 relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                        <Search className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                         <input
                           id="finished-goods-search-input"
                           type="text"
@@ -1976,8 +2050,8 @@ function MarketingAllProductsCatalog() {
                           }}
                           onFocus={() => setIsInvDropdownOpen(true)}
                           onClick={() => setIsInvDropdownOpen(true)}
-                          placeholder="Search description, dimension, or code..."
-                          className="w-full bg-slate-50/50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-9 pr-8 py-2 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 transition-all h-[34px]"
+                          placeholder="Enter description, dimension, or product code"
+                          className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-medium focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                         />
                         {invSearchQuery && (
                           <button
@@ -1987,7 +2061,7 @@ function MarketingAllProductsCatalog() {
                               setInvSearchQuery('');
                               setIsInvDropdownOpen(true);
                             }}
-                            className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            className="absolute right-1 text-slate-400 hover:text-slate-600 cursor-pointer"
                             title="Clear search"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -1996,9 +2070,9 @@ function MarketingAllProductsCatalog() {
                       </div>
                     </div>
 
-                    {/* SEARCH SUGGESTIONS DROPDOWN WITH PROMINENT DIMENSIONS */}
+                    {/* SEARCH SUGGESTIONS DROPDOWN */}
                     {isInvDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-[104%] bg-white border border-slate-200 divide-y divide-slate-100 rounded-2xl max-h-[280px] overflow-y-auto z-50 p-2.5 sm:p-3 custom-scrollbar">
+                      <div className="absolute left-0 right-0 top-[104%] bg-white border border-slate-200 divide-y divide-slate-100 rounded-2xl max-h-[280px] overflow-y-auto z-50 p-2.5 sm:p-3 shadow-xl custom-scrollbar">
                         {displayedInventoryProducts.length > 0 ? (
                           displayedInventoryProducts.map((p, idx) => {
                             const itemId = p._id || p.id;
@@ -2010,7 +2084,8 @@ function MarketingAllProductsCatalog() {
                             const code = p.code || p.itemCode || 'FG-N/A';
                             const isOutOfStock = Number(count) <= 0;
                             const alreadyExists = isItemAlreadyInCatalog(p);
-                            const isAdded = formData.code === code || (formData.itemName && formData.itemName === desc);
+                            const isAdded =
+                              formData.code === code || (formData.itemName && formData.itemName === desc);
                             const img = p.image || (Array.isArray(p.images) ? p.images[0] : null);
 
                             return (
@@ -2052,18 +2127,21 @@ function MarketingAllProductsCatalog() {
                                   </div>
                                   <div className="flex flex-col min-w-0 flex-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className={`font-bold text-sm whitespace-normal break-words ${alreadyExists ? 'text-slate-500' : 'text-slate-800'}`}>
+                                      <span
+                                        className={`font-bold text-sm whitespace-normal break-words ${alreadyExists ? 'text-slate-500' : 'text-slate-800'
+                                          }`}
+                                      >
                                         {desc}
                                       </span>
                                       {dimension && (
-                                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                                        <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                           {dimension} {uom}
                                         </span>
                                       )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
                                       {segment && (
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border bg-slate-100 border-slate-200 text-slate-600">
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 border-blue-200 text-blue-700">
                                           {segment}
                                         </span>
                                       )}
@@ -2074,20 +2152,20 @@ function MarketingAllProductsCatalog() {
 
                                 <div className="flex items-center gap-2 shrink-0">
                                   <span
-                                    className={`text-[11px] px-2 py-0.5 rounded-md font-bold uppercase border ${isOutOfStock
-                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                      : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${isOutOfStock
+                                      ? 'bg-red-50 text-red-700 border-red-200'
+                                      : 'bg-blue-50 text-blue-700 border-blue-200'
                                       }`}
                                   >
                                     Avail: {Number(count).toLocaleString()} {uom}
                                   </span>
                                   {alreadyExists ? (
-                                    <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-                                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" /> Already in Store
+                                    <span className="text-[10px] font-bold text-yellow-800 bg-yellow-50 border border-yellow-300 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                                      <AlertCircle className="w-3 h-3 text-yellow-700 shrink-0" /> Already in Store
                                     </span>
                                   ) : isAdded ? (
-                                    <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
-                                      <CheckCircle2 className="w-3.5 h-3.5" /> Selected
+                                    <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                      <CheckCircle2 className="w-3 h-3" /> Selected
                                     </span>
                                   ) : null}
                                 </div>
@@ -2096,8 +2174,9 @@ function MarketingAllProductsCatalog() {
                           })
                         ) : (
                           <div className="p-4 text-center flex flex-col items-center gap-2">
-                            <p className="text-rose-500 italic font-medium text-xs">
-                              No finished goods found matching &ldquo;{invSearchQuery}&rdquo; {selectedInvCategory !== 'All' ? `in ${selectedInvCategory}` : ''}.
+                            <p className="text-red-600 italic font-medium text-xs">
+                              No finished goods found matching &ldquo;{invSearchQuery}&rdquo;{' '}
+                              {selectedInvCategory !== 'All' ? `in ${selectedInvCategory}` : ''}.
                             </p>
                           </div>
                         )}
@@ -2106,14 +2185,16 @@ function MarketingAllProductsCatalog() {
                   </div>
                 )}
 
-                {/* SELECTED PRODUCT CONFIRMATION CARD (MATCHES WIP PREVIEW CARD) */}
+                {/* 3. SELECTED PRODUCT CONFIRMATION CARD */}
                 {isProductChosen && (
-                  <div className="p-3 bg-white border border-emerald-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="p-2.5 bg-white border border-blue-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-blue-300 transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center overflow-hidden shrink-0">
                         {(formData.images && formData.images[0]) || matchedInventoryProduct?.image ? (
                           <img
-                            src={resolveProductImageUrl((formData.images && formData.images[0]) || matchedInventoryProduct?.image)}
+                            src={resolveProductImageUrl(
+                              (formData.images && formData.images[0]) || matchedInventoryProduct?.image
+                            )}
                             alt=""
                             onError={(e) => {
                               e.currentTarget.onerror = null;
@@ -2122,40 +2203,45 @@ function MarketingAllProductsCatalog() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <Package className="w-5 h-5 text-emerald-700" />
+                          <Package className="w-5 h-5 text-blue-700" />
                         )}
                       </div>
+
                       <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           {formData.code && (
-                            <span className="font-mono text-[10px] font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-200 px-1.5 py-0.5 rounded">
+                            <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                               {formData.code}
                             </span>
                           )}
-                          <span className="font-bold text-slate-900 text-sm truncate">
+                          <span className="font-bold text-slate-900 text-xs truncate">
                             {formData.itemName || formData.itemDescription}
                           </span>
                           {matchedInventoryProduct?.specification && (
-                            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                            <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                               {matchedInventoryProduct.specification} {formData.uom || ''}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600">
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                          <span className="font-semibold text-slate-600">
                             {formData.category || 'Skin Care'}
                           </span>
                           <span>•</span>
                           <span>
-                            Current Stock: <strong className="text-slate-800 font-mono">{maxInventoryQty !== null ? maxInventoryQty : (formData.quantity || 0)} {formData.uom || 'PCS'}</strong>
+                            Warehouse Stock:{' '}
+                            <strong>
+                              {maxInventoryQty !== null ? maxInventoryQty : formData.quantity || 0}{' '}
+                              {formData.uom || 'PCS'}
+                            </strong>
                           </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#01390f] text-white text-[11px] font-bold uppercase tracking-wider shadow-xs whitespace-nowrap">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold whitespace-nowrap">
+                        <CheckCircle2 className="w-3 h-3 shrink-0" />
                         <span>Selected</span>
                       </span>
                       {!selectedCatalogItem && (
@@ -2179,25 +2265,25 @@ function MarketingAllProductsCatalog() {
                             setSelectedInvCategory('All');
                             setIsInvDropdownOpen(true);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-                          title="Change Finished Product"
+                          className="w-6 h-6 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors flex items-center justify-center cursor-pointer"
+                          title="Remove / Change selected product"
                         >
-                          <RotateCcw className="w-3.5 h-3.5 text-[#01390f] shrink-0" />
-                          <span>Change</span>
+                          ✕
                         </button>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* STOREFRONT PRODUCT DETAILS - HIDDEN UNTIL A FINISHED GOOD IS SELECTED */}
+                {/* 4. STOREFRONT PRODUCT DETAILS - HIDDEN UNTIL A FINISHED GOOD IS SELECTED */}
                 {isProductChosen && (
                   <>
-                    {/* 1. PRODUCT STOREFRONT IMAGES (FIRST PHOTO IS MAIN THUMBNAIL) */}
+                    {/* PRODUCT STOREFRONT IMAGES */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
-                          Product Storefront Images <span className="text-[11px] font-normal text-slate-400">(First photo is main thumbnail)</span>
+                          Product Storefront Images{' '}
+                          <span className="text-[11px] font-normal text-slate-400">(First photo is main thumbnail)</span>
                         </label>
                         {formData.images && formData.images.length > 0 && (
                           <span className="text-[11px] font-mono text-slate-400">
@@ -2206,9 +2292,7 @@ function MarketingAllProductsCatalog() {
                         )}
                       </div>
 
-                      {/* COMPACT ROW: UPLOAD BUTTON + PREVIEW THUMBNAILS */}
                       <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
-                        {/* UPLOAD BUTTON - ACTION CIRCLE (MATCHES EDIT/DELETE ACTION BUTTONS) */}
                         <label
                           title="Add Storefront Photos"
                           className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
@@ -2223,7 +2307,6 @@ function MarketingAllProductsCatalog() {
                           />
                         </label>
 
-                        {/* THUMBNAILS LIST */}
                         {formData.images && formData.images.length > 0 ? (
                           formData.images.map((imgSrc, idx) => (
                             <div
@@ -2243,7 +2326,7 @@ function MarketingAllProductsCatalog() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveImageAtIndex(idx)}
-                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                                 title="Remove photo"
                               >
                                 ✕
@@ -2252,21 +2335,21 @@ function MarketingAllProductsCatalog() {
                           ))
                         ) : (
                           <span className="text-xs text-slate-400 italic">
-                            No photos uploaded yet. Click &ldquo;Add&rdquo; to upload storefront photos.
+                            No photos uploaded yet. Click &ldquo;+&rdquo; to upload storefront photos.
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* 2. 2-COLUMN GRID FOR CORE PRICE & ALLOCATED QUANTITY */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* 2-COLUMN GRID FOR CORE PRICE & ALLOCATED QUANTITY */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* SELLING PRICE */}
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                          Selling Price (₱) <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                          Selling Price (₱) <span className="text-red-600">*</span>
                         </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-xs font-bold text-slate-400 pointer-events-none">₱</span>
+                        <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                          <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
                           <input
                             type="number"
                             step="0.01"
@@ -2274,149 +2357,118 @@ function MarketingAllProductsCatalog() {
                             required
                             value={formData.price}
                             onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                            placeholder="0.00"
-                            className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                            placeholder="Enter selling price"
+                            className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold font-mono focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
                           />
                         </div>
                       </div>
 
-                      {/* STOREFRONT QUANTITY (CUSTOMER VISIBLE) WITH INTEGRATED MAX STOCK ADDON */}
+                      {/* STOREFRONT QUANTITY WITH INTEGRATED MAX STOCK ADDON */}
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                          Storefront Quantity <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                          Storefront Quantity <span className="text-red-600">*</span>
                         </label>
-                        <div className="flex items-center">
-                          <div className="relative flex-1">
-                            <PackageCheck className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-                            <input
-                              type="number"
-                              min="0"
-                              max={maxInventoryQty !== null ? maxInventoryQty : undefined}
-                              required
-                              value={formData.quantity}
-                              onChange={(e) => {
-                                const val = Math.max(0, Number(e.target.value) || 0);
-                                if (maxInventoryQty !== null && val > maxInventoryQty) {
-                                  showErrorToast(`Quantity cannot exceed warehouse stock of ${maxInventoryQty}.`);
-                                  setFormData({ ...formData, quantity: maxInventoryQty });
-                                } else {
-                                  setFormData({ ...formData, quantity: val });
-                                }
-                              }}
-                              placeholder="0"
-                              className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-l-lg pl-8 pr-2 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                            />
-                          </div>
-                          <div
+                        <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                          <PackageCheck className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                          <input
+                            type="number"
+                            min="0"
+                            max={maxInventoryQty !== null ? maxInventoryQty : undefined}
+                            required
+                            value={formData.quantity}
+                            onChange={(e) => {
+                              const val = Math.max(0, Number(e.target.value) || 0);
+                              if (maxInventoryQty !== null && val > maxInventoryQty) {
+                                showErrorToast(`Quantity cannot exceed warehouse stock of ${maxInventoryQty}.`);
+                                setFormData({ ...formData, quantity: maxInventoryQty });
+                              } else {
+                                setFormData({ ...formData, quantity: val });
+                              }
+                            }}
+                            placeholder="Enter storefront quantity"
+                            className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold font-mono focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
+                          />
+                          <button
+                            type="button"
                             onClick={() => {
                               if (maxInventoryQty !== null) {
                                 setFormData({ ...formData, quantity: maxInventoryQty });
                               }
                             }}
-                            className="h-[34px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-2.5 text-xs font-semibold text-slate-700 uppercase cursor-pointer flex items-center gap-1 shrink-0 transition-colors select-none"
+                            className="ml-2 px-2 py-1 rounded bg-slate-100 hover:bg-[#01390f]/10 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1 shrink-0 transition-colors select-none"
                             title="Click to allocate full available stock"
                           >
-                            <span className="text-[10px] text-slate-400 font-bold">MAX:</span>
-                            <span className="font-mono font-bold text-[#01390f]">
+                            <span className="text-slate-400">MAX:</span>
+                            <span className="font-mono text-[#01390f]">
                               {maxInventoryQty !== null ? maxInventoryQty : 0}
                             </span>
-                          </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ESTIMATED DELIVERY TRANSIT TIME */}
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                        Estimated Delivery Transit Time
+                      </label>
+                      <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                        <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                        <input
+                          type="text"
+                          value={formData.shippingReturns || ''}
+                          onChange={(e) => setFormData({ ...formData, shippingReturns: e.target.value })}
+                          placeholder="Enter or select delivery transit time"
+                          className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                        />
+                        <div className="relative flex items-center ml-1 shrink-0">
+                          <select
+                            value={
+                              [
+                                '1-3 Business Days (Metro Manila)',
+                                '3-5 Business Days (Standard)',
+                                '3-7 Business Days (Provincial)',
+                                'Same-Day NCR Express Delivery',
+                              ].includes(formData.shippingReturns)
+                                ? formData.shippingReturns
+                                : ''
+                            }
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setFormData({ ...formData, shippingReturns: e.target.value });
+                              }
+                            }}
+                            className="h-7 bg-slate-100 hover:bg-slate-200/80 rounded px-2 pr-5 text-[10px] font-bold text-slate-600 cursor-pointer focus:outline-none appearance-none transition-colors"
+                          >
+                            <option value="">Presets</option>
+                            <option value="1-3 Business Days (Metro Manila)">1-3 Days (Metro Manila)</option>
+                            <option value="3-5 Business Days (Standard)">3-5 Days (Standard)</option>
+                            <option value="3-7 Business Days (Provincial)">3-7 Days (Provincial)</option>
+                            <option value="Same-Day NCR Express Delivery">Same-Day NCR Express</option>
+                          </select>
+                          <ChevronDown className="w-3 h-3 absolute right-1.5 text-slate-500 pointer-events-none" />
                         </div>
                       </div>
                     </div>
 
                     {/* DETAILS (PRODUCT OVERVIEW & USAGE) */}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                         Details (Product Overview & Usage)
                       </label>
                       <textarea
                         rows={3}
                         value={formData.marketingDescription}
                         onChange={(e) => setFormData({ ...formData, marketingDescription: e.target.value })}
-                        placeholder="Enter detailed storefront overview, benefits, and how-to-use instructions..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors resize-none"
+                        placeholder="Enter detailed storefront overview, benefits, and usage instructions"
+                        className="w-full bg-transparent border-b-2 border-slate-200 focus:border-[#01390f] py-2 text-xs font-medium text-slate-800 focus:outline-none leading-relaxed transition-colors resize-none placeholder:text-slate-300 placeholder:font-normal"
                       />
-                    </div>
-
-                    {/* ESTIMATED DELIVERY TRANSIT TIME (TYPE + DROPDOWN INTEGRATED UI) */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                        Estimated Delivery Transit Time
-                      </label>
-                      <div className="flex items-center">
-                        <div className="relative flex-1">
-                          <Truck className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={formData.shippingReturns || ''}
-                            onChange={(e) => setFormData({ ...formData, shippingReturns: e.target.value })}
-                            placeholder="Type custom or select delivery preset..."
-                            className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-l-lg pl-8 pr-2 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                          />
-                        </div>
-                        <select
-                          value={[
-                            '1-3 Business Days (Metro Manila)',
-                            '3-5 Business Days (Standard)',
-                            '3-7 Business Days (Provincial)',
-                            'Same-Day NCR Express Delivery',
-                          ].includes(formData.shippingReturns) ? formData.shippingReturns : ''}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              setFormData({ ...formData, shippingReturns: e.target.value });
-                            }
-                          }}
-                          className="h-[34px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-2 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none shrink-0 transition-colors"
-                        >
-                          <option value="">Quick Select Preset</option>
-                          <option value="1-3 Business Days (Metro Manila)">1-3 Days (Metro Manila)</option>
-                          <option value="3-5 Business Days (Standard)">3-5 Days (Standard)</option>
-                          <option value="3-7 Business Days (Provincial)">3-7 Days (Provincial)</option>
-                          <option value="Same-Day NCR Express Delivery">Same-Day NCR Express</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div
-                      onClick={() => setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }))}
-                      className="flex items-center gap-3 pt-1 cursor-pointer select-none group"
-                      title="Click to toggle storefront publish status"
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }));
-                        }}
-                        aria-label="Toggle publish to storefront"
-                        className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${formData.isPublished
-                          ? 'bg-[#01390f] text-white border-[#01390f]'
-                          : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                      >
-                        {formData.isPublished ? (
-                          <Check className="w-4 h-4 stroke-[2.5]" />
-                        ) : (
-                          <span className="w-2.5 h-2.5 rounded-full bg-slate-300 group-hover:bg-slate-400 transition-colors" />
-                        )}
-                      </button>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
-                          Publish to storefront immediately <span className="text-[11px] font-normal text-slate-400">(Visible to customers)</span>
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          {formData.isPublished
-                            ? 'Live in storefront catalog immediately upon saving'
-                            : 'Saved as draft (hidden from customers until published)'}
-                        </span>
-                      </div>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* ACTION BUTTONS FOOTER (MATCHES FINISHED GOODS MODAL) */}
+              {/* ACTION BUTTONS FOOTER */}
               <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
@@ -2441,17 +2493,17 @@ function MarketingAllProductsCatalog() {
         </div>
       )}
 
-      {/* VIEW PRODUCT DETAILS MODAL */}
+      {/* VIEW PRODUCT DETAILS MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
       {viewProductModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-800">
                   {viewProductModal.itemName || viewProductModal.itemDescription}
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
-                  Item Code: #{viewProductModal.code}
+                  #{viewProductModal.code}
                 </p>
               </div>
               <button
@@ -2464,91 +2516,57 @@ function MarketingAllProductsCatalog() {
             </div>
 
             <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
-              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70 space-y-2.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Category:</span>
-                  <span className="font-bold text-slate-900">{viewProductModal.category}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Selling Price:</span>
-                  <span className="font-mono font-black text-[#01390f] text-base">
-                    ₱{Number(viewProductModal.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Storefront Status:</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${viewProductModal.isPublished ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
-                    }`}>
-                    {viewProductModal.isPublished ? 'Published & Live' : 'Draft Mode'}
-                  </span>
-                </div>
+              <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
+                {(Array.isArray(viewProductModal.images) && viewProductModal.images.length > 0
+                  ? viewProductModal.images
+                  : [viewProductModal.image || '/mhira_removebg.png']
+                ).map((imgSrc, idx) => (
+                  <div
+                    key={idx}
+                    className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0"
+                  >
+                    <img
+                      src={resolveProductImageUrl(imgSrc)}
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/mhira_removebg.png';
+                      }}
+                      className="w-full h-full object-cover"
+                    />
+                    {idx === 0 && (
+                      <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                        Main
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {/* DETAILS */}
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Details:
-                </span>
-                <p className="text-slate-600 leading-relaxed bg-white p-3 rounded-xl border border-slate-200 text-xs whitespace-pre-line">
-                  {viewProductModal.marketingDescription || "Standard daily natural skincare formula."}
+              <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="font-semibold text-slate-800">
+                  {viewProductModal.category || 'Skin Care'}
                 </p>
-              </div>
-
-              {/* SHIPPING & RETURNS */}
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Shipping & Returns:
-                </span>
-                <p className="text-slate-600 leading-relaxed bg-white p-3 rounded-xl border border-slate-200 text-xs whitespace-pre-line">
-                  {viewProductModal.shippingReturns || "Metro Manila: 1-3 Days. Provincial: 3-7 Days. 7-day replacement guarantee."}
+                <p className="text-slate-500">
+                  ₱{Number(viewProductModal.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} •{' '}
+                  {Number(viewProductModal.quantity ?? 0).toLocaleString()} {viewProductModal.uom || 'PCS'}
                 </p>
-              </div>
-
-              {/* CUSTOMER REVIEWS */}
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Customer Reviews ({productReviews.length}):
-                </span>
-                <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 max-h-40 overflow-y-auto custom-scrollbar space-y-2">
-                  {loadingReviews ? (
-                    <p className="text-xs text-slate-400 text-center py-2">Loading reviews...</p>
-                  ) : productReviews.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-2 italic">
-                      No customer reviews submitted yet.
-                    </p>
-                  ) : (
-                    productReviews.map((rev, idx) => (
-                      <div key={rev._id || idx} className="bg-white border border-slate-200/60 rounded-lg p-2 space-y-0.5">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-slate-800">{rev.userName || "Verified Buyer"}</span>
-                          <span className="text-amber-600 font-semibold text-[11px]">★ {rev.rating || 5}/5</span>
-                        </div>
-                        <p className="text-xs text-slate-600">{rev.comment}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <p className="font-semibold text-[#01390f]">
+                  {viewProductModal.shippingReturns || 'Metro Manila: 1-3 Days. Provincial: 3-7 Days.'}
+                </p>
+                <p className="pt-2 text-slate-700 leading-relaxed whitespace-pre-line font-normal">
+                  {viewProductModal.marketingDescription || 'Standard daily natural skincare formula.'}
+                </p>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setViewProductModal(null)}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
               >
                 Close
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const itemToEdit = viewProductModal;
-                  setViewProductModal(null);
-                  openEditModal(itemToEdit);
-                }}
-                className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
-              >
-                <span>Edit Product</span>
               </button>
             </div>
           </div>
@@ -2582,22 +2600,133 @@ function MarketingAllProductsCatalog() {
             <form onSubmit={handleSavePackageSet} className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm">
               <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto custom-scrollbar">
 
-                {/* 1. SELECT FINISHED GOODS INVENTORY */}
-                <div className="flex flex-col gap-2 relative" ref={pkgInvDropdownRef}>
+                {/* 1. PUBLISH TO STOREFRONT TOGGLE (CLEAN INLINE WITH UNDERLINE) */}
+                <div
+                  onClick={() => setPackageFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }))}
+                  className="flex items-center gap-3 pb-3 border-b border-slate-100 cursor-pointer select-none group"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPackageFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }));
+                    }}
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${packageFormData.isPublished
+                        ? 'bg-[#01390f] text-white border-[#01390f]'
+                        : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    {packageFormData.isPublished ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                    )}
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
+                      Publish to storefront immediately{' '}
+                      <span className="text-[11px] font-normal text-slate-400">(Visible to customers)</span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {packageFormData.isPublished
+                        ? 'Live in Customer Package Sets storefront (/packages) immediately upon saving'
+                        : 'Saved as draft (hidden from customers until published)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. STOREFRONT IMAGES (ORIGINAL UI) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Package Storefront Images{' '}
+                      <span className="text-[11px] font-normal text-slate-400">(First photo is main thumbnail)</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {packageFormData.bundleItems.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleCopyPkgBundledImages}
+                          className="text-[11px] font-bold text-[#01390f] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Import Bundled Photos</span>
+                        </button>
+                      )}
+                      {packageFormData.images && packageFormData.images.length > 0 && (
+                        <span className="text-[11px] font-mono text-slate-400">
+                          {packageFormData.images.length} {packageFormData.images.length === 1 ? 'photo' : 'photos'} added
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
+                    {/* Add Photo Button */}
+                    <label
+                      title="Add Storefront Photos"
+                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleMultiplePackageImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Thumbnails */}
+                    {packageFormData.images && packageFormData.images.length > 0 ? (
+                      packageFormData.images.map((imgSrc, idx) => (
+                        <div
+                          key={idx}
+                          className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs shrink-0"
+                        >
+                          <img
+                            src={imgSrc}
+                            alt={`Package photo ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          {idx === 0 && (
+                            <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                              Main
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePackageImageAtIndex(idx)}
+                            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                            title="Remove photo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">
+                        No photos uploaded yet. Click &ldquo;+&rdquo; or &ldquo;Import Bundled Photos&rdquo;.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. SELECT FINISHED GOODS INVENTORY */}
+                <div className="flex flex-col gap-2.5 relative" ref={pkgInvDropdownRef}>
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-semibold text-slate-700 cursor-pointer">
-                      Group Finished Goods into this Package Set <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer">
+                      Group Finished Goods into this Package Set <span className="text-red-600">*</span>
                     </label>
                     <span className="text-[11px] text-slate-400">
-                      {packageFormData.bundleItems.length} {packageFormData.bundleItems.length === 1 ? 'product' : 'products'} selected
+                      {packageFormData.bundleItems.length}{' '}
+                      {packageFormData.bundleItems.length === 1 ? 'product' : 'products'} selected
                     </span>
                   </div>
 
                   {/* SEARCH & CATEGORY CONTROLS */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {/* Category Filter */}
-                    <div className="sm:col-span-1 relative">
-                      <Tag className="w-4 h-4 absolute left-3 top-2.5 pointer-events-none text-slate-400" />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-1 relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <select
                         value={selectedPkgInvCategory}
                         onChange={(e) => {
@@ -2605,7 +2734,7 @@ function MarketingAllProductsCatalog() {
                           setIsPkgInvDropdownOpen(true);
                         }}
                         onClick={() => setIsPkgInvDropdownOpen(true)}
-                        className="w-full bg-slate-50/50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-9 pr-8 py-2 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 cursor-pointer appearance-none truncate transition-all h-[36px]"
+                        className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-semibold focus:outline-none cursor-pointer appearance-none truncate"
                       >
                         <option value="All">All Categories ({uniqueInvCategories.length})</option>
                         {uniqueInvCategories.map((cat) => (
@@ -2614,12 +2743,11 @@ function MarketingAllProductsCatalog() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-1 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                     </div>
 
-                    {/* Search Input */}
-                    <div className="sm:col-span-2 relative">
-                      <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <div className="sm:col-span-2 relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Search className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
                       <input
                         type="text"
                         value={pkgInvSearchQuery}
@@ -2628,14 +2756,14 @@ function MarketingAllProductsCatalog() {
                           setIsPkgInvDropdownOpen(true);
                         }}
                         onFocus={() => setIsPkgInvDropdownOpen(true)}
-                        placeholder="Search finished goods by name, spec, or code to add..."
-                        className="w-full bg-slate-50/50 hover:bg-white focus:bg-white border border-slate-200 text-slate-800 rounded-lg pl-9 pr-8 py-2 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:ring-1 focus:ring-[#01390f]/20 transition-all h-[36px]"
+                        placeholder="Enter product name, spec, or code to search"
+                        className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-medium focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                       />
                       {pkgInvSearchQuery && (
                         <button
                           type="button"
                           onClick={() => setPkgInvSearchQuery('')}
-                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          className="absolute right-1 text-slate-400 hover:text-slate-600 cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -2689,7 +2817,7 @@ function MarketingAllProductsCatalog() {
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-slate-800 text-xs truncate">{desc}</span>
                                     {spec && (
-                                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                         {spec} {uom}
                                       </span>
                                     )}
@@ -2697,7 +2825,9 @@ function MarketingAllProductsCatalog() {
                                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
                                     <span className="font-mono">{code}</span>
                                     <span>•</span>
-                                    <span>Warehouse Stock: <strong>{Number(count).toLocaleString()} {uom}</strong></span>
+                                    <span>
+                                      Warehouse Stock: <strong>{Number(count).toLocaleString()} {uom}</strong>
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -2707,9 +2837,9 @@ function MarketingAllProductsCatalog() {
                                   ₱{Number(p.price || p.unitPrice || 250).toFixed(2)}
                                 </span>
                                 <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${isAlreadyAdded
-                                    ? 'bg-emerald-100 text-[#01390f]'
-                                    : 'bg-[#01390f] text-white'
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isAlreadyAdded
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-[#01390f] text-white border-[#01390f]'
                                     }`}
                                 >
                                   {isAlreadyAdded ? '+ Add More' : '+ Add'}
@@ -2719,7 +2849,7 @@ function MarketingAllProductsCatalog() {
                           );
                         })
                       ) : (
-                        <div className="p-3 text-center text-xs text-rose-500 italic">
+                        <div className="p-3 text-center text-xs text-red-600 italic">
                           No finished goods found matching &ldquo;{pkgInvSearchQuery}&rdquo;.
                         </div>
                       )}
@@ -2730,8 +2860,8 @@ function MarketingAllProductsCatalog() {
                 {/* SELECTED BUNDLE ITEMS LIST (CARDS) */}
                 {packageFormData.bundleItems.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Included Finished Goods in this Package Set:
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      Included Finished Goods in this Package Set
                     </label>
 
                     <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
@@ -2747,10 +2877,10 @@ function MarketingAllProductsCatalog() {
                         return (
                           <div
                             key={idx}
-                            className="p-2.5 bg-white border border-emerald-200/90 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-emerald-300 transition-colors"
+                            className="p-2.5 bg-white border border-blue-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-blue-300 transition-colors"
                           >
                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center overflow-hidden shrink-0">
+                              <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center overflow-hidden shrink-0">
                                 {item.image ? (
                                   <img
                                     src={resolveProductImageUrl(item.image)}
@@ -2762,14 +2892,14 @@ function MarketingAllProductsCatalog() {
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
-                                  <Package className="w-5 h-5 text-emerald-700" />
+                                  <Package className="w-5 h-5 text-blue-700" />
                                 )}
                               </div>
 
                               <div className="flex flex-col min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {item.code && (
-                                    <span className="font-mono text-[9px] font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-200 px-1 py-0.2 rounded">
+                                    <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                                       {item.code}
                                     </span>
                                   )}
@@ -2777,7 +2907,7 @@ function MarketingAllProductsCatalog() {
                                     {item.itemName}
                                   </span>
                                   {item.specification && (
-                                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                                    <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                       {item.specification} {item.uom || ''}
                                     </span>
                                   )}
@@ -2787,7 +2917,9 @@ function MarketingAllProductsCatalog() {
                                   {stockCount !== null && (
                                     <>
                                       <span>•</span>
-                                      <span>Warehouse Stock: <strong>{stockCount} {item.uom || 'PCS'}</strong></span>
+                                      <span>
+                                        Warehouse Stock: <strong>{stockCount} {item.uom || 'PCS'}</strong>
+                                      </span>
                                     </>
                                   )}
                                 </div>
@@ -2827,7 +2959,7 @@ function MarketingAllProductsCatalog() {
                               <button
                                 type="button"
                                 onClick={() => handleRemovePkgBundleItem(idx)}
-                                className="w-6 h-6 rounded-full hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors flex items-center justify-center cursor-pointer"
+                                className="w-6 h-6 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors flex items-center justify-center cursor-pointer"
                                 title="Remove item from package set"
                               >
                                 ✕
@@ -2838,284 +2970,299 @@ function MarketingAllProductsCatalog() {
                       })}
                     </div>
 
-                    {/* COMPACT SUMMARY & DISCOUNT ROW */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-slate-700">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span>
-                          Grouped Total: <strong className="font-mono text-sm font-bold text-[#01390f]">₱{Number(packageFormData.originalPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                    {/* COMPACT GROUPED TOTAL SUMMARY */}
+                    <div className="flex items-center justify-between gap-2 pt-2 text-xs text-slate-700">
+                      <span>
+                        Grouped Total:{' '}
+                        <strong className="font-mono text-sm font-bold text-[#01390f]">
+                          ₱
+                          {Number(packageFormData.originalPrice || 0).toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </strong>
+                      </span>
+                      {estimatedPkgMaxBuildable > 0 && (
+                        <span className="text-[11px] text-slate-500 font-medium bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                          ~{estimatedPkgMaxBuildable} sets buildable
                         </span>
-                        {estimatedPkgMaxBuildable > 0 && (
-                          <span className="text-[11px] text-slate-500 font-medium bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                            ~{estimatedPkgMaxBuildable} sets buildable
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-semibold text-slate-600">Discount:</label>
-                        <div className="relative">
-                          <select
-                            value={!packageFormData.isOnSale || Number(packageFormData.price) === Number(packageFormData.originalPrice) ? '0' : String(currentPkgDiscountPct || 'custom')}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '0') {
-                                handleApplyNoDiscount();
-                              } else if (val !== 'custom') {
-                                applyPkgDiscountPercent(Number(val));
-                              }
-                            }}
-                            className="h-[32px] bg-white border border-slate-300 rounded-lg pl-3 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#01390f] cursor-pointer appearance-none shadow-2xs"
-                          >
-                            <option value="0">No Discount (Regular Price)</option>
-                            <option value="10">10% OFF</option>
-                            <option value="15">15% OFF</option>
-                            <option value="20">20% OFF</option>
-                            <option value="25">25% OFF</option>
-                            <option value="30">30% OFF</option>
-                            <option value="40">40% OFF</option>
-                            <option value="50">50% OFF</option>
-                            {currentPkgDiscountPct && ![0, 10, 15, 20, 25, 30, 40, 50].includes(currentPkgDiscountPct) && packageFormData.isOnSale && (
-                              <option value="custom">Custom ({currentPkgDiscountPct}% OFF)</option>
-                            )}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 pointer-events-none text-slate-400" />
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* 2. PACKAGE SET CODE, NAME & PROMO BADGE */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 4. PACKAGE SET CODE & NAME */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Package Code <span className="text-[10px] text-slate-500 font-bold">(Auto-generated)</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                      Package Code{' '}
+                      <span className="text-[10px] text-slate-400 font-normal normal-case">(Auto)</span>
                     </label>
-                    <input
-                      type="text"
-                      name="code"
-                      readOnly
-                      value={packageFormData.code || ''}
-                      placeholder="PKG0001"
-                      className="w-full h-[36px] bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-3 text-xs font-mono font-bold focus:outline-none cursor-not-allowed select-none"
-                    />
+                    <div className="flex items-center border-b-2 border-slate-200">
+                      <input
+                        type="text"
+                        name="code"
+                        readOnly
+                        value={packageFormData.code || ''}
+                        placeholder="Auto-generated code"
+                        className="w-full h-9 bg-transparent text-slate-500 text-xs font-mono font-bold focus:outline-none cursor-not-allowed select-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
+                      />
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Package Set Name <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                      Package Set Name <span className="text-red-600">*</span>
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={packageFormData.itemName}
-                      onChange={(e) => setPackageFormData({ ...packageFormData, itemName: e.target.value, itemDescription: e.target.value })}
-                      placeholder="e.g. FACE & BODY RADIANCE DUO SET"
-                      className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-bold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                    />
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <input
+                        type="text"
+                        required
+                        value={packageFormData.itemName}
+                        onChange={(e) =>
+                          setPackageFormData({
+                            ...packageFormData,
+                            itemName: e.target.value,
+                            itemDescription: e.target.value,
+                          })
+                        }
+                        placeholder="Enter package set name"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* 3. STOREFRONT IMAGES (MULTI-PHOTO UPLOAD + COPY SHORTCUT) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Package Storefront Images <span className="text-[11px] font-normal text-slate-400">(First photo is main thumbnail)</span>
+                {/* 5. 3-COLUMN GRID: DISCOUNT, SELLING PRICE & STOREFRONT QUANTITY */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Discount */}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                      Discount
                     </label>
-                    <div className="flex items-center gap-2">
-                      {packageFormData.bundleItems.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleCopyPkgBundledImages}
-                          className="text-[11px] font-bold text-[#01390f] hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Import Bundled Photos</span>
-                        </button>
-                      )}
-                      {packageFormData.images && packageFormData.images.length > 0 && (
-                        <span className="text-[11px] font-mono text-slate-400">
-                          {packageFormData.images.length} {packageFormData.images.length === 1 ? 'photo' : 'photos'} added
-                        </span>
-                      )}
+                    <div className="relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Percent className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
+                      <select
+                        value={
+                          !packageFormData.isOnSale ||
+                            Number(packageFormData.price) === Number(packageFormData.originalPrice)
+                            ? '0'
+                            : String(currentPkgDiscountPct || 'custom')
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '0') {
+                            handleApplyNoDiscount();
+                          } else if (val !== 'custom') {
+                            applyPkgDiscountPercent(Number(val));
+                          }
+                        }}
+                        className="w-full h-9 bg-transparent pr-6 text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer appearance-none truncate"
+                      >
+                        <option value="0">No Discount (Regular)</option>
+                        <option value="10">10% OFF</option>
+                        <option value="15">15% OFF</option>
+                        <option value="20">20% OFF</option>
+                        <option value="25">25% OFF</option>
+                        <option value="30">30% OFF</option>
+                        <option value="40">40% OFF</option>
+                        <option value="50">50% OFF</option>
+                        {currentPkgDiscountPct &&
+                          ![0, 10, 15, 20, 25, 30, 40, 50].includes(currentPkgDiscountPct) &&
+                          packageFormData.isOnSale && (
+                            <option value="custom">Custom ({currentPkgDiscountPct}% OFF)</option>
+                          )}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 absolute right-1 pointer-events-none text-slate-400" />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
-                    {/* Add Photo Button */}
-                    <label
-                      title="Add Storefront Photos"
-                      className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 self-center"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleMultiplePackageImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-
-                    {/* Thumbnails */}
-                    {packageFormData.images && packageFormData.images.length > 0 ? (
-                      packageFormData.images.map((imgSrc, idx) => (
-                        <div
-                          key={idx}
-                          className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs shrink-0"
-                        >
-                          <img
-                            src={imgSrc}
-                            alt={`Package photo ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          {idx === 0 && (
-                            <span className="absolute bottom-1 left-1 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.2 rounded shadow-xs">
-                              Main
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePackageImageAtIndex(idx)}
-                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
-                            title="Remove photo"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-400 italic">
-                        No photos uploaded yet. Click &ldquo;+&rdquo; or &ldquo;Import Bundled Photos&rdquo;.
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4. 2-COLUMN GRID FOR CORE PRICE & ALLOCATED STOREFRONT QUANTITY */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Selling Price */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700">
-                        Selling Price (₱) <span className="text-rose-500">*</span>
+                    <div className="flex items-center justify-between mb-1 gap-1">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                        Selling Price (₱) <span className="text-red-600">*</span>
                       </label>
-                      {Number(packageFormData.originalPrice) > Number(packageFormData.price) && Number(packageFormData.price) > 0 && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-                          Save ₱{(packageFormData.originalPrice - packageFormData.price).toFixed(2)} ({Math.round(((packageFormData.originalPrice - packageFormData.price) / packageFormData.originalPrice) * 100)}% OFF)
-                        </span>
-                      )}
+                      {Number(packageFormData.originalPrice) > Number(packageFormData.price) &&
+                        Number(packageFormData.price) > 0 && (
+                          <span className="text-[10px] font-bold text-yellow-800 bg-yellow-50 border border-yellow-300 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            Save ₱{(packageFormData.originalPrice - packageFormData.price).toFixed(2)}
+                          </span>
+                        )}
                     </div>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400 pointer-events-none">₱</span>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
                         required
                         value={packageFormData.price}
-                        onChange={(e) => setPackageFormData({ ...packageFormData, price: Number(e.target.value) })}
-                        placeholder="0.00"
-                        className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg pl-8 pr-3 text-xs font-bold text-sm focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                        onChange={(e) =>
+                          setPackageFormData({ ...packageFormData, price: Number(e.target.value) })
+                        }
+                        placeholder="Enter price"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold font-mono focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
                       />
                     </div>
                   </div>
 
                   {/* Storefront Quantity with MAX Helper */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Storefront Quantity (Sets Available) <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Storefront Qty (Sets) <span className="text-red-600">*</span>
                     </label>
-                    <div className="flex items-center">
-                      <div className="relative flex-1">
-                        <PackageCheck className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-                        <input
-                          type="number"
-                          min="0"
-                          required
-                          value={packageFormData.quantity}
-                          onChange={(e) => setPackageFormData({ ...packageFormData, quantity: Math.max(0, Number(e.target.value) || 0) })}
-                          placeholder="10"
-                          className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-l-lg pl-8 pr-2 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                        />
-                      </div>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <PackageCheck className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={packageFormData.quantity}
+                        onChange={(e) =>
+                          setPackageFormData({
+                            ...packageFormData,
+                            quantity: Math.max(0, Number(e.target.value) || 0),
+                          })
+                        }
+                        placeholder="Enter sets"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold font-mono focus:outline-none placeholder:font-sans placeholder:text-slate-300 placeholder:font-normal"
+                      />
                       {estimatedPkgMaxBuildable > 0 && (
-                        <div
-                          onClick={() => setPackageFormData({ ...packageFormData, quantity: estimatedPkgMaxBuildable })}
-                          className="h-[36px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-2.5 text-xs font-semibold text-slate-700 uppercase cursor-pointer flex items-center gap-1 shrink-0 transition-colors select-none"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPackageFormData({ ...packageFormData, quantity: estimatedPkgMaxBuildable })
+                          }
+                          className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#01390f]/10 text-[9px] font-bold uppercase cursor-pointer flex items-center gap-0.5 shrink-0 transition-colors select-none"
                           title="Click to set maximum buildable sets from stock"
                         >
-                          <span className="text-[10px] text-slate-400 font-bold">MAX:</span>
-                          <span className="font-mono font-bold text-[#01390f]">{estimatedPkgMaxBuildable}</span>
-                        </div>
+                          <span className="text-slate-400">MAX:</span>
+                          <span className="font-mono text-[#01390f]">{estimatedPkgMaxBuildable}</span>
+                        </button>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* 5. PROMO BADGE DROPDOWN */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 6. PROMO BADGE & DELIVERY TRANSIT TIME */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
                       Promotional Badge
                     </label>
-                    <select
-                      value={packageFormData.promoBadge}
-                      onChange={(e) => setPackageFormData({ ...packageFormData, promoBadge: e.target.value })}
-                      className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors cursor-pointer"
-                    >
-                      <option value="Special Bundle">Special Bundle</option>
-                      <option value="Best Value">Best Value</option>
-                      <option value="Starter Kit">Starter Kit</option>
-                      <option value="Limited Edition">Limited Edition</option>
-                      <option value="Routine Set">Routine Set</option>
-                      <option value="Holiday Bundle">Holiday Bundle</option>
-                    </select>
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                      <input
+                        type="text"
+                        value={packageFormData.promoBadge || ''}
+                        onChange={(e) =>
+                          setPackageFormData({ ...packageFormData, promoBadge: e.target.value })
+                        }
+                        placeholder="Enter or select promo badge"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                      />
+                      <div className="relative flex items-center ml-1 shrink-0">
+                        <select
+                          value={
+                            Array.from(
+                              new Set([
+                                'Special Bundle',
+                                'Best Value',
+                                'Starter Kit',
+                                'Limited Edition',
+                                'Routine Set',
+                                'Holiday Bundle',
+                                ...catalogProducts
+                                  .map((p) => (p?.promoBadge || '').trim())
+                                  .filter(Boolean),
+                              ])
+                            ).includes(packageFormData.promoBadge)
+                              ? packageFormData.promoBadge
+                              : ''
+                          }
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setPackageFormData({ ...packageFormData, promoBadge: e.target.value });
+                            }
+                          }}
+                          className="h-7 bg-slate-100 hover:bg-slate-200/80 rounded px-2 pr-5 text-[10px] font-bold text-slate-600 cursor-pointer focus:outline-none appearance-none transition-colors"
+                        >
+                          <option value="">Presets</option>
+                          {Array.from(
+                            new Set([
+                              'Special Bundle',
+                              'Best Value',
+                              'Starter Kit',
+                              'Limited Edition',
+                              'Routine Set',
+                              'Holiday Bundle',
+                              ...catalogProducts
+                                .map((p) => (p?.promoBadge || '').trim())
+                                .filter(Boolean),
+                            ])
+                          ).map((badge) => (
+                            <option key={badge} value={badge}>
+                              {badge}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-3 h-3 absolute right-1.5 text-slate-500 pointer-events-none" />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Estimated Delivery Transit Time */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
                       Estimated Delivery Transit Time
                     </label>
-                    <div className="flex items-center">
-                      <div className="relative flex-1">
-                        <Truck className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-                        <input
-                          type="text"
-                          value={packageFormData.shippingReturns || ''}
-                          onChange={(e) => setPackageFormData({ ...packageFormData, shippingReturns: e.target.value })}
-                          placeholder="Type custom or select delivery preset..."
-                          className="w-full h-[36px] bg-slate-50 border border-slate-200 text-slate-800 rounded-l-lg pl-8 pr-2 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                        />
-                      </div>
-                      <select
-                        value={[
-                          '1-3 Business Days (Metro Manila)',
-                          '3-5 Business Days (Standard)',
-                          '3-7 Business Days (Provincial)',
-                          'Same-Day NCR Express Delivery',
-                        ].includes(packageFormData.shippingReturns) ? packageFormData.shippingReturns : ''}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            setPackageFormData({ ...packageFormData, shippingReturns: e.target.value });
+                    <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                      <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                      <input
+                        type="text"
+                        value={packageFormData.shippingReturns || ''}
+                        onChange={(e) =>
+                          setPackageFormData({ ...packageFormData, shippingReturns: e.target.value })
+                        }
+                        placeholder="Enter or select transit time"
+                        className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                      />
+                      <div className="relative flex items-center ml-1 shrink-0">
+                        <select
+                          value={
+                            [
+                              '1-3 Business Days (Metro Manila)',
+                              '3-5 Business Days (Standard)',
+                              '3-7 Business Days (Provincial)',
+                              'Same-Day NCR Express Delivery',
+                            ].includes(packageFormData.shippingReturns)
+                              ? packageFormData.shippingReturns
+                              : ''
                           }
-                        }}
-                        className="h-[36px] bg-slate-100 hover:bg-slate-200/80 border-y border-r border-slate-200 rounded-r-lg px-2 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none shrink-0 transition-colors"
-                      >
-                        <option value="">Quick Select Preset</option>
-                        <option value="1-3 Business Days (Metro Manila)">1-3 Days (Metro Manila)</option>
-                        <option value="3-5 Business Days (Standard)">3-5 Days (Standard)</option>
-                        <option value="3-7 Business Days (Provincial)">3-7 Days (Provincial)</option>
-                        <option value="Same-Day NCR Express Delivery">Same-Day NCR Express</option>
-                      </select>
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setPackageFormData({ ...packageFormData, shippingReturns: e.target.value });
+                            }
+                          }}
+                          className="h-7 bg-slate-100 hover:bg-slate-200/80 rounded px-2 pr-5 text-[10px] font-bold text-slate-600 cursor-pointer focus:outline-none appearance-none transition-colors"
+                        >
+                          <option value="">Presets</option>
+                          <option value="1-3 Business Days (Metro Manila)">1-3 Days (Metro Manila)</option>
+                          <option value="3-5 Business Days (Standard)">3-5 Days (Standard)</option>
+                          <option value="3-7 Business Days (Provincial)">3-7 Days (Provincial)</option>
+                          <option value="Same-Day NCR Express Delivery">Same-Day NCR Express</option>
+                        </select>
+                        <ChevronDown className="w-3 h-3 absolute right-1.5 text-slate-500 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* 6. DETAILS (PRODUCT OVERVIEW & USAGE) */}
+                {/* 7. DETAILS (PRODUCT OVERVIEW & USAGE) */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                       Details (Product Overview & Usage)
                     </label>
                     <button
@@ -3129,44 +3276,21 @@ function MarketingAllProductsCatalog() {
                   <textarea
                     rows={4}
                     value={packageFormData.marketingDescription}
-                    onChange={(e) => setPackageFormData({ ...packageFormData, marketingDescription: e.target.value })}
-                    placeholder="Enter detailed package overview, routine instructions, and customer benefits..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors resize-none"
+                    onChange={(e) =>
+                      setPackageFormData({ ...packageFormData, marketingDescription: e.target.value })
+                    }
+                    placeholder="Enter detailed package overview, routine instructions, and benefits"
+                    className="w-full bg-transparent border-b-2 border-slate-200 focus:border-[#01390f] py-2 text-xs font-medium text-slate-800 focus:outline-none leading-relaxed transition-colors resize-none placeholder:text-slate-300 placeholder:font-normal"
                   />
                 </div>
 
-                {/* 7. PUBLISH TO STOREFRONT TOGGLE */}
-                <div
-                  onClick={() => setPackageFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }))}
-                  className="flex items-center gap-3 pt-1 cursor-pointer select-none group"
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPackageFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }));
-                    }}
-                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${packageFormData.isPublished
-                      ? 'bg-[#01390f] text-white border-[#01390f]'
-                      : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
-                      }`}
-                  >
-                    {packageFormData.isPublished ? (
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-slate-300" />
-                    )}
-                  </button>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
-                      Publish to storefront immediately <span className="text-[11px] font-normal text-slate-400">(Visible to customers)</span>
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {packageFormData.isPublished
-                        ? 'Live in Customer Package Sets storefront (/packages) immediately upon saving'
-                        : 'Saved as draft (hidden from customers until published)'}
-                    </span>
-                  </div>
+                {/* STATUS HELPER NOTICE AT THE BOTTOM */}
+                <div className="pt-1 text-xs text-slate-400">
+                  <span>
+                    {packageFormData.isPublished
+                      ? 'Note: This package set is set to Live and will be visible immediately in the Customer Package Sets storefront (/packages) upon saving.'
+                      : 'Note: This package set is set to Draft and will remain hidden from customers until switched to Live.'}
+                  </span>
                 </div>
 
               </div>
@@ -3186,7 +3310,13 @@ function MarketingAllProductsCatalog() {
                   className="px-6 py-2.5 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
                 >
                   {submittingPackage ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  <span>{submittingPackage ? 'Saving...' : editingPackageItem ? 'Update Package Set' : 'Save Package Set'}</span>
+                  <span>
+                    {submittingPackage
+                      ? 'Saving...'
+                      : editingPackageItem
+                        ? 'Update Package Set'
+                        : 'Save Package Set'}
+                  </span>
                 </button>
               </div>
             </form>
@@ -3194,17 +3324,17 @@ function MarketingAllProductsCatalog() {
         </div>
       )}
 
-      {/* VIEW PACKAGE DETAILS MODAL */}
+      {/* VIEW PACKAGE DETAILS MODAL (VIEW ONLY — CLEAN PARAGRAPH STYLE, CLOSE ONLY) */}
       {viewPackageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[88vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-800">
                   {viewPackageModal.itemName || viewPackageModal.itemDescription}
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
-                  Package Code: #{viewPackageModal.code}
+                  #{viewPackageModal.code}
                 </p>
               </div>
               <button
@@ -3216,128 +3346,69 @@ function MarketingAllProductsCatalog() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-4 text-xs sm:text-sm custom-scrollbar flex-1">
-              {/* Product Photo Gallery */}
-              <div className="aspect-video w-full rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center relative">
-                <img
-                  src={resolveProductImageUrl((viewPackageModal.images && viewPackageModal.images[0]) || viewPackageModal.image)}
-                  alt=""
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/mhira_removebg.png';
-                  }}
-                  className="w-full h-full object-cover"
-                />
-                {viewPackageModal.promoBadge && (
-                  <span className="absolute top-2 left-2 bg-[#01390f] text-white text-[10px] font-bold px-2.5 py-0.5 rounded shadow-sm uppercase tracking-wider">
-                    {viewPackageModal.promoBadge}
-                  </span>
-                )}
-              </div>
-
-              {/* Price & Savings */}
-              <div className="flex items-center justify-between p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Package Bundle Price:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-[#01390f]">₱{peso(viewPackageModal.price || 0)}</span>
-                    {Number(viewPackageModal.originalPrice) > Number(viewPackageModal.price) && (
-                      <span className="text-xs text-slate-400 line-through">₱{peso(viewPackageModal.originalPrice || 0)}</span>
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
+              {/* Product Storefront Images Size */}
+              <div className="flex items-center gap-3 overflow-x-auto py-1 custom-scrollbar">
+                {(Array.isArray(viewPackageModal.images) && viewPackageModal.images.length > 0
+                  ? viewPackageModal.images
+                  : [viewPackageModal.image || '/mhira_removebg.png']
+                ).map((imgSrc, idx) => (
+                  <div
+                    key={idx}
+                    className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0"
+                  >
+                    <img
+                      src={resolveProductImageUrl(imgSrc)}
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/mhira_removebg.png';
+                      }}
+                      className="w-full h-full object-cover"
+                    />
+                    {idx === 0 && (
+                      <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                        Main
+                      </span>
                     )}
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Stock:</span>
-                  <p className="text-xs font-bold text-slate-800">{viewPackageModal.quantity || 0} Sets Available</p>
-                </div>
+                ))}
               </div>
 
-              {/* Included Items */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                  What&apos;s Included in this Package Set:
-                </label>
-                <div className="space-y-2">
-                  {Array.isArray(viewPackageModal.bundleItems) && viewPackageModal.bundleItems.length > 0 ? (
-                    viewPackageModal.bundleItems.map((bi, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 bg-slate-50/60">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                            {bi.image ? (
-                              <img
-                                src={resolveProductImageUrl(bi.image)}
-                                alt=""
-                                onError={(e) => {
-                                  e.currentTarget.onerror = null;
-                                  e.currentTarget.src = '/mhira_removebg.png';
-                                }}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <Package className="w-4 h-4 text-slate-400" />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="font-bold text-slate-800 text-xs block truncate">{bi.itemName}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{bi.code} {bi.specification ? `• ${bi.specification}` : ''}</span>
-                          </div>
-                        </div>
-                        <span className="text-xs font-bold text-[#01390f] shrink-0 font-mono">
-                          {bi.quantity}x
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">No item breakdown specified.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Description */}
-              {viewPackageModal.marketingDescription && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
-                    Product Overview & Usage:
-                  </label>
-                  <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+              <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="font-semibold text-slate-800">
+                  {viewPackageModal.promoBadge || 'Package Set'} • {viewPackageModal.quantity || 0} Sets Available
+                </p>
+                <p className="text-slate-500">
+                  ₱{peso(viewPackageModal.price || 0)}
+                  {Number(viewPackageModal.originalPrice) > Number(viewPackageModal.price)
+                    ? ` (Reg. ₱${peso(viewPackageModal.originalPrice || 0)})`
+                    : ''}
+                  {viewPackageModal.shippingReturns ? ` • ${viewPackageModal.shippingReturns}` : ''}
+                </p>
+                {Array.isArray(viewPackageModal.bundleItems) && viewPackageModal.bundleItems.length > 0 && (
+                  <p className="font-semibold text-[#01390f]">
+                    {viewPackageModal.bundleItems
+                      .map((bi) => `${bi.quantity || 1}x ${bi.itemName}`)
+                      .join(', ')}
+                  </p>
+                )}
+                {viewPackageModal.marketingDescription && (
+                  <p className="pt-2 text-slate-700 leading-relaxed whitespace-pre-line font-normal">
                     {viewPackageModal.marketingDescription}
                   </p>
-                </div>
-              )}
-
-              {/* Transit Time */}
-              {viewPackageModal.shippingReturns && (
-                <div className="flex items-center gap-2 text-xs text-slate-600">
-                  <Truck className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span>Estimated Delivery: <strong>{viewPackageModal.shippingReturns}</strong></span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${viewPackageModal.isPublished ? 'bg-emerald-100 text-[#01390f]' : 'bg-slate-200 text-slate-600'}`}>
-                {viewPackageModal.isPublished ? 'Live in Storefront' : 'Draft'}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const pkg = viewPackageModal;
-                    setViewPackageModal(null);
-                    openEditPackageSetModal(pkg);
-                  }}
-                  className="px-4 py-2 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Edit Package
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewPackageModal(null)}
-                  className="px-4 py-2 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
+            <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewPackageModal(null)}
+                className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

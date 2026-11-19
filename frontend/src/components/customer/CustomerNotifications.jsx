@@ -107,7 +107,15 @@ function CustomerNotifications() {
       .get(`${API_BASE_URL}/api/coupons`)
       .then((res) => {
         if (Array.isArray(res.data)) {
-          setCoupons(res.data.filter((c) => c.status === "Active"));
+          setCoupons(
+            res.data.filter(
+              (c) =>
+                c &&
+                !c.isArchived &&
+                c.isPublished !== false &&
+                c.status === "Active"
+            )
+          );
         }
       })
       .catch(() => {});

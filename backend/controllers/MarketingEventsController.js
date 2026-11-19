@@ -41,6 +41,9 @@ export const createEvent = async (req, res) => {
 export const updateEvent = async (req, res) => {
     try {
         const { _id, id, createdAt, updatedAt, __v, ...updateData } = req.body;
+        if (updateData.isArchived === true) {
+            updateData.isPublished = false;
+        }
         const updatedEvent = await Event.findByIdAndUpdate(
             req.params.id,
             updateData,

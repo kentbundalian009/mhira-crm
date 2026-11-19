@@ -49,6 +49,7 @@ export const defaultStoryContent = {
   ],
   bannerImage: '',
   closingTagline: 'Mhira Natural — Simple care. Natural beauty. Everyday you.',
+  isPublished: true,
   updatedBy: 'Marketing Team',
 };
 
@@ -109,6 +110,10 @@ const marketingStorySchema = new mongoose.Schema(
     closingTagline: {
       type: String,
       default: defaultStoryContent.closingTagline,
+    },
+    isPublished: {
+      type: Boolean,
+      default: true,
     },
     updatedBy: {
       type: String,

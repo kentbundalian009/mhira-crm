@@ -22,6 +22,7 @@ const orderSchema = new mongoose.Schema(
         "Order Placed",
         "To Pay",
         "To Ship",
+        "Waiting for Courier",
         "To Receive",
         "In Transit",
         "Completed",
@@ -69,6 +70,7 @@ const orderSchema = new mongoose.Schema(
         description: { type: String, default: "" },
         timestamp: { type: Date, default: Date.now },
         status: { type: String, default: "" },
+        actor: { type: String, default: "Logistics Team" },
       },
     ],
     cancellationRequest: {

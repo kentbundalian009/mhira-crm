@@ -3,6 +3,53 @@ import RawMaterial from '../models/InventoryRawMaterial.js';
 import Product from '../models/InventoryProduct.js';
 import ScrapAuditLog from '../models/ScrapAuditLog.js';
 
+const normalizeRmCode = (code) => {
+  const raw = String(code || '').toLowerCase().trim();
+  if (!raw) return '';
+  const m = raw.match(/^(?:rm-inv-|rm-?)0*(\d+)$/i);
+  if (m) return `rm-${m[1]}`;
+  return raw;
+};
+
+const normalizeRmName = (name) => {
+  const clean = String(name || '')
+    .toLowerCase()
+    .replace(/niacinimide/g, 'niacinamide')
+    .replace(/[^a-z0-9]/g, '');
+  return clean;
+};
+
+const matchRawMaterialFromList = (ing, rmList) => {
+  if (!ing || !Array.isArray(rmList) || rmList.length === 0) return null;
+
+  // 1. Exact ID match
+  if (ing.rawMaterialId) {
+    const idStr = String(ing.rawMaterialId);
+    const byId = rmList.find((m) => String(m._id || m.id) === idStr);
+    if (byId) return byId;
+  }
+
+  // 2. Name match (exact case-insensitive or normalized alphanumeric)
+  const ingNameNorm = normalizeRmName(ing.name || ing.materialName);
+  if (ingNameNorm) {
+    const byName = rmList.find((m) => {
+      const mNameNorm = normalizeRmName(m.itemName);
+      const mDescNorm = normalizeRmName(m.itemDescription);
+      return mNameNorm === ingNameNorm || mDescNorm === ingNameNorm;
+    });
+    if (byName) return byName;
+  }
+
+  // 3. Code match (exact or normalized RM-INV-00001 -> RM0001)
+  const ingCodeNorm = normalizeRmCode(ing.materialCode || ing.code);
+  if (ingCodeNorm) {
+    const byCode = rmList.find((m) => normalizeRmCode(m.code) === ingCodeNorm);
+    if (byCode) return byCode;
+  }
+
+  return null;
+};
+
 // Get all WIP Batches
 export const getWIPs = async (req, res) => {
   try {
@@ -66,18 +113,10 @@ export const createWIP = async (req, res) => {
     }
 
     // Check for Out-of-Specification (Quarantine / Rejected) raw materials - block allocation
+    const allRMs = await RawMaterial.find({}).lean().catch(() => []);
     if (Array.isArray(ingredientsUsed)) {
       for (const ing of ingredientsUsed) {
-        let mat = null;
-        if (ing.rawMaterialId) {
-          mat = await RawMaterial.findById(ing.rawMaterialId).lean();
-        }
-        if (!mat && ing.materialCode) {
-          mat = await RawMaterial.findOne({ code: { $regex: new RegExp(`^${ing.materialCode.trim()}$`, 'i') } }).lean();
-        }
-        if (!mat && ing.name) {
-          mat = await RawMaterial.findOne({ itemName: { $regex: new RegExp(`^${ing.name.trim()}$`, 'i') } }).lean();
-        }
+        const mat = matchRawMaterialFromList(ing, allRMs);
 
         if (mat && (mat.qcStatus === 'Quarantine' || mat.qcStatus === 'Rejected')) {
           return res.status(400).json({
@@ -88,22 +127,25 @@ export const createWIP = async (req, res) => {
       }
     }
 
-    // Format ingredients - 0 deducted initially until fulfilled via Quick-Assistant
+    // Format ingredients with calculated deduction quantities
     const formattedIngredients = Array.isArray(ingredientsUsed)
       ? ingredientsUsed.map((ing) => {
-          const unitReq = Number(ing.unitRequired) || 0;
-          const totalReq = Number(ing.totalRequired) || (unitReq * numBatches);
+          const parsedTheor = parseFloat(String(ing.theoreticalWeight || 0).replace(/[^0-9.]/g, '')) || 0;
+          const parsedSpec = parseFloat(String(ing.specification || 0).replace(/[^0-9.]/g, '')) || 0;
+          const unitReq = Number(ing.unitRequired) || parsedTheor || (parsedSpec * 50) || 0;
+          const totalReq = Number(ing.totalRequired) || parseFloat((unitReq * numBatches).toFixed(2));
+          const matchedMat = matchRawMaterialFromList(ing, allRMs);
           return {
-            rawMaterialId: ing.rawMaterialId,
-            materialCode: ing.materialCode || '',
-            name: ing.name || '',
+            rawMaterialId: matchedMat ? matchedMat._id : ing.rawMaterialId,
+            materialCode: (matchedMat && matchedMat.code) || ing.materialCode || '',
+            name: ing.name || (matchedMat ? matchedMat.itemName : ''),
             specification: ing.specification || '',
-            theoreticalWeight: ing.theoreticalWeight || '',
+            theoreticalWeight: ing.theoreticalWeight || String(unitReq),
             unitRequired: unitReq,
             totalRequired: totalReq,
-            qtyDeducted: 0,
-            uom: ing.uom || 'pcs',
-            shortageQty: totalReq,
+            qtyDeducted: totalReq,
+            uom: ing.uom || (matchedMat && matchedMat.uom) || 'g',
+            shortageQty: Math.max(0, totalReq - (matchedMat ? Number(matchedMat.quantity) || 0 : 0)),
           };
         })
       : [];
@@ -157,34 +199,28 @@ export const completePendingWIP = async (req, res) => {
       return res.status(400).json({ message: 'This WIP batch is already completed' });
     }
 
-    // 1. Deduct raw materials used using FIFO (First-In, First-Out) on packaging containers
+    // 1. Deduct raw materials used from RawMaterial inventory
     if (Array.isArray(wip.ingredientsUsed)) {
+      const allRMs = await RawMaterial.find({});
+      const numBatches = Number(wip.numberOfBatches) || 1;
+
       for (const ing of wip.ingredientsUsed) {
-        const needed = Number(ing.totalRequired) || 0;
+        const parsedTheor = parseFloat(String(ing.theoreticalWeight || 0).replace(/[^0-9.]/g, '')) || 0;
+        const parsedSpec = parseFloat(String(ing.specification || 0).replace(/[^0-9.]/g, '')) || 0;
+        const unitReq = Number(ing.unitRequired) || parsedTheor || (parsedSpec * 50) || 0;
+        const needed = Number(ing.totalRequired) || Number(ing.qtyDeducted) || parseFloat((unitReq * numBatches).toFixed(2)) || 0;
+
         if (needed > 0) {
-          let mat = null;
-          if (ing.rawMaterialId) {
-            try {
-              mat = await RawMaterial.findById(ing.rawMaterialId);
-            } catch (e) {}
-          }
-          if (!mat && ing.materialCode) {
-            mat = await RawMaterial.findOne({
-              code: { $regex: new RegExp(`^${ing.materialCode.trim()}$`, 'i') }
-            });
-          }
-          if (!mat && ing.name) {
-            mat = await RawMaterial.findOne({
-              itemName: { $regex: new RegExp(`^${ing.name.trim()}$`, 'i') }
-            });
-          }
+          const mat = matchRawMaterialFromList(ing, allRMs);
 
           if (mat) {
             // Deduct overall bulk stock
-            mat.quantity = Math.max(0, (Number(mat.quantity) || 0) - needed);
+            mat.quantity = Math.max(0, parseFloat(((Number(mat.quantity) || 0) - needed).toFixed(2)));
             await mat.save();
           }
 
+          ing.unitRequired = unitReq;
+          ing.totalRequired = needed;
           ing.qtyDeducted = needed;
           ing.shortageQty = 0;
         }

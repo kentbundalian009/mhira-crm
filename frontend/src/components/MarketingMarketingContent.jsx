@@ -18,7 +18,8 @@ import {
   Type,
   FileText,
   Tag,
-  Plus
+  Plus,
+  Check,
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { notifyLiveSync, useLiveSync } from '../utils/liveSync';
@@ -61,6 +62,7 @@ function MarketingMarketingContent() {
 
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
+  const [isPublished, setIsPublished] = useState(true);
 
   const [existingImages, setExistingImages] = useState([]);
   const [existingSlideDetails, setExistingSlideDetails] = useState([]);
@@ -85,6 +87,16 @@ function MarketingMarketingContent() {
         setSections(rawList);
         try {
           localStorage.setItem('cached_marketing_sections', JSON.stringify(rawList));
+          localStorage.setItem('mhira_db_sections_raw', JSON.stringify(rawList));
+          const mapped = rawList.reduce((acc, curr) => {
+            if (curr && curr.sectionName) acc[curr.sectionName] = curr;
+            return acc;
+          }, {});
+          localStorage.setItem('mhira_db_sections', JSON.stringify(mapped));
+          const authSec = mapped['auth-banner'];
+          if (authSec && authSec.isPublished === false) {
+            localStorage.removeItem('mhira_auth_banner_url');
+          }
         } catch (e) { }
       }
     } catch (err) {
@@ -192,6 +204,7 @@ function MarketingMarketingContent() {
     setNewPreviews([]);
     setNewSlideDetails([]);
     setAppendMode(true);
+    setIsPublished(true);
     setIsModalOpen(true);
   };
 
@@ -204,6 +217,7 @@ function MarketingMarketingContent() {
     if (targetSection) {
       setTitle(targetSection.title || '');
       setText(targetSection.text || '');
+      setIsPublished(targetSection.isPublished !== undefined ? Boolean(targetSection.isPublished) : true);
       const validImgs = (targetSection.images || []).filter((img) => img && img !== 'banner');
       const filteredImgs = isSingleMediaSection(sectionName) ? validImgs.slice(0, 1) : validImgs;
       setExistingImages(filteredImgs);
@@ -262,6 +276,7 @@ function MarketingMarketingContent() {
     if (modalMode === 'edit') {
       setTitle(targetSection?.title || '');
       setText(targetSection?.text || '');
+      setIsPublished(targetSection?.isPublished !== undefined ? Boolean(targetSection.isPublished) : true);
     }
   };
 
@@ -332,6 +347,7 @@ function MarketingMarketingContent() {
     const formData = new FormData();
     formData.append('title', target.title || '');
     formData.append('text', target.text || '');
+    formData.append('isPublished', String(target.isPublished !== false));
     updatedImages.forEach((img) => formData.append('existingImages', img));
     if (sectionName === 'carousel') {
       formData.append('slideDetails', JSON.stringify(updatedSlideDetails));
@@ -396,6 +412,7 @@ function MarketingMarketingContent() {
     const formData = new FormData();
     formData.append('title', finalTitle);
     formData.append('text', finalText);
+    formData.append('isPublished', String(isPublished));
 
     if (isSingleMediaSection(activeSectionName)) {
       // Enforce strictly 1 media item for promo ads
@@ -444,32 +461,32 @@ function MarketingMarketingContent() {
     carousel: {
       name: 'Hero Carousel Slider',
       badge: 'Main Banner',
-      color: 'bg-blue-50 text-[#246C94] border-blue-200',
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
     },
     'ads-i': {
       name: 'Special Promotion Banner (Ads I)',
       badge: 'Special Banner',
-      color: 'bg-blue-50 text-[#246C94] border-blue-200',
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
     },
     'ads-ii': {
       name: 'Secondary Campaign (Ads II)',
       badge: 'Brand Deals',
-      color: 'bg-blue-50 text-[#246C94] border-blue-200',
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
     },
     'popup-ad': {
       name: 'Pop-Up Modal Banner',
       badge: 'Special Offer',
-      color: 'bg-blue-50 text-[#246C94] border-blue-200',
+      color: 'bg-yellow-50 text-yellow-800 border-yellow-300',
     },
     'auth-banner': {
       name: 'Auth Page Banner (Login / Signup / Forgot Pass)',
       badge: 'Auth Showcase',
-      color: 'bg-blue-50 text-[#246C94] border-blue-200',
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
     },
     'topbar-announcement': {
       name: 'Topbar Marquee Announcement Ticker',
       badge: 'Storefront Header',
-      color: 'bg-blue-50 text-[#246C94] border-blue-200',
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
     },
   };
 
@@ -489,6 +506,7 @@ function MarketingMarketingContent() {
         sectionName: secName,
         title: existing?.title || '',
         text: existing?.text || '',
+        isPublished: existing?.isPublished !== undefined ? Boolean(existing.isPublished) : true,
         slideDetails: existing?.slideDetails || [],
         images: isSingleMediaSection(secName) ? validImages.slice(0, 1) : validImages,
         meta: sectionMeta[secName] || {
@@ -549,8 +567,8 @@ function MarketingMarketingContent() {
                 type="button"
                 onClick={() => setSelectedSectionFilter(tab.id)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap inline-flex items-center ${selectedSectionFilter === tab.id
-                    ? 'border-[#01390f] text-[#01390f] bg-slate-50'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  ? 'border-[#01390f] text-[#01390f] bg-slate-50'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                   }`}
               >
                 <span>{tab.label}</span>
@@ -561,9 +579,9 @@ function MarketingMarketingContent() {
 
         {/* DRAG AND DROP INSTRUCTION NOTICE (ONLY ON ALL PLACEMENTS TAB) */}
         {selectedSectionFilter === 'All' && (
-          <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl px-4 py-3 flex items-center justify-between text-xs text-[#01390f] shadow-2xs">
+          <div className="bg-blue-50/80 border border-blue-200 rounded-2xl px-4 py-3 flex items-center justify-between text-xs text-blue-900 shadow-2xs">
             <div className="flex items-center gap-2.5 font-medium">
-              <GripVertical className="w-4 h-4 text-emerald-700 shrink-0" />
+              <GripVertical className="w-4 h-4 text-blue-700 shrink-0" />
               <span>
                 <strong>Drag & Drop Ad Reordering:</strong> Drag any section using the grab handle to reposition its order. Changes instantly sync live to the storefront!
               </span>
@@ -598,12 +616,12 @@ function MarketingMarketingContent() {
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, idx)}
                   className={`bg-white rounded-2xl border ${dragOverIndex === idx
-                      ? 'border-[#01390f] ring-2 ring-emerald-500/20 bg-emerald-50/10'
-                      : 'border-slate-200/80'
+                    ? 'border-[#01390f] ring-2 ring-emerald-500/20 bg-emerald-50/10'
+                    : 'border-slate-200/80'
                     } ${draggedIndex === idx ? 'opacity-40 scale-[0.99]' : 'opacity-100'} p-5 shadow-xs flex flex-col gap-4 hover:border-slate-300 transition-all duration-150 relative group`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 flex-wrap">
                       <div
                         className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg cursor-grab active:cursor-grabbing transition-colors"
                         title="Drag to reorder section placement on homepage"
@@ -611,8 +629,20 @@ function MarketingMarketingContent() {
                         <GripVertical className="w-4 h-4 text-slate-400" />
                       </div>
                       <span className="font-bold text-slate-900 text-sm">{sec.meta.name}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sec.meta.color}`}>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${sec.meta.color}`}>
                         {sec.meta.badge}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${sec.isPublished !== false
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                          }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${sec.isPublished !== false ? 'bg-blue-600 animate-pulse' : 'bg-yellow-500'
+                            }`}
+                        />
+                        {sec.isPublished !== false ? 'Live' : 'Draft'}
                       </span>
                     </div>
 
@@ -635,9 +665,13 @@ function MarketingMarketingContent() {
 
                   {sec.sectionName === 'topbar-announcement' ? (
                     <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live Scrolling Message</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {sec.isPublished !== false ? 'Live Scrolling Message' : 'Draft — Storefront Showing Default Waiting Announcement'}
+                      </span>
                       <p className="text-xs text-slate-800 leading-relaxed font-semibold">
-                        {sec.text || sec.title || 'Announcement: Current pricing and offers end 8/11/2026 at 11:59 PM ET / 8:59 PM PT — Grab your organic favorites now! 🌿'}
+                        {sec.isPublished !== false
+                          ? (sec.text || sec.title || 'Announcement: Current pricing and offers end 8/11/2026 at 11:59 PM ET / 8:59 PM PT — Grab your organic favorites now! 🌿')
+                          : 'Waiting for new announcements — Stay tuned for upcoming Mhira Natural promos & updates!'}
                       </p>
                     </div>
                   ) : (
@@ -687,7 +721,7 @@ function MarketingMarketingContent() {
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteImage(sec.sectionName, img)}
-                                      className="p-1 rounded bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer"
+                                      className="p-1 rounded bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer"
                                       title="Delete media"
                                     >
                                       <Trash2 className="w-3 h-3" />
@@ -755,17 +789,53 @@ function MarketingMarketingContent() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm">
-              <div className="p-6 flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar">
-                {/* TARGET STOREFRONT PLACEMENT */}
+              <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto custom-scrollbar">
+
+                {/* 1. PUBLISH TO STOREFRONT TOGGLE (CLEAN INLINE WITH UNDERLINE) */}
+                <div
+                  onClick={() => setIsPublished((prev) => !prev)}
+                  className="flex items-center gap-3 pb-3 border-b border-slate-100 cursor-pointer select-none group"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsPublished((prev) => !prev);
+                    }}
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${isPublished
+                      ? 'bg-[#01390f] text-white border-[#01390f]'
+                      : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    {isPublished ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                    )}
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
+                      Publish to storefront immediately{' '}
+                      <span className="text-[11px] font-normal text-slate-400">(Visible to customers)</span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {isPublished
+                        ? `Live in Customer Storefront (${sectionMeta[activeSectionName]?.name || activeSectionName}) immediately upon saving`
+                        : 'Saved as draft (hidden from customers until published)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. TARGET STOREFRONT PLACEMENT */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                    Target Storefront Placement <span className="text-rose-500">*</span>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                    Target Storefront Placement <span className="text-red-600">*</span>
                   </label>
-                  <div className="relative">
+                  <div className="relative flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
                     <select
                       value={activeSectionName}
                       onChange={(e) => handleSectionSelectChange(e.target.value)}
-                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 pr-8 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white cursor-pointer appearance-none transition-colors"
+                      className="w-full h-9 bg-transparent text-slate-800 pr-6 text-xs font-semibold focus:outline-none cursor-pointer appearance-none transition-colors"
                     >
                       <option value="carousel">Hero Carousel Slider (Main Banner - Multi-slide)</option>
                       <option value="ads-i">Special Promotion Banner (Ads I - Special Banner)</option>
@@ -774,7 +844,7 @@ function MarketingMarketingContent() {
                       <option value="auth-banner">Auth Page Banner (Login / Signup / Forgot Pass)</option>
                       <option value="topbar-announcement">Topbar Announcement (Marquee Ticker)</option>
                     </select>
-                    <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-1 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
 
@@ -786,7 +856,7 @@ function MarketingMarketingContent() {
                   </div>
                 ) : activeSectionName === 'topbar-announcement' || activeSectionName === 'popup-ad' ? (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       {activeSectionName === 'popup-ad'
                         ? 'Pop-up Promo Caption / Subtext (Optional)'
                         : 'Topbar Scrolling Ticker Text'}
@@ -796,16 +866,16 @@ function MarketingMarketingContent() {
                       placeholder={activeSectionName === 'popup-ad' ? 'Enter Subtext' : 'Enter Announcement Ticker Text'}
                       value={text}
                       onChange={(e) => setText(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed transition-colors"
+                      className="w-full bg-transparent border-b-2 border-slate-200 focus:border-[#01390f] py-2 text-xs font-medium text-slate-800 focus:outline-none resize-none leading-relaxed transition-colors placeholder:text-slate-300 placeholder:font-normal"
                     />
                   </div>
                 ) : null}
 
-                {/* 1. PRODUCT STOREFRONT IMAGES (FIRST PHOTO IS MAIN THUMBNAIL) - SAME FOR ALL BANNERS */}
+                {/* 3. PRODUCT STOREFRONT IMAGES (FIRST PHOTO IS MAIN THUMBNAIL) - SAME FOR ALL BANNERS */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
-                      Product Storefront Images <span className="text-[11px] font-normal text-slate-400">(First photo is main thumbnail)</span>
+                      Storefront Campaign Media <span className="text-[11px] font-normal text-slate-400">(First photo is main thumbnail)</span>
                     </label>
                     {(existingImages.length + newPreviews.length) > 0 && (
                       <span className="text-[11px] font-mono text-slate-400">
@@ -841,7 +911,7 @@ function MarketingMarketingContent() {
                           return (
                             <div
                               key={`existing-${idx}`}
-                              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs shrink-0"
+                              className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs shrink-0"
                             >
                               {isVid ? (
                                 <video
@@ -869,7 +939,7 @@ function MarketingMarketingContent() {
                                 />
                               )}
                               {isMain && (
-                                <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                <span className="absolute bottom-1 left-1 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.2 rounded shadow-xs">
                                   Main
                                 </span>
                               )}
@@ -881,7 +951,7 @@ function MarketingMarketingContent() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveExistingImage(idx)}
-                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                                 title="Remove photo"
                               >
                                 ✕
@@ -897,7 +967,7 @@ function MarketingMarketingContent() {
                           return (
                             <div
                               key={`new-${idx}`}
-                              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-emerald-300 bg-emerald-50/40 group shadow-2xs shrink-0"
+                              className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-blue-300 bg-blue-50/40 group shadow-2xs shrink-0"
                             >
                               {isVid ? (
                                 <video src={prev} className="w-full h-full object-cover" muted />
@@ -905,11 +975,11 @@ function MarketingMarketingContent() {
                                 <img src={prev} alt={`New photo preview ${idx + 1}`} className="w-full h-full object-cover" />
                               )}
                               {isMain ? (
-                                <span className="absolute bottom-1.5 left-1.5 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                <span className="absolute bottom-1 left-1 bg-[#01390f] text-white text-[9px] font-bold px-1.5 py-0.2 rounded shadow-xs">
                                   Main
                                 </span>
                               ) : (
-                                <span className="absolute bottom-1.5 left-1.5 bg-emerald-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                <span className="absolute bottom-1 left-1 bg-blue-700 text-white text-[9px] font-bold px-1.5 py-0.2 rounded shadow-xs">
                                   New
                                 </span>
                               )}
@@ -921,7 +991,7 @@ function MarketingMarketingContent() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveNewFile(idx)}
-                                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                                 title="Remove photo"
                               >
                                 ✕
@@ -938,7 +1008,7 @@ function MarketingMarketingContent() {
                   </div>
                 </div>
 
-                {/* 2. HEADLINE & SUBTEXT INPUTS (SAME 2-COL UI FOR ALL BANNERS) */}
+                {/* 4. HEADLINE & SUBTEXT INPUTS (SAME 2-COL UNDERLINE UI FOR ALL BANNERS) */}
                 {activeSectionName === 'carousel' ? (
                   (existingImages.length > 0 || newPreviews.length > 0) && (
                     <div className="space-y-4 pt-1">
@@ -946,31 +1016,35 @@ function MarketingMarketingContent() {
                       {existingImages.map((imgUrl, idx) => {
                         const detail = existingSlideDetails[idx] || { title: '', text: '' };
                         return (
-                          <div key={`detail-existing-${idx}`} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div key={`detail-existing-${idx}`} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
-                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                                Slide #{idx + 1} Headline Title {idx === 0 ? <span className="text-[11px] font-bold text-[#01390f]">(Main)</span> : null}
+                              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                                Slide #{idx + 1} Headline Title {idx === 0 ? <span className="text-[10px] font-bold text-[#01390f] normal-case">(Main)</span> : null}
                               </label>
-                              <input
-                                type="text"
-                                placeholder="Enter Headline Title"
-                                value={detail.title || ''}
-                                onChange={(e) => handleExistingSlideDetailChange(idx, 'title', e.target.value)}
-                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                              />
+                              <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                                <input
+                                  type="text"
+                                  placeholder="Enter Headline Title"
+                                  value={detail.title || ''}
+                                  onChange={(e) => handleExistingSlideDetailChange(idx, 'title', e.target.value)}
+                                  className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                                />
+                              </div>
                             </div>
 
                             <div>
-                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                                 Slide #{idx + 1} Promo Caption / Subtext
                               </label>
-                              <input
-                                type="text"
-                                placeholder="Enter Subtext"
-                                value={detail.text || ''}
-                                onChange={(e) => handleExistingSlideDetailChange(idx, 'text', e.target.value)}
-                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                              />
+                              <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                                <input
+                                  type="text"
+                                  placeholder="Enter Subtext"
+                                  value={detail.text || ''}
+                                  onChange={(e) => handleExistingSlideDetailChange(idx, 'text', e.target.value)}
+                                  className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                                />
+                              </div>
                             </div>
                           </div>
                         );
@@ -982,31 +1056,35 @@ function MarketingMarketingContent() {
                         const slideNum = existingImages.length + idx + 1;
                         const isMain = existingImages.length === 0 && idx === 0;
                         return (
-                          <div key={`detail-new-${idx}`} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div key={`detail-new-${idx}`} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
-                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                                Slide #{slideNum} Headline Title {isMain ? <span className="text-[11px] font-bold text-[#01390f]">(Main)</span> : <span className="text-[11px] font-bold text-emerald-700">(New)</span>}
+                              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                                Slide #{slideNum} Headline Title {isMain ? <span className="text-[10px] font-bold text-[#01390f] normal-case">(Main)</span> : <span className="text-[10px] font-bold text-emerald-700 normal-case">(New)</span>}
                               </label>
-                              <input
-                                type="text"
-                                placeholder="Enter Headline Title"
-                                value={detail.title || ''}
-                                onChange={(e) => handleNewSlideDetailChange(idx, 'title', e.target.value)}
-                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                              />
+                              <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                                <input
+                                  type="text"
+                                  placeholder="Enter Headline Title"
+                                  value={detail.title || ''}
+                                  onChange={(e) => handleNewSlideDetailChange(idx, 'title', e.target.value)}
+                                  className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                                />
+                              </div>
                             </div>
 
                             <div>
-                              <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                                 Slide #{slideNum} Promo Caption / Subtext
                               </label>
-                              <input
-                                type="text"
-                                placeholder="Enter Subtext"
-                                value={detail.text || ''}
-                                onChange={(e) => handleNewSlideDetailChange(idx, 'text', e.target.value)}
-                                className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                              />
+                              <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                                <input
+                                  type="text"
+                                  placeholder="Enter Subtext"
+                                  value={detail.text || ''}
+                                  onChange={(e) => handleNewSlideDetailChange(idx, 'text', e.target.value)}
+                                  className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                                />
+                              </div>
                             </div>
                           </div>
                         );
@@ -1014,38 +1092,47 @@ function MarketingMarketingContent() {
                     </div>
                   )
                 ) : activeSectionName !== 'auth-banner' && activeSectionName !== 'topbar-announcement' ? (
-                  /* SPECIAL BANNER (ADS I), ADS II, AND OTHER BANNERS - EXACT SAME 2-COL UI AS MAIN BANNER */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  /* SPECIAL BANNER (ADS I), ADS II, AND OTHER BANNERS - EXACT SAME 2-COL UNDERLINE UI */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-1">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                        Headline Title <span className="text-[11px] font-bold text-[#01390f]">(Main)</span>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                        Headline Title <span className="text-[10px] font-bold text-[#01390f] normal-case">(Main)</span>
                       </label>
-                      <input
-                        type="text"
-                        placeholder="Enter Headline Title"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                      />
+                      <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                        <input
+                          type="text"
+                          placeholder="Enter Headline Title"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          className="w-full h-9 bg-transparent text-slate-800 text-xs font-bold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                         Promo Caption / Subtext
                       </label>
-                      <input
-                        type="text"
-                        placeholder="Enter Subtext"
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
-                      />
+                      <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                        <input
+                          type="text"
+                          placeholder="Enter Subtext"
+                          value={text}
+                          onChange={(e) => setText(e.target.value)}
+                          className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : null}
-                {/* STATUS HELPER NOTICE */}
-                <div className="pt-1 text-xs text-slate-500">
-                  <span>Changes will be live immediately across customer storefront once saved.</span>
+
+                {/* STATUS HELPER NOTICE AT THE BOTTOM */}
+                <div className="pt-1 text-xs text-slate-400">
+                  <span>
+                    {isPublished
+                      ? 'Note: Changes to this placement are set to Live and will be visible immediately across the customer storefront upon saving.'
+                      : 'Note: Changes to this placement are set to Draft and will remain hidden from customers until switched to Live.'}
+                  </span>
                 </div>
               </div>
 

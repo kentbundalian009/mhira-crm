@@ -263,31 +263,31 @@ function InventoryReports() {
       return {
         key: 'Critical Alert',
         label: 'Critical Alert',
-        badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/70 font-semibold',
-        dotClass: 'bg-rose-500',
+        badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
+        dotClass: 'bg-red-600',
       };
     }
     if (val <= restock) {
       return {
         key: 'Restock Warning',
         label: 'Restock Warning',
-        badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/70 font-semibold',
-        dotClass: 'bg-amber-500',
+        badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold',
+        dotClass: 'bg-yellow-500',
       };
     }
     if (val <= overstock) {
       return {
         key: 'Healthy',
         label: 'Healthy',
-        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
-        dotClass: 'bg-emerald-500',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+        dotClass: 'bg-blue-600',
       };
     }
     return {
       key: 'Overstock',
       label: 'Overstock',
-      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
-      dotClass: 'bg-blue-500',
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+      dotClass: 'bg-blue-600',
     };
   }, []);
 
@@ -1389,7 +1389,7 @@ function InventoryReports() {
                         setCurrentPage(1);
                       }}
                       className={`flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap ${showExpiryOnly
-                          ? 'bg-emerald-50 text-[#01390f] border-emerald-300 font-bold shadow-2xs'
+                          ? 'bg-blue-50 text-blue-700 border-blue-400 font-bold shadow-2xs'
                           : 'bg-slate-50 lg:bg-transparent border-slate-200/80 lg:border-transparent hover:bg-slate-100 text-slate-700'
                         }`}
                       title={
@@ -1398,14 +1398,14 @@ function InventoryReports() {
                           : `Filter by ${activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}`
                       }
                     >
-                      <Clock className={`w-3.5 h-3.5 shrink-0 ${showExpiryOnly ? 'text-[#01390f]' : 'text-slate-500'}`} />
+                      <Clock className={`w-3.5 h-3.5 shrink-0 ${showExpiryOnly ? 'text-blue-600' : 'text-slate-500'}`} />
                       <span className="whitespace-nowrap">
                         {activeTab === 'finished-goods' ? 'Expiry FG' : 'Expiry RM'}
                       </span>
                     </button>
                   ) : (
-                    <div className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border border-rose-200 bg-rose-50 text-rose-800 text-xs font-bold w-full h-[28px] lg:h-[22px] whitespace-nowrap select-none">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <div className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-bold w-full h-[28px] lg:h-[22px] whitespace-nowrap select-none">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
                       <span className="truncate">Defect / Loss Audit</span>
                     </div>
                   )}
@@ -1544,12 +1544,12 @@ function InventoryReports() {
                       if (!hideZeroQty) setShowZeroOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${hideZeroQty
-                        ? 'bg-red-50 text-red-700 border border-red-300'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-400 font-bold'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={hideZeroQty ? 'Showing: 0 Qty Hidden (Click to show)' : 'Click to Hide 0 Quantity items'}
                   >
-                    <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                    <EyeOff className={`w-3.5 h-3.5 ${hideZeroQty ? 'text-blue-600' : 'text-slate-500'}`} />
                     <span>Hide 0 Qty</span>
                   </button>
 
@@ -1561,12 +1561,12 @@ function InventoryReports() {
                       if (!showZeroOnly) setHideZeroQty(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors relative h-[22px] w-full ${showZeroOnly
-                        ? 'bg-rose-50 text-rose-700 border border-rose-300 font-bold'
+                        ? 'bg-red-50 text-red-700 border border-red-300 font-bold'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title={showZeroOnly ? `Showing: 0 Qty Only (${zeroQtyCount})` : `Filter 0 Qty Only (${zeroQtyCount} items)`}
                   >
-                    <Boxes className="w-3.5 h-3.5 text-slate-500" />
+                    <Boxes className={`w-3.5 h-3.5 ${showZeroOnly ? 'text-red-600' : 'text-slate-500'}`} />
                     <span>0 Qty Only {zeroQtyCount > 0 ? `(${zeroQtyCount})` : ''}</span>
                   </button>
 
@@ -1744,7 +1744,7 @@ function InventoryReports() {
 
                         {/* 3. CATEGORY (Pill Badge) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                             {item.category ||
                               (activeTab === 'finished-goods'
                                 ? 'Finished Goods'
@@ -1789,14 +1789,14 @@ function InventoryReports() {
                         {/* 8. DAYS REMAINING (Clean Tinted Cell, Dot Removed) */}
                         <td
                           className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.status === 'Disposed'
-                              ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                              ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                               : isExpired
-                                ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                                 : isCritical
-                                  ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                  ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                                   : isNear
-                                    ? 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
-                                    : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                                    ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
+                                    : 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
                             }`}
                         >
                           <span>
@@ -1882,7 +1882,7 @@ function InventoryReports() {
 
                             {/* CATEGORY (Pill Badge) */}
                             <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                 {item.category || 'Finished Goods'}
                               </span>
                             </td>
@@ -1918,7 +1918,7 @@ function InventoryReports() {
                                 <span className="font-mono font-bold text-slate-800 text-xs">
                                   {item.specification ? item.specification : '-'}
                                 </span>
-                                <span className="inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-300 bg-slate-100 text-slate-700 uppercase">
+                                <span className="inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 uppercase">
                                   {item.uom || 'PCS'}
                                 </span>
                               </div>
@@ -1948,7 +1948,7 @@ function InventoryReports() {
 
                             {/* CATEGORY (Pill Badge) */}
                             <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                 {item.category || 'Raw Materials'}
                               </span>
                             </td>
@@ -2029,10 +2029,10 @@ function InventoryReports() {
                             {/* NABAWAS NA QUANTITY */}
                             <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                               <div className="flex flex-col items-center gap-1">
-                                <span className="inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200">
+                                <span className="inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200">
                                   -{rejectedQty.toLocaleString()} pcs
                                 </span>
-                                <span className="text-[10px] text-rose-700 font-semibold uppercase tracking-wider">
+                                <span className="text-[10px] text-red-700 font-semibold uppercase tracking-wider">
                                   {item.rejectionDisposition || 'Scrap / Dispose'}
                                 </span>
                               </div>
@@ -2146,13 +2146,13 @@ function InventoryReports() {
                       const isNear = !isNaN(days) && days > 7 && days <= 30;
 
                       return (
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${isExpired
-                            ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${isExpired
+                            ? 'bg-red-50 text-red-700 border-red-200'
                             : isCritical
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              ? 'bg-red-50 text-red-700 border-red-200'
                               : isNear
-                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                : 'bg-[#EDF7EE] text-[#01390f] border border-[#d5ead7]'
+                                ? 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
                           }`}>
                           {isExpired ? 'Expired' : isCritical ? 'Critical (≤7d)' : isNear ? 'Near Expiry (≤30d)' : 'Good Condition'}
                         </span>

@@ -394,8 +394,8 @@ function InventoryDeliveryReceiving() {
           label: 'Critical Alert',
           isOverLimit: false,
           maxLimit,
-          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/70 font-semibold',
-          dotClass: 'bg-rose-500',
+          badgeClass: 'bg-red-50 text-red-700 border-red-200 font-bold',
+          dotClass: 'bg-red-600',
         };
       }
       if (projected <= restock) {
@@ -404,8 +404,8 @@ function InventoryDeliveryReceiving() {
           label: 'Restock Warning',
           isOverLimit: false,
           maxLimit,
-          badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/70 font-semibold',
-          dotClass: 'bg-amber-500',
+          badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold',
+          dotClass: 'bg-yellow-500',
         };
       }
       if (projected <= maxLimit) {
@@ -414,8 +414,8 @@ function InventoryDeliveryReceiving() {
           label: 'Healthy',
           isOverLimit: false,
           maxLimit,
-          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold',
-          dotClass: 'bg-emerald-500',
+          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+          dotClass: 'bg-blue-600',
         };
       }
       return {
@@ -424,8 +424,8 @@ function InventoryDeliveryReceiving() {
         isOverLimit: true,
         overAmount: projected - maxLimit,
         maxLimit,
-        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold',
-        dotClass: 'bg-blue-500',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+        dotClass: 'bg-blue-600',
       };
     },
     [getResolvedThreshold]
@@ -1202,7 +1202,7 @@ function InventoryDeliveryReceiving() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-semibold text-slate-700">
-                        Delivery Receipt No. <span className="text-rose-500">*</span>
+                        Delivery Receipt No. <span className="text-red-600">*</span>
                       </label>
                       {isDrDuplicate && (
                         <span className="text-[10px] font-bold text-red-600 flex items-center gap-1">
@@ -1234,7 +1234,7 @@ function InventoryDeliveryReceiving() {
                   {/* 2. SUPPLIER NAME */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Supplier Name <span className="text-rose-500">*</span>
+                      Supplier Name <span className="text-red-600">*</span>
                     </label>
                     <div className="relative">
                       {/* Location icon sa loob ng input */}
@@ -1265,7 +1265,7 @@ function InventoryDeliveryReceiving() {
                   {/* 3. DATE RECEIVED */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Date Received <span className="text-rose-500">*</span>
+                      Date Received <span className="text-red-600">*</span>
                     </label>
                     <div className="relative">
                       <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -1298,7 +1298,7 @@ function InventoryDeliveryReceiving() {
               <div className="flex flex-col gap-1.5 relative">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-semibold text-slate-700">
-                    Select Raw Materials <span className="text-rose-500">*</span>
+                    Select Raw Materials <span className="text-red-600">*</span>
                   </label>
                   {isDrDuplicate && (
                     <span className="text-[10px] font-bold text-red-600 flex items-center gap-1">
@@ -1392,7 +1392,7 @@ function InventoryDeliveryReceiving() {
                           <div
                             key={itemId}
                             onMouseDown={() => handleSelectItem(item)}
-                            className={`p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between gap-3 rounded-lg transition-colors ${isAdded ? 'opacity-60 bg-emerald-50/20' : ''
+                            className={`p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between gap-3 rounded-lg transition-colors ${isAdded ? 'opacity-60 bg-blue-50/30' : ''
                               }`}
                           >
                             <div className="flex flex-col min-w-0 flex-1">
@@ -1401,7 +1401,7 @@ function InventoryDeliveryReceiving() {
                                   {displayName}
                                 </span>
                                 {dimension && (
-                                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                     {dimension}
                                   </span>
                                 )}
@@ -1413,7 +1413,7 @@ function InventoryDeliveryReceiving() {
                               )}
                               <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
                                 {segment && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border bg-slate-100 border-slate-200 text-slate-600">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-blue-50 border-blue-200 text-blue-700">
                                     {segment}
                                   </span>
                                 )}
@@ -1422,12 +1422,12 @@ function InventoryDeliveryReceiving() {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[11px] px-2 py-0.5 rounded-md font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200">
                                 Avail: {Number(count).toLocaleString()} {uom}
                               </span>
                               {isAdded && (
-                                <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Added
+                                <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <CheckCircle2 className="w-3 h-3" /> Added
                                 </span>
                               )}
                             </div>
@@ -1436,7 +1436,7 @@ function InventoryDeliveryReceiving() {
                       })
                     ) : (
                       <div className="p-4 text-center flex flex-col items-center gap-2">
-                        <p className="text-rose-500 italic font-medium text-xs">
+                        <p className="text-red-600 italic font-medium text-xs">
                           No materials found matching &ldquo;{searchQuery}&rdquo; {selectedCategory !== 'All Categories' ? `in ${selectedCategory}` : ''}.
                         </p>
                       </div>
@@ -1462,7 +1462,7 @@ function InventoryDeliveryReceiving() {
                   <button
                     type="button"
                     onClick={handleClearManifest}
-                    className="inline-flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold hover:underline cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-semibold hover:underline cursor-pointer"
                   >
                     <RotateCcw className="w-3 h-3" />
                     <span>Clear Manifest</span>
@@ -1524,9 +1524,8 @@ function InventoryDeliveryReceiving() {
                                 </span>
                               </span>
                               <span
-                                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md border ${currentStatus.badgeClass}`}
+                                className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${currentStatus.badgeClass}`}
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full ${currentStatus.dotClass}`}></span>
                                 {currentStatus.label}
                               </span>
                             </div>
@@ -1569,7 +1568,7 @@ function InventoryDeliveryReceiving() {
                                   {item.uom}
                                 </span>
                               </span>
-                              <span className="inline-flex items-center justify-center text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 uppercase">
+                              <span className="inline-flex items-center justify-center text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 uppercase">
                                 Converted
                               </span>
                             </div>
@@ -1585,9 +1584,8 @@ function InventoryDeliveryReceiving() {
                                 </span>
                               </span>
                               <span
-                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-md border ${status.badgeClass}`}
+                                className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${status.badgeClass}`}
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`}></span>
                                 {status.isOverLimit ? `Overstock (+${status.overAmount})` : status.label}
                               </span>
                             </div>
@@ -1618,7 +1616,7 @@ function InventoryDeliveryReceiving() {
                                     } catch (err) { }
                                   }}
                                   className={`bg-white border rounded-lg px-2.5 py-1 text-xs font-mono text-slate-700 focus:outline-none focus:border-[#01390f] cursor-pointer shadow-2xs transition-all [&::-webkit-calendar-picker-indicator]:cursor-pointer ${!item.expiryDate
-                                    ? 'border-amber-300 ring-1 ring-amber-300/60 bg-amber-50/20'
+                                    ? 'border-yellow-300 ring-1 ring-yellow-300/60 bg-yellow-50/20'
                                     : 'border-slate-200'
                                     }`}
                                 />
@@ -1637,7 +1635,7 @@ function InventoryDeliveryReceiving() {
                               </button>
                             </div>
                             {!item.expiryDate && (
-                              <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">
+                              <span className="text-[10px] text-yellow-800 font-semibold block mt-0.5">
                                 Date or N/A required
                               </span>
                             )}
@@ -1650,7 +1648,7 @@ function InventoryDeliveryReceiving() {
                                 type="button"
                                 onClick={() => handleRemoveSelectedItem(index)}
                                 title="Delete Item from Manifest"
-                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1667,8 +1665,8 @@ function InventoryDeliveryReceiving() {
         )}
 
         {hasOverstockItems && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex flex-col gap-1 text-xs">
-            <span className="font-bold text-amber-900">Overstock Warning Notice:</span>
+          <div className="bg-yellow-50 border border-yellow-300 text-yellow-900 rounded-2xl p-4 flex flex-col gap-1 text-xs">
+            <span className="font-bold text-yellow-900">Overstock Warning Notice:</span>
             <span>
               One or more raw materials will exceed their configured Overstock Buffer Limit after this shipment is received.
             </span>
@@ -1688,7 +1686,7 @@ function InventoryDeliveryReceiving() {
                   : "Confirm Inbound Receipt"
             }
             className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 whitespace-nowrap ${hasBlockedSpec
-              ? 'bg-rose-100 text-rose-700 border border-rose-300 cursor-not-allowed opacity-80'
+              ? 'bg-red-100 text-red-700 border border-red-300 cursor-not-allowed opacity-80'
               : !isFormComplete
                 ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-70 shadow-none'
                 : 'bg-[#01390f] hover:bg-[#0a5219] text-white active:scale-[0.99] cursor-pointer'
@@ -1697,7 +1695,7 @@ function InventoryDeliveryReceiving() {
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : hasBlockedSpec ? (
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
+              <AlertTriangle className="w-4 h-4 text-red-600" />
             ) : (
               <CheckCircle className="w-4 h-4" />
             )}
@@ -1826,9 +1824,9 @@ function InventoryDeliveryReceiving() {
                     <button
                       type="button"
                       onClick={() => setLogQuickFilter('all')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center transition-colors cursor-pointer truncate ${logQuickFilter === 'all'
-                        ? 'bg-[#01390f] text-white border-[#01390f]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      className={`h-[22px] text-xs px-2 rounded border flex items-center justify-center transition-colors cursor-pointer truncate ${logQuickFilter === 'all'
+                        ? 'bg-blue-50 text-blue-700 border-blue-400 font-bold'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 font-semibold'
                         }`}
                     >
                       All Receipts ({inboundLogs.length})
@@ -1836,9 +1834,9 @@ function InventoryDeliveryReceiving() {
                     <button
                       type="button"
                       onClick={() => setLogQuickFilter('today')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center transition-colors cursor-pointer truncate ${logQuickFilter === 'today'
-                        ? 'bg-[#01390f] text-white border-[#01390f]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      className={`h-[22px] text-xs px-2 rounded border flex items-center justify-center transition-colors cursor-pointer truncate ${logQuickFilter === 'today'
+                        ? 'bg-blue-50 text-blue-700 border-blue-400 font-bold'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 font-semibold'
                         }`}
                     >
                       Today&apos;s Receipts
@@ -1846,9 +1844,9 @@ function InventoryDeliveryReceiving() {
                     <button
                       type="button"
                       onClick={() => setLogQuickFilter('multi')}
-                      className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center transition-colors cursor-pointer truncate ${logQuickFilter === 'multi'
-                        ? 'bg-[#01390f] text-white border-[#01390f]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      className={`h-[22px] text-xs px-2 rounded border flex items-center justify-center transition-colors cursor-pointer truncate ${logQuickFilter === 'multi'
+                        ? 'bg-blue-50 text-blue-700 border-blue-400 font-bold'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 font-semibold'
                         }`}
                     >
                       Multi-Item Only
@@ -1929,7 +1927,7 @@ function InventoryDeliveryReceiving() {
                             <button
                               type="button"
                               onClick={() => handleDownloadInboundPdf(log)}
-                              className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-[#01390f] hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                               title="Download PDF Slip"
                             >
                               <FileDown className="w-3.5 h-3.5" />
@@ -2049,7 +2047,7 @@ function InventoryDeliveryReceiving() {
                             return (
                               <tr
                                 key={idx}
-                                className={`hover:bg-slate-50/80 transition-colors whitespace-nowrap group ${isHeld ? 'bg-amber-50/50' : ''
+                                className={`hover:bg-slate-50/80 transition-colors whitespace-nowrap group ${isHeld ? 'bg-yellow-50/50' : ''
                                   }`}
                               >
                                 {/* CODE */}
@@ -2066,8 +2064,8 @@ function InventoryDeliveryReceiving() {
                                 <td className="py-3 px-3 text-center font-mono font-bold whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                   {isHeld ? (
                                     <div className="flex flex-col items-center">
-                                      <span className="text-amber-900 font-bold">0 {uom}</span>
-                                      <span className="text-[10px] text-amber-700 font-normal">
+                                      <span className="text-yellow-900 font-bold">0 {uom}</span>
+                                      <span className="text-[10px] text-yellow-800 font-normal">
                                         (+{item.quantityReceived ?? item.actualQuantity ?? 0} {uom} HELD)
                                       </span>
                                     </div>
@@ -2081,7 +2079,7 @@ function InventoryDeliveryReceiving() {
                                 {/* EXPIRATION DATE */}
                                 <td className="py-3 px-3 text-center whitespace-nowrap font-mono text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                   {expDate ? (
-                                    <span className="text-rose-600 font-bold">{expDate}</span>
+                                    <span className="text-red-600 font-bold">{expDate}</span>
                                   ) : (
                                     <span className="text-slate-400 italic text-[11px] font-sans">N/A</span>
                                   )}
@@ -2109,9 +2107,9 @@ function InventoryDeliveryReceiving() {
               <button
                 type="button"
                 onClick={() => handleDownloadInboundPdf(selectedLog)}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-rose-200 flex items-center gap-1.5 whitespace-nowrap"
+                className="px-5 py-2.5 sm:py-3 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
               >
-                <FileDown className="w-4 h-4 text-rose-600" />
+                <FileDown className="w-4 h-4 text-blue-600" />
                 <span>Download PDF</span>
               </button>
             </div>
@@ -2195,9 +2193,9 @@ function InventoryDeliveryReceiving() {
                               </span>
                             </div>
                             {item.expiryDate && (
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${item.expiryDate === 'N/A'
-                                ? 'text-slate-600 bg-slate-100 border-slate-200'
-                                : 'text-red-600 bg-red-50 border-red-200'
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.expiryDate === 'N/A'
+                                ? 'text-blue-700 bg-blue-50 border-blue-200'
+                                : 'text-red-700 bg-red-50 border-red-200'
                                 }`}>
                                 Exp: {item.expiryDate}
                               </span>
@@ -2210,7 +2208,7 @@ function InventoryDeliveryReceiving() {
                 </div>
 
                 {hasOverstockItems && (
-                  <div className="p-3 bg-amber-400/15 border border-amber-400/60 text-amber-950 rounded-xl text-xs">
+                  <div className="p-3 bg-yellow-50 border border-yellow-300 text-yellow-900 rounded-xl text-xs">
                     <strong>Notice:</strong> One or more items will exceed their configured Overstock Limit. Confirming will still record the shipment and update stock ledger accordingly.
                   </div>
                 )}

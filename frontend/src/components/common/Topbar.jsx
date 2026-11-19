@@ -5,6 +5,9 @@ import { subscribeLiveSync } from "../../utils/liveSync";
 const DEFAULT_ANNOUNCEMENT =
   "Announcement: Current pricing and offers end 8/11/2026 at 11:59 PM ET / 8:59 PM PT — Grab your organic favorites now! 🌿";
 
+const WAITING_ANNOUNCEMENT =
+  "Waiting for new announcements — Stay tuned for upcoming Mhira Natural promos & updates! 🌿";
+
 function Topbar() {
   const [announcementText, setAnnouncementText] = useState(() => {
     try {
@@ -44,6 +47,17 @@ function Topbar() {
           );
 
           let nextText = "";
+          if (topbarSec && topbarSec.isPublished === false) {
+            nextText = WAITING_ANNOUNCEMENT;
+            setAnnouncementText(nextText);
+            setPromoImage("");
+            try {
+              localStorage.setItem("mhira_db_topbar_text", nextText);
+              localStorage.setItem("mhira_db_topbar_img", "");
+            } catch (e) {}
+            return;
+          }
+
           if (topbarSec) {
             const hasText = topbarSec.text && topbarSec.text.trim() !== "";
             const hasTitle = topbarSec.title && topbarSec.title.trim() !== "";

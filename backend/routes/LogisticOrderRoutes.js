@@ -6,8 +6,10 @@ import {
   updateOrderStatus,
   requestOrderCancellation,
   reviewOrderCancellation,
+  addOrderTimelineEvent,
+  updateOrderPayment,
 } from "../controllers/LogisticOrderController.js";
-import { protect, authorize } from "../middleware/authMiddleware.js";
+import { protect, authorize, protectOptional } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -18,11 +20,13 @@ router.get("/", protect, authorize("Admin", "Logistic"), getAllOrders);
 router.post("/", protect, createOrder);
 router.post("/checkout", protect, createOrder);
 
-// Customer & Staff Order Tracking
-router.get("/user/:userId", protect, getUserOrders);
+// Customer & Staff Order Tracking (Allows optional auth so guest/preview users can track)
+router.get("/user/:userId", protectOptional, getUserOrders);
 
-// Order Status & Cancellation
+// Order Status, Payments, Process Timeline & Cancellation
 router.put("/:orderId/status", protect, updateOrderStatus);
+router.put("/:orderId/payment", protect, updateOrderPayment);
+router.post("/:orderId/timeline", protect, addOrderTimelineEvent);
 router.post("/:orderId/request-cancel", protect, requestOrderCancellation);
 router.post("/:orderId/review-cancel", protect, authorize("Admin", "Logistic"), reviewOrderCancellation);
 

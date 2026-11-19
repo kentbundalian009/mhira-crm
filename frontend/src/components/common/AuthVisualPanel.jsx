@@ -1,19 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { API, getImageUrl } from "../../axios";
+import { subscribeLiveSync } from "../../utils/liveSync";
 
 // Helper to safely extract auth-banner from existing localStorage cache
 const getCachedBanner = () => {
   try {
-    const direct = localStorage.getItem("mhira_auth_banner_url");
-    if (
-      direct &&
-      direct !== "banner" &&
-      !direct.includes("mhira_auth_banner_default") &&
-      !direct.includes("founder")
-    ) {
-      return direct;
-    }
-
     const rawSectionsStr =
       localStorage.getItem("mhira_db_sections_raw") ||
       localStorage.getItem("cached_marketing_sections");
@@ -21,6 +12,9 @@ const getCachedBanner = () => {
       const parsed = JSON.parse(rawSectionsStr);
       if (Array.isArray(parsed)) {
         const authSec = parsed.find((s) => s && s.sectionName === "auth-banner");
+        if (authSec && authSec.isPublished === false) {
+          return "";
+        }
         if (authSec?.images?.[0] && authSec.images[0] !== "banner") {
           const formatted = getImageUrl(authSec.images[0]);
           if (
@@ -38,6 +32,9 @@ const getCachedBanner = () => {
     if (dictSectionsStr) {
       const parsedDict = JSON.parse(dictSectionsStr);
       const authSec = parsedDict?.["auth-banner"];
+      if (authSec && authSec.isPublished === false) {
+        return "";
+      }
       if (authSec?.images?.[0] && authSec.images[0] !== "banner") {
         const formatted = getImageUrl(authSec.images[0]);
         if (
@@ -48,6 +45,16 @@ const getCachedBanner = () => {
           return formatted;
         }
       }
+    }
+
+    const direct = localStorage.getItem("mhira_auth_banner_url");
+    if (
+      direct &&
+      direct !== "banner" &&
+      !direct.includes("mhira_auth_banner_default") &&
+      !direct.includes("founder")
+    ) {
+      return direct;
     }
   } catch (e) {}
   return "";
@@ -84,7 +91,12 @@ export default function AuthVisualPanel() {
 
         if (Array.isArray(data)) {
           const authSec = data.find((s) => s && s.sectionName === "auth-banner");
-          if (authSec?.images?.[0] && authSec.images[0] !== "banner") {
+          if (
+            authSec &&
+            authSec.isPublished !== false &&
+            authSec?.images?.[0] &&
+            authSec.images[0] !== "banner"
+          ) {
             const formatted = getImageUrl(authSec.images[0]);
             if (
               formatted &&
@@ -100,7 +112,7 @@ export default function AuthVisualPanel() {
             }
           }
 
-          // If no image is set in database for auth-banner, show only clean branding background
+          // If in Draft (isPublished === false) or no image is set in database, show only clean branding label background
           memoryAuthBanner = "";
           setImageSrc("");
           try {
@@ -114,12 +126,17 @@ export default function AuthVisualPanel() {
 
     fetchAuthBanner();
 
+    const unsubscribe = subscribeLiveSync(() => {
+      fetchAuthBanner();
+    });
+
     const handleSync = () => fetchAuthBanner();
     window.addEventListener("sectionsUpdated", handleSync);
     window.addEventListener("marketingUpdated", handleSync);
 
     return () => {
       isMounted = false;
+      unsubscribe();
       window.removeEventListener("sectionsUpdated", handleSync);
       window.removeEventListener("marketingUpdated", handleSync);
     };
@@ -143,20 +160,12 @@ export default function AuthVisualPanel() {
           }}
         />
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center p-12 bg-gradient-to-br from-[#0a2014] via-[#103420] to-[#1c4b2e] text-white select-none">
-          <div className="max-w-sm text-center space-y-4">
-            <img
-              src="/mhira_removebg.png"
-              alt="Mhira Natural Logo"
-              className="h-20 w-auto mx-auto object-contain brightness-0 invert opacity-90 drop-shadow"
-            />
-            <h2 className="text-xl font-semibold tracking-wide text-emerald-100">
-              Mhira Natural
-            </h2>
-            <p className="text-xs text-emerald-200/70 font-light leading-relaxed">
-              Pure botanical luxury, ethically crafted for healthy and radiant skin.
-            </p>
-          </div>
+        <div className="w-full h-full flex items-center justify-center p-12 bg-gradient-to-br from-[#0a2014] via-[#103420] to-[#1c4b2e] select-none">
+          <img
+            src="/mhira_removebg.png"
+            alt="Mhira Natural Logo"
+            className="h-28 w-auto mx-auto object-contain drop-shadow-xl"
+          />
         </div>
       )}
     </div>

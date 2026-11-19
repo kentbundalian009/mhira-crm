@@ -493,18 +493,17 @@ function MarketingCustomerFeedback() {
                 type="button"
                 onClick={() => setRatingFilter(ratingFilter === 'unread' ? 'All' : 'unread')}
                 className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${ratingFilter === 'unread'
-                  ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                  ? 'border-red-600 text-red-700 bg-red-50/80 font-bold shadow-2xs'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                   }`}
                 title="Filter by unread customer comments"
               >
-                <span className="w-2 h-2 rounded-full bg-[#c81e1e] shrink-0 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-red-600 shrink-0 animate-pulse" />
                 <span>Unread Comments</span>
                 <span
-                  className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${unreadCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
-                    } ${ratingFilter === 'unread'
-                      ? 'bg-[#c81e1e] text-white'
-                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                  className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 leading-none shadow-2xs ${ratingFilter === 'unread'
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'bg-red-50 text-red-700 border-red-200'
                     }`}
                 >
                   {unreadCount > 99 ? '99+' : unreadCount}
@@ -540,10 +539,10 @@ function MarketingCustomerFeedback() {
                   <button
                     type="button"
                     onClick={handleMarkAllAsRead}
-                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-rose-50 hover:bg-rose-100 border border-rose-200 text-[#c81e1e] transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px] whitespace-nowrap"
                     title={`Mark all ${unreadCount} unread feedback comments as read`}
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#c81e1e] shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-red-600 shrink-0" />
                     <span className="whitespace-nowrap">
                       Mark Read ({unreadCount})
                     </span>
@@ -641,7 +640,7 @@ function MarketingCustomerFeedback() {
                   type="button"
                   onClick={() => setRatingFilter(ratingFilter === '5' ? 'All' : '5')}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${ratingFilter === '5'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -652,7 +651,7 @@ function MarketingCustomerFeedback() {
                   type="button"
                   onClick={() => setRatingFilter(ratingFilter === 'low' ? 'All' : 'low')}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${ratingFilter === 'low'
-                    ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold'
+                    ? 'bg-red-50 border-red-300 text-red-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -663,7 +662,7 @@ function MarketingCustomerFeedback() {
                   type="button"
                   onClick={() => setSortOrder(sortOrder === 'highest' ? 'newest' : 'highest')}
                   className={`h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors ${sortOrder === 'highest'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                 >
@@ -809,12 +808,12 @@ function MarketingCustomerFeedback() {
                               <Eye className="w-3.5 h-3.5" />
                               {hasUnread ? (
                                 <span
-                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white animate-pulse"
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-600 border-2 border-white animate-pulse"
                                   title="Unread comment"
                                 />
                               ) : hasReplied ? (
                                 <span
-                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-600 border-2 border-white"
                                   title="Replied by Mhira Natural"
                                 />
                               ) : null}
@@ -842,118 +841,171 @@ function MarketingCustomerFeedback() {
         </div>
       </div>
 
-      {/* COMMENT & MHIRA NATURAL REPLY MODAL */}
-      {selectedReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
-              <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
-                Customer Comment
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSelectedReview(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
-                title="Close"
-              >
-                ✕
-              </button>
-            </div>
+      {/* COMMENT & MHIRA NATURAL REPLY MODAL (MATCHING PACKAGE SET MODAL UI) */}
+      {selectedReview && (() => {
+        const { itemProfile, specification, uom } = resolveReviewProductInfo(selectedReview);
+        const customerName = selectedReview.userName || 'Verified Buyer';
+        const customerEmail = resolveCustomerEmail(selectedReview);
+        const ratingNum = Number(selectedReview.rating) || 5;
 
-            <form onSubmit={handleSaveReply} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm">
-                {/* Customer Comment Box */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {selectedReview.userName || 'Verified Buyer'}&apos;s Comment
-                  </span>
-                  <p className="text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs sm:text-sm whitespace-pre-wrap break-words">
-                    {selectedReview.comment || 'No comment provided.'}
+        const REPLY_PRESETS = [
+          'Thank you so much for your kind feedback and for choosing Mhira Natural! We are delighted to be part of your daily botanical routine.',
+          'We are thrilled that you loved our handcrafted botanical product! Thank you for supporting Mhira Natural.',
+          'Greetings from Mhira Natural! We truly appreciate your support and wonderful review.',
+        ];
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
+              {/* MODAL HEADER */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800">
+                    Customer Comment
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Review customer feedback details and post an official Mhira Natural storefront reply
                   </p>
                 </div>
-
-                {/* Official Mhira Natural Reply Section */}
-                <div className="bg-[#EDF7EE]/60 border border-[#D5EAD7] rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-white border border-[#D5EAD7] flex items-center justify-center overflow-hidden p-1 shrink-0 shadow-2xs">
-                        <img
-                          src="/mhira_removebg.png"
-                          alt="Mhira Natural"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-[#01390f] text-xs sm:text-sm block leading-tight">
-                          Mhira Natural
-                        </span>
-                        <span className="text-[10px] text-emerald-700 font-semibold">
-                          Official Storefront Greeting / Reply
-                        </span>
-                      </div>
-                    </div>
-                    {selectedReview.adminReply && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-[#01390f] border border-emerald-200">
-                        Replied
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Quick Greeting Presets */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      'Thank you so much for your kind feedback and for choosing Mhira Natural! 🌿💚',
-                      'We are thrilled that you loved our botanical product! Thank you for supporting Mhira Natural! ✨',
-                      'Greetings from Mhira Natural! We truly appreciate your support and review. 🌸',
-                    ].map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setReplyText(preset)}
-                        className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-white hover:bg-[#01390f] text-slate-600 hover:text-white border border-slate-200 hover:border-[#01390f] transition-colors cursor-pointer"
-                      >
-                        Greeting #{idx + 1}
-                      </button>
-                    ))}
-                  </div>
-
-                  <textarea
-                    rows={3}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Write a greeting or reply as Mhira Natural..."
-                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] transition-colors resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
                   onClick={() => setSelectedReview(null)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                  className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
+                  title="Close"
                 >
-                  Close
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingReply}
-                  className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
-                >
-                  {savingReply ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <span>{selectedReview.adminReply ? 'Update Reply' : 'Send Reply'}</span>
-                  )}
+                  ✕
                 </button>
               </div>
-            </form>
+
+              {/* MODAL FORM BODY */}
+              <form onSubmit={handleSaveReply} className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm">
+                <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto custom-scrollbar">
+
+                  {/* 1. CUSTOMER DETAILS & COMMENT (CLEAN PARAGRAPH STYLE — NO LABELS OR INPUT LINES) */}
+                  <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                    <p className="font-semibold text-slate-800">
+                      {customerName}
+                      {customerEmail ? (
+                        <span className="text-slate-400 font-normal ml-1.5">
+                          ({customerEmail})
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="text-slate-500">
+                      {selectedReview.createdAt && !isNaN(new Date(selectedReview.createdAt).getTime())
+                        ? new Date(selectedReview.createdAt).toLocaleDateString()
+                        : 'Verified Review'}
+                    </p>
+                    <p className="font-semibold text-[#01390f]">
+                      {itemProfile}{' '}
+                      {specification && specification !== '-' ? `(${specification} ${uom})` : ''} —{' '}
+                      {ratingNum.toFixed(1)} Stars
+                    </p>
+                    <p className="pt-2 text-slate-700 leading-relaxed whitespace-pre-wrap break-words font-normal">
+                      {selectedReview.comment || 'No comment provided.'}
+                    </p>
+                  </div>
+
+                  {/* 3. OFFICIAL MHIRA NATURAL REPLY (MATCHING PACKAGE SET DETAILS TEXTAREA UI) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-[#EDF7EE] border border-[#D5EAD7] flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+                          <img
+                            src="/mhira_removebg.png"
+                            alt="Mhira Natural"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Official Mhira Natural Reply <span className="text-red-600">*</span>
+                        </label>
+                        {selectedReview.adminReply && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
+                            Replied
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex items-center">
+                          <select
+                            value={REPLY_PRESETS.includes(replyText) ? replyText : ''}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setReplyText(e.target.value);
+                              }
+                            }}
+                            className="h-7 bg-slate-100 hover:bg-slate-200/80 rounded px-2 pr-5 text-[10px] font-bold text-slate-600 cursor-pointer focus:outline-none appearance-none transition-colors"
+                          >
+                            <option value="">Reply Presets</option>
+                            <option value={REPLY_PRESETS[0]}>Greeting #1 (Warm Thank You)</option>
+                            <option value={REPLY_PRESETS[1]}>Greeting #2 (Product Appreciation)</option>
+                            <option value={REPLY_PRESETS[2]}>Greeting #3 (Short Official Reply)</option>
+                          </select>
+                          <ChevronDown className="w-3 h-3 absolute right-1.5 text-slate-500 pointer-events-none" />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const generated = `Hello ${customerName}! Thank you so much for your ${ratingNum}-star review on our ${itemProfile}. We are thrilled to hear your feedback and truly appreciate your continued support for Mhira Natural!`;
+                            setReplyText(generated);
+                            showSuccessToast('Auto-generated personalized reply.');
+                          }}
+                          className="text-[11px] font-bold text-[#01390f] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Auto-generate Reply</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <textarea
+                      rows={4}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Enter official Mhira Natural greeting or reply to this customer comment"
+                      className="w-full bg-transparent border-b-2 border-slate-200 focus:border-[#01390f] py-2 text-xs font-medium text-slate-800 focus:outline-none leading-relaxed transition-colors resize-none placeholder:text-slate-300 placeholder:font-normal"
+                    />
+                  </div>
+
+                  {/* STATUS HELPER NOTICE AT THE BOTTOM */}
+                  <div className="pt-1 text-xs text-slate-400">
+                    <span>
+                      Note: Your official Mhira Natural reply will be displayed publicly under this customer&apos;s review on the storefront product page upon saving.
+                    </span>
+                  </div>
+                </div>
+
+                {/* ACTION BUTTONS FOOTER */}
+                <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedReview(null)}
+                    className="px-5 py-2.5 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer border border-[#d5ead7]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingReply}
+                    className="px-6 py-2.5 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {savingReply ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <span>{selectedReview.adminReply ? 'Update Reply' : 'Send Reply'}</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

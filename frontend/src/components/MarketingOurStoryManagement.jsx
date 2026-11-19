@@ -7,6 +7,8 @@ import {
   Image as ImageIcon,
   Loader2,
   Edit2,
+  Check,
+  CheckCircle2,
 } from 'lucide-react';
 import { API, getImageUrl } from '../axios';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
@@ -53,6 +55,7 @@ const DEFAULT_STORY = {
   ],
   bannerImage: '',
   closingTagline: 'Mhira Natural — Simple care. Natural beauty. Everyday you.',
+  isPublished: true,
 };
 
 function MarketingOurStoryManagement() {
@@ -200,6 +203,7 @@ function MarketingOurStoryManagement() {
       payload.append('taglineTitle', formData.taglineTitle || '');
       payload.append('taglineText', formData.taglineText || '');
       payload.append('closingTagline', formData.closingTagline || '');
+      payload.append('isPublished', String(formData.isPublished !== false));
       payload.append('pillars', JSON.stringify(formData.pillars || []));
 
       if (founderFile) {
@@ -231,7 +235,11 @@ function MarketingOurStoryManagement() {
           localStorage.setItem('cached_marketing_story', JSON.stringify(savedStory));
         } catch (_e) {}
 
-        showSuccessToast('Our Story page updated and published live to storefront!');
+        showSuccessToast(
+          savedStory.isPublished !== false
+            ? 'Our Story page updated and published live to storefront!'
+            : 'Our Story page saved as draft (hidden from /about storefront)!'
+        );
         notifyLiveSync('story');
         notifyLiveSync('marketing');
       } else {
@@ -270,12 +278,24 @@ function MarketingOurStoryManagement() {
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col gap-5 hover:border-slate-300 transition-all duration-150">
           {/* Card Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <span className="font-bold text-slate-900 text-sm">
                 Our Story — Brand &amp; Founder Narrative
               </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 text-[#246C94] border-blue-200">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
                 Storefront About Page
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${formData.isPublished !== false
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                  }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${formData.isPublished !== false ? 'bg-blue-600 animate-pulse' : 'bg-yellow-500'
+                    }`}
+                />
+                {formData.isPublished !== false ? 'Live' : 'Draft'}
               </span>
             </div>
 
@@ -401,9 +421,9 @@ function MarketingOurStoryManagement() {
         </div>
       </div>
 
-      {/* MANAGE CONTENT MODAL (SAME UI AS MARKETING CONTENT MODAL) */}
+      {/* MANAGE CONTENT MODAL (SAME UI AS CREATE PACKAGE SET MODAL) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
             {/* MODAL HEADER */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
@@ -428,12 +448,57 @@ function MarketingOurStoryManagement() {
               onSubmit={handleSave}
               className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm"
             >
-              <div className="p-6 flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar">
-                {/* MEDIA UPLOADS: FOUNDER PORTRAIT & SHOWCASE BANNER */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto custom-scrollbar">
+                {/* 1. PUBLISH TO STOREFRONT TOGGLE (CLEAN INLINE WITH UNDERLINE) */}
+                <div
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      isPublished: prev.isPublished === false,
+                    }))
+                  }
+                  className="flex items-center gap-3 pb-3 border-b border-slate-100 cursor-pointer select-none group"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormData((prev) => ({
+                        ...prev,
+                        isPublished: prev.isPublished === false,
+                      }));
+                    }}
+                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${formData.isPublished !== false
+                        ? 'bg-[#01390f] text-white border-[#01390f]'
+                        : 'bg-white text-slate-400 border-slate-200 group-hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    {formData.isPublished !== false ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                    )}
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#01390f] transition-colors">
+                      Publish to storefront immediately{' '}
+                      <span className="text-[11px] font-normal text-slate-400">
+                        (Visible to customers)
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {formData.isPublished !== false
+                        ? 'Live in Customer Our Story storefront (/about) immediately upon saving'
+                        : 'Saved as draft (hidden from customers on /about until published)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. MEDIA UPLOADS: FOUNDER PORTRAIT & SHOWCASE BANNER */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* Founder Portrait */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5 whitespace-nowrap">
                       Founder Portrait Photo
                     </label>
                     <div className="flex items-center gap-3 py-1">
@@ -452,7 +517,7 @@ function MarketingOurStoryManagement() {
                       </label>
 
                       {displayFounderImg ? (
-                        <div className="relative w-24 h-24 rounded-md overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0">
+                        <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0">
                           <img
                             src={displayFounderImg}
                             alt="Founder Portrait"
@@ -464,7 +529,7 @@ function MarketingOurStoryManagement() {
                           <button
                             type="button"
                             onClick={handleRemoveFounderImage}
-                            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                             title="Remove photo"
                           >
                             ✕
@@ -480,8 +545,11 @@ function MarketingOurStoryManagement() {
 
                   {/* Showcase Banner */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 whitespace-nowrap">
-                      Showcase Banner Photo (Optional)
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5 whitespace-nowrap">
+                      Showcase Banner Photo{' '}
+                      <span className="text-[11px] font-normal normal-case text-slate-400">
+                        (Optional)
+                      </span>
                     </label>
                     <div className="flex items-center gap-3 py-1">
                       <label
@@ -499,7 +567,7 @@ function MarketingOurStoryManagement() {
                       </label>
 
                       {displayBannerImg ? (
-                        <div className="relative w-24 h-24 rounded-md overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0">
+                        <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs shrink-0">
                           <img
                             src={displayBannerImg}
                             alt="Showcase Banner"
@@ -511,7 +579,7 @@ function MarketingOurStoryManagement() {
                           <button
                             type="button"
                             onClick={handleRemoveBannerImage}
-                            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
+                            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center opacity-90 hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs"
                             title="Remove banner"
                           >
                             ✕
@@ -526,11 +594,11 @@ function MarketingOurStoryManagement() {
                   </div>
                 </div>
 
-                {/* HEADLINE & CLOSING SIGNATURE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 3. HEADLINE & CLOSING SIGNATURE */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Main Editorial Headline <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Main Editorial Headline <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -538,12 +606,12 @@ function MarketingOurStoryManagement() {
                       value={formData.headline}
                       onChange={(e) => handleChange('headline', e.target.value)}
                       placeholder='e.g. “WE WORK AS ONE TO BE THE NUMBER ONE”'
-                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      className="w-full h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Closing Brand Signature Tagline
                     </label>
                     <input
@@ -551,15 +619,15 @@ function MarketingOurStoryManagement() {
                       value={formData.closingTagline}
                       onChange={(e) => handleChange('closingTagline', e.target.value)}
                       placeholder="Mhira Natural — Simple care. Natural beauty. Everyday you."
-                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      className="w-full h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                     />
                   </div>
                 </div>
 
-                {/* OPENING PHILOSOPHY */}
+                {/* 4. OPENING PHILOSOPHY */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                    Opening Philosophy / Subtitle <span className="text-rose-500">*</span>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                    Opening Philosophy / Subtitle <span className="text-red-600">*</span>
                   </label>
                   <textarea
                     rows={2}
@@ -567,15 +635,15 @@ function MarketingOurStoryManagement() {
                     value={formData.intro}
                     onChange={(e) => handleChange('intro', e.target.value)}
                     placeholder="At Mhira Natural, we believe that taking care of yourself should feel simple, gentle, and natural."
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed transition-colors"
+                    className="w-full bg-transparent border-b-2 border-slate-200 text-slate-800 py-2 px-0.5 text-xs font-medium placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] resize-none leading-relaxed transition-colors"
                   />
                 </div>
 
-                {/* FOUNDER NAME & ROLE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 5. FOUNDER NAME & ROLE */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Founder Full Name <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Founder Full Name <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -583,13 +651,13 @@ function MarketingOurStoryManagement() {
                       value={formData.founderName}
                       onChange={(e) => handleChange('founderName', e.target.value)}
                       placeholder="Mirasol P. Bituin"
-                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      className="w-full h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Founder Title / Role <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Founder Title / Role <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -597,103 +665,107 @@ function MarketingOurStoryManagement() {
                       value={formData.founderRole}
                       onChange={(e) => handleChange('founderRole', e.target.value)}
                       placeholder="Founder"
-                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      className="w-full h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                     />
                   </div>
                 </div>
 
-                {/* FOUNDER BIO PARAGRAPHS */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 6. FOUNDER BIO PARAGRAPHS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                      Founder Story (Paragraph 1) <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                      Founder Story (Paragraph 1) <span className="text-red-600">*</span>
                     </label>
                     <textarea
                       rows={3}
                       required
                       value={formData.founderBio1}
                       onChange={(e) => handleChange('founderBio1', e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed transition-colors"
+                      placeholder="Enter founder story paragraph 1..."
+                      className="w-full bg-transparent border-b-2 border-slate-200 text-slate-800 py-2 px-0.5 text-xs font-medium placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] resize-none leading-relaxed transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
                       Founder Journey (Paragraph 2)
                     </label>
                     <textarea
                       rows={3}
                       value={formData.founderBio2}
                       onChange={(e) => handleChange('founderBio2', e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed transition-colors"
+                      placeholder="Enter founder journey paragraph 2..."
+                      className="w-full bg-transparent border-b-2 border-slate-200 text-slate-800 py-2 px-0.5 text-xs font-medium placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] resize-none leading-relaxed transition-colors"
                     />
                   </div>
                 </div>
 
-                {/* VISION & TAGLINE */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 7. VISION & TAGLINE */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
-                      Vision Statement <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                      Vision Statement <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
                       value={formData.visionTitle}
                       onChange={(e) => handleChange('visionTitle', e.target.value)}
                       placeholder="Vision"
-                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      className="w-full h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                     />
                     <textarea
                       rows={3}
                       required
                       value={formData.visionText}
                       onChange={(e) => handleChange('visionText', e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed transition-colors"
+                      placeholder="Enter vision statement..."
+                      className="w-full bg-transparent border-b-2 border-slate-200 text-slate-800 py-2 px-0.5 text-xs font-medium placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] resize-none leading-relaxed transition-colors"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
-                      Tagline Meaning &amp; Description <span className="text-rose-500">*</span>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                      Tagline Meaning &amp; Description <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
                       value={formData.taglineTitle}
                       onChange={(e) => handleChange('taglineTitle', e.target.value)}
                       placeholder="Tagline"
-                      className="w-full h-[34px] bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f] focus:bg-white transition-colors"
+                      className="w-full h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                     />
                     <textarea
                       rows={3}
                       required
                       value={formData.taglineText}
                       onChange={(e) => handleChange('taglineText', e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-3 text-xs font-medium focus:outline-none focus:border-[#01390f] focus:bg-white resize-none leading-relaxed transition-colors"
+                      placeholder="Enter tagline meaning and description..."
+                      className="w-full bg-transparent border-b-2 border-slate-200 text-slate-800 py-2 px-0.5 text-xs font-medium placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] resize-none leading-relaxed transition-colors"
                     />
                   </div>
                 </div>
 
-                {/* BRAND PILLARS */}
+                {/* 8. BRAND PILLARS */}
                 <div className="space-y-2.5 pt-1">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                       Brand Pillars &amp; Values
                     </label>
                     <button
                       type="button"
                       onClick={handleAddPillar}
-                      className="px-3 py-1 text-xs font-bold text-[#01390f] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-full transition-all flex items-center gap-1 cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-3 h-3" />
                       <span>Add Pillar</span>
                     </button>
                   </div>
 
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     {formData.pillars?.map((pillar, index) => (
                       <div
                         key={index}
-                        className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2"
+                        className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2"
                       >
                         <div className="flex items-center gap-2">
                           <input
@@ -702,12 +774,12 @@ function MarketingOurStoryManagement() {
                             value={pillar.title}
                             onChange={(e) => handlePillarChange(index, 'title', e.target.value)}
                             placeholder="Pillar Title"
-                            className="flex-1 h-[34px] bg-white border border-slate-200 text-slate-800 rounded-lg px-3 text-xs font-semibold focus:outline-none focus:border-[#01390f]"
+                            className="flex-1 h-9 bg-transparent border-b-2 border-slate-200 text-slate-800 px-0.5 text-xs font-semibold placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] transition-colors"
                           />
                           <button
                             type="button"
                             onClick={() => handleRemovePillar(index)}
-                            className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                            className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                             title="Remove pillar"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -721,38 +793,49 @@ function MarketingOurStoryManagement() {
                             handlePillarChange(index, 'description', e.target.value)
                           }
                           placeholder="Pillar description..."
-                          className="w-full bg-white border border-slate-200 text-slate-700 rounded-lg p-2.5 text-xs leading-relaxed focus:outline-none focus:border-[#01390f] resize-none"
+                          className="w-full bg-transparent border-b-2 border-slate-200 text-slate-700 py-1.5 px-0.5 text-xs leading-relaxed placeholder:text-slate-300 placeholder:font-normal focus:outline-none focus:border-[#01390f] resize-none transition-colors"
                         />
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* STATUS HELPER NOTICE */}
-                <div className="pt-1 text-xs text-slate-500">
+                {/* 9. HELPER NOTE */}
+                <div className="pt-1 text-xs text-slate-400">
                   <span>
-                    Changes will be live immediately across customer storefront once saved.
+                    <strong className="text-slate-500 font-semibold">Note:</strong>{' '}
+                    {formData.isPublished !== false
+                      ? 'Changes to Our Story will immediately appear on the Customer Storefront (/about) once saved.'
+                      : 'Saved as draft. The Our Story content on /about will remain hidden from customers until published.'}
                   </span>
                 </div>
               </div>
 
-              {/* ACTION BUTTONS FOOTER */}
+              {/* MODAL FOOTER */}
               <div className="px-6 py-4 bg-slate-100/90 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 whitespace-nowrap">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                  className="px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-slate-200 whitespace-nowrap"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 whitespace-nowrap bg-[#01390f] hover:bg-[#0a5219] text-white cursor-pointer disabled:opacity-50"
                 >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
                   <span className="whitespace-nowrap">
-                    {saving ? 'Saving...' : 'Save Story Content'}
+                    {saving
+                      ? 'Saving...'
+                      : formData.isPublished !== false
+                        ? 'Save Story Content'
+                        : 'Save as Draft'}
                   </span>
                 </button>
               </div>

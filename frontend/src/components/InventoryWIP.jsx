@@ -47,7 +47,53 @@ import TablePagination from './common/TablePagination';
 import { getUserFullName } from '../utils/userId';
 import { resolveItemImageUrl } from './common/ItemImageModal';
 import PinAuthModal from './common/PinAuthModal';
-import { useLiveSync } from '../utils/liveSync';
+import { useLiveSync, notifyLiveSync } from '../utils/liveSync';
+
+const normalizeRmCode = (code) => {
+  const raw = String(code || '').toLowerCase().trim();
+  if (!raw) return '';
+  const m = raw.match(/^(?:rm-inv-|rm-?)0*(\d+)$/i);
+  if (m) return `rm-${m[1]}`;
+  return raw;
+};
+
+const normalizeRmName = (name) => {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/niacinimide/g, 'niacinamide')
+    .replace(/[^a-z0-9]/g, '');
+};
+
+const matchRawMaterialFromList = (ing, rmList) => {
+  if (!ing || !Array.isArray(rmList) || rmList.length === 0) return null;
+
+  // 1. Exact ID match
+  if (ing.rawMaterialId) {
+    const idStr = String(ing.rawMaterialId);
+    const byId = rmList.find((m) => String(m._id || m.id) === idStr);
+    if (byId) return byId;
+  }
+
+  // 2. Normalized name match (handles hyphens/spaces like Aloe-Vera Extract vs Aloe Vera Extract)
+  const ingNameNorm = normalizeRmName(ing.name || ing.materialName);
+  if (ingNameNorm) {
+    const byName = rmList.find((m) => {
+      const mNameNorm = normalizeRmName(m.itemName);
+      const mDescNorm = normalizeRmName(m.itemDescription);
+      return mNameNorm === ingNameNorm || mDescNorm === ingNameNorm;
+    });
+    if (byName) return byName;
+  }
+
+  // 3. Normalized code match (handles RM-INV-00001 vs RM0001)
+  const ingCodeNorm = normalizeRmCode(ing.materialCode || ing.code);
+  if (ingCodeNorm) {
+    const byCode = rmList.find((m) => normalizeRmCode(m.code) === ingCodeNorm);
+    if (byCode) return byCode;
+  }
+
+  return null;
+};
 
 // Helper to filter out archived products from WIP batch creation
 const isProductActive = (p) => {
@@ -117,7 +163,7 @@ function HighlightMatch({ text, query }) {
     <>
       {parts.map((part, i) =>
         regex.test(part) ? (
-          <mark key={i} className="bg-amber-200 text-amber-900 font-bold px-0.5 rounded">
+          <mark key={i} className="bg-yellow-200 text-yellow-900 font-bold px-0.5 rounded">
             {part}
           </mark>
         ) : (
@@ -806,17 +852,14 @@ function InventoryWIP() {
     }
 
     return rawList.map((ing) => {
-      const unitTheorWeight = parseFloat(String(ing.theoreticalWeight || ing.quantity || 0).replace(/[^0-9.]/g, '')) || 0;
+      const parsedTheor = parseFloat(String(ing.theoreticalWeight || ing.quantity || 0).replace(/[^0-9.]/g, '')) || 0;
+      const parsedSpec = parseFloat(String(ing.specification || 0).replace(/[^0-9.]/g, '')) || 0;
+      const unitTheorWeight = parsedTheor > 0 ? parsedTheor : (parsedSpec > 0 ? parsedSpec * 50 : 0);
       const totalReq = parseFloat((unitTheorWeight * effectiveMultiplier).toFixed(2));
       const totalDeducted = totalReq;
 
       // Find stock in raw materials
-      const matInStock = allRawMaterials.find(
-        (m) =>
-          (m._id || m.id) === ing.rawMaterialId ||
-          m.code === ing.materialCode ||
-          (m.itemName && ing.name && m.itemName.toLowerCase() === ing.name.toLowerCase())
-      );
+      const matInStock = matchRawMaterialFromList(ing, allRawMaterials);
 
       const isBlockedSpec = Boolean(
         matInStock && (matInStock.qcStatus === 'Quarantine' || matInStock.qcStatus === 'Rejected')
@@ -828,10 +871,10 @@ function InventoryWIP() {
 
       return {
         rawMaterialId: matInStock ? (matInStock._id || matInStock.id) : ing.rawMaterialId,
-        materialCode: ing.materialCode || (matInStock ? matInStock.code : ''),
+        materialCode: (matInStock && matInStock.code) || ing.materialCode || '',
         name: ing.name || (matInStock ? matInStock.itemName : 'Raw Material'),
         specification: ing.specification || '',
-        theoreticalWeight: ing.theoreticalWeight || (ing.quantity ? String(ing.quantity) : ''),
+        theoreticalWeight: ing.theoreticalWeight || (unitTheorWeight ? String(unitTheorWeight) : ''),
         unitRequired: unitTheorWeight,
         totalRequired: totalReq,
         qtyDeducted: totalDeducted,
@@ -839,7 +882,7 @@ function InventoryWIP() {
         shortageQty,
         isBlockedSpec,
         qcStatus: matInStock ? (matInStock.qcStatus || 'Pass') : 'Pass',
-        uom: ing.uom || 'g'
+        uom: ing.uom || (matInStock && matInStock.uom) || 'g'
       };
     });
   }, [selectedProduct, effectiveMultiplier, allRawMaterials]);
@@ -1056,7 +1099,13 @@ function InventoryWIP() {
         ['#', 'RAW MATERIAL INGREDIENT', 'SPEC / %', 'RECIPE (1 BATCH)', 'DEDUCTED QTY', 'UOM']
       ];
 
+      const pdfBatchMult = Number(log.numberOfBatches) || 1;
       const tableBody = (log.ingredientsUsed || []).map((ing, idx) => {
+        const parsedTheor = parseFloat(String(ing.theoreticalWeight || 0).replace(/[^0-9.]/g, '')) || 0;
+        const parsedSpec = parseFloat(String(ing.specification || 0).replace(/[^0-9.]/g, '')) || 0;
+        const unitReq = Number(ing.unitRequired) || parsedTheor || (parsedSpec * 50) || 0;
+        const totalReq = Number(ing.totalRequired) || parseFloat((unitReq * pdfBatchMult).toFixed(2));
+        const effectiveDeducted = Number(ing.qtyDeducted) > 0 ? Number(ing.qtyDeducted) : totalReq;
         const hasShortage = isPending && (ing.shortageQty || 0) > 0;
         const colorStyles = hasShortage
           ? { fillColor: [254, 226, 226], textColor: [185, 28, 28] } // Soft red tint (red-100) for Shortage
@@ -1066,9 +1115,9 @@ function InventoryWIP() {
           idx + 1,
           ing.name || ing.materialCode || 'Raw Material',
           ing.specification ? `${ing.specification}%` : '-',
-          ing.theoreticalWeight || (ing.unitRequired ? String(ing.unitRequired) : '0'),
+          ing.theoreticalWeight || (unitReq ? String(unitReq) : '0'),
           {
-            content: `-${ing.qtyDeducted || 0}`,
+            content: `-${effectiveDeducted}`,
             styles: {
               fillColor: colorStyles.fillColor,
               textColor: colorStyles.textColor,
@@ -1077,7 +1126,7 @@ function InventoryWIP() {
               overflow: 'ellipsize',
             },
           },
-          (ing.uom || 'pcs').toUpperCase(),
+          (ing.uom || 'g').toUpperCase(),
         ];
       });
 
@@ -1428,7 +1477,36 @@ function InventoryWIP() {
         );
       });
 
-      // Optimistically update local product quantities
+      // Optimistically update local raw materials stock and finished goods quantities
+      if (selectedLog) {
+        const logBatches = Number(selectedLog.numberOfBatches) || 1;
+        const usedIngs = Array.isArray(selectedLog.ingredientsUsed) ? selectedLog.ingredientsUsed : [];
+
+        if (usedIngs.length > 0) {
+          setAllRawMaterials((prev) => {
+            const nextRMs = prev.map((rm) => {
+              const matchedIng = usedIngs.find((ing) => {
+                const found = matchRawMaterialFromList(ing, [rm]);
+                return Boolean(found);
+              });
+              if (!matchedIng) return rm;
+              const parsedTheor = parseFloat(String(matchedIng.theoreticalWeight || 0).replace(/[^0-9.]/g, '')) || 0;
+              const parsedSpec = parseFloat(String(matchedIng.specification || 0).replace(/[^0-9.]/g, '')) || 0;
+              const unitReq = Number(matchedIng.unitRequired) || parsedTheor || (parsedSpec * 50) || 0;
+              const deductAmt = Number(matchedIng.totalRequired) || Number(matchedIng.qtyDeducted) || parseFloat((unitReq * logBatches).toFixed(2)) || 0;
+              return {
+                ...rm,
+                quantity: Math.max(0, parseFloat(((Number(rm.quantity) || 0) - deductAmt).toFixed(2))),
+              };
+            });
+            try {
+              localStorage.setItem('cached_inventory_raw_materials', JSON.stringify(nextRMs));
+            } catch (e) {}
+            return nextRMs;
+          });
+        }
+      }
+
       if (selectedLog && validQty > 0) {
         const pId = selectedLog.productId;
         const pCode = selectedLog.productCode;
@@ -1452,10 +1530,13 @@ function InventoryWIP() {
           return next;
         });
 
-        // Trigger storage event for other components (like Finished Goods tab)
+        // Trigger storage event for other components (like Finished Goods & Raw Materials tabs)
         window.dispatchEvent(new Event('storage'));
         window.dispatchEvent(new CustomEvent('inventory_products_updated'));
       }
+      notifyLiveSync('inventory');
+      notifyLiveSync('products');
+      notifyLiveSync('wip');
 
       if (calculatedRejects > 0) {
         showSuccessToast(
@@ -1583,7 +1664,7 @@ function InventoryWIP() {
                     </h4>
 
                     {/* Subtitle: Code like RES-2026-0117 or fullCode */}
-                    <p className="text-[9px] sm:text-[10px] font-bold text-amber-950/85 tracking-wide font-mono uppercase mt-0.5">
+                    <p className="text-[9px] sm:text-[10px] font-bold text-yellow-950/85 tracking-wide font-mono uppercase mt-0.5">
                       {fullCode}
                     </p>
                   </div>
@@ -1673,7 +1754,7 @@ function InventoryWIP() {
                     {/* 2. MFG DATE */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Mfg Date <span className="text-rose-500">*</span>
+                        Mfg Date <span className="text-red-600">*</span>
                       </label>
                       <div className="relative">
                         <Calendar className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
@@ -1702,7 +1783,7 @@ function InventoryWIP() {
                     {/* 3. EXPIRATION DATE */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Expiration Date <span className="text-rose-500">*</span>
+                        Expiration Date <span className="text-red-600">*</span>
                       </label>
                       <div className="relative">
                         <Calendar className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
@@ -1731,7 +1812,7 @@ function InventoryWIP() {
                     {/* 4. ESTIMATED PRODUCTION DURATION */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                        Estimated Duration <span className="text-rose-500">*</span>
+                        Estimated Duration <span className="text-red-600">*</span>
                       </label>
                       <div className="flex items-center">
                         <div className="relative flex-1">
@@ -1764,10 +1845,10 @@ function InventoryWIP() {
                 <div className="flex flex-col gap-1.5 relative">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-slate-700">
-                      Select Finished Goods <span className="text-rose-500">*</span>
+                      Select Finished Goods <span className="text-red-600">*</span>
                     </label>
                     {selectedProduct && (
-                      <span className="text-[11px] font-mono font-bold bg-[#01390f]/10 text-[#01390f] px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
                         Selected: {selectedProduct.itemName || selectedProduct.code}
                       </span>
                     )}
@@ -1863,7 +1944,7 @@ function InventoryWIP() {
                                 setProductSearchTerm('');
                               }}
                               className={`p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between gap-3 rounded-lg transition-colors ${isSelected
-                                ? 'bg-emerald-50/70 border-l-4 border-[#01390f]'
+                                ? 'bg-blue-50/70 border-l-4 border-blue-600'
                                 : isHighlighted
                                   ? 'bg-slate-100/90'
                                   : ''
@@ -1887,14 +1968,14 @@ function InventoryWIP() {
                                       <HighlightMatch text={desc} query={productSearchTerm} />
                                     </span>
                                     {dimension && (
-                                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                         <HighlightMatch text={String(dimension)} query={productSearchTerm} /> {p.uom || ''}
                                       </span>
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
                                     {segment && (
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border bg-slate-100 border-slate-200 text-slate-600">
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-blue-50 border-blue-200 text-blue-700">
                                         {segment}
                                       </span>
                                     )}
@@ -1906,15 +1987,15 @@ function InventoryWIP() {
                               </div>
 
                               <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-[11px] px-2 py-0.5 rounded-md font-bold uppercase border ${isOutOfStock
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${isOutOfStock
+                                  ? 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                                  : 'bg-blue-50 text-blue-700 border-blue-200'
                                   }`}>
                                   Stock: {Number(count).toLocaleString()} {uom}
                                 </span>
                                 {isSelected && (
-                                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Selected
+                                  <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <CheckCircle2 className="w-3 h-3" /> Selected
                                   </span>
                                 )}
                               </div>
@@ -1951,9 +2032,9 @@ function InventoryWIP() {
 
                   {/* SELECTED PRODUCT PREVIEW CARD */}
                   {selectedProduct && (
-                    <div className="mt-2 p-3 bg-white border border-emerald-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="mt-2 p-3 bg-white border border-blue-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center overflow-hidden shrink-0">
                           {selectedProduct.imageUrl || selectedProduct.image ? (
                             <img
                               src={resolveItemImageUrl(selectedProduct.imageUrl || selectedProduct.image)}
@@ -1961,13 +2042,13 @@ function InventoryWIP() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <Package className="w-5 h-5 text-emerald-700" />
+                            <Package className="w-5 h-5 text-blue-700" />
                           )}
                         </div>
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             {selectedProduct.code && (
-                              <span className="font-mono text-[10px] font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-200 px-1.5 py-0.5 rounded">
+                              <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                                 {selectedProduct.code}
                               </span>
                             )}
@@ -1975,13 +2056,13 @@ function InventoryWIP() {
                               {selectedProduct.itemName || selectedProduct.itemDescription}
                             </span>
                             {selectedProduct.specification && (
-                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded border bg-indigo-50 border-indigo-200 text-indigo-700">
+                              <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
                                 {selectedProduct.specification} {selectedProduct.uom || ''}
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-blue-50 border-blue-200 text-blue-700">
                               {selectedProduct.category || 'Finished Goods'}
                             </span>
                             <span>•</span>
@@ -1991,7 +2072,7 @@ function InventoryWIP() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#01390f] text-white text-[11px] font-bold uppercase tracking-wider shadow-xs whitespace-nowrap">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
                           <span>Selected</span>
                         </span>
                         <button
@@ -2040,7 +2121,7 @@ function InventoryWIP() {
                               setTargetQuantity(String(theoreticalPiecesYield));
                             }
                           }}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 transition-colors cursor-pointer self-start sm:self-auto"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors cursor-pointer self-start sm:self-auto"
                           title="Reset to formula yield based on total weight"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
@@ -2053,7 +2134,7 @@ function InventoryWIP() {
                       {/* NUMBER OF BATCHES (EDITABLE) */}
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                          No. of Batches (Bulk) <span className="text-rose-500">*</span>
+                          No. of Batches (Bulk) <span className="text-red-600">*</span>
                         </label>
                         <div className="flex items-center">
                           <input
@@ -2077,7 +2158,7 @@ function InventoryWIP() {
                       {/* TOTAL BULK WEIGHT (EDITABLE) */}
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1 whitespace-nowrap">
-                          Total Bulk Weight <span className="text-rose-500">*</span>
+                          Total Bulk Weight <span className="text-red-600">*</span>
                         </label>
                         <div className="flex items-center">
                           <input
@@ -2087,13 +2168,13 @@ function InventoryWIP() {
                             required
                             value={totalBatchWeight}
                             onChange={(e) => handleTotalWeightChange(e.target.value)}
-                            className="w-full h-[34px] bg-slate-50 border border-slate-200 rounded-l-lg px-3 text-xs font-semibold text-indigo-700 focus:outline-none focus:border-[#01390f] focus:bg-white transition-all"
+                            className="w-full h-[34px] bg-slate-50 border border-slate-200 rounded-l-lg px-3 text-xs font-semibold text-blue-700 focus:outline-none focus:border-[#01390f] focus:bg-white transition-all"
                           />
                           <span className="h-[34px] flex items-center bg-slate-100 border-y border-r border-slate-200 rounded-r-lg px-2.5 text-xs font-semibold text-slate-600 uppercase">
                             {batchUom}
                           </span>
                         </div>
-                        <span className="text-[10px] text-indigo-600 font-medium block mt-1">
+                        <span className="text-[10px] text-blue-700 font-medium block mt-1">
                           = {numberOfBatches} Batch(es) Formula
                         </span>
                       </div>
@@ -2102,10 +2183,10 @@ function InventoryWIP() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
-                            Target Yield (Pieces / Qty) <span className="text-rose-500">*</span>
+                            Target Yield (Pieces / Qty) <span className="text-red-600">*</span>
                           </label>
                           {isTargetQtyManual && (
-                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                            <span className="text-[10px] font-bold text-yellow-800 bg-yellow-50 px-2 py-0.5 rounded-full border border-yellow-300">
                               Custom
                             </span>
                           )}
@@ -2122,13 +2203,13 @@ function InventoryWIP() {
                               setIsTargetQtyManual(true);
                             }}
                             placeholder="e.g. 50"
-                            className="w-full h-[34px] bg-slate-50 border border-slate-200 rounded-l-lg px-3 text-xs font-semibold text-emerald-800 focus:outline-none focus:border-[#01390f] focus:bg-white transition-all"
+                            className="w-full h-[34px] bg-slate-50 border border-slate-200 rounded-l-lg px-3 text-xs font-semibold text-blue-700 focus:outline-none focus:border-[#01390f] focus:bg-white transition-all"
                           />
                           <span className="h-[34px] flex items-center bg-slate-100 border-y border-r border-slate-200 rounded-r-lg px-2.5 text-xs font-semibold text-slate-600 uppercase">
                             Pcs
                           </span>
                         </div>
-                        <span className="text-[10px] text-emerald-700 font-medium block mt-1 truncate">
+                        <span className="text-[10px] text-blue-700 font-medium block mt-1 truncate">
                           {totalBatchWeight} {batchUom.toUpperCase()} ≈ {theoreticalPiecesYield} pcs {unitWeightDisplay ? `(at ${unitWeightDisplay} / unit)` : ''}
                         </span>
                       </div>
@@ -2144,7 +2225,7 @@ function InventoryWIP() {
                       <h4 className="text-xs sm:text-sm font-bold text-slate-800">
                         Raw Materials BOM Deduction &amp; Stock Check
                       </h4>
-                      <span className="text-[11px] font-mono font-bold bg-[#01390f]/10 text-[#01390f] px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
                         {ingredientsCalculation.length} {ingredientsCalculation.length === 1 ? 'ingredient' : 'ingredients'}
                       </span>
                     </div>
@@ -2179,7 +2260,7 @@ function InventoryWIP() {
                                     <td className="py-3 px-4 font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                       <span className="truncate text-slate-900 font-bold">{ing.name}</span>
                                     </td>
-                                    <td className="py-3 px-4 text-center font-mono font-bold text-indigo-600 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                    <td className="py-3 px-4 text-center font-mono font-bold text-blue-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                       {ing.specification ? `${ing.specification}%` : '-'}
                                     </td>
                                     <td className="py-3 px-4 text-center font-mono font-bold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
@@ -2193,16 +2274,16 @@ function InventoryWIP() {
                                     </td>
                                     <td className="py-3 px-4 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                       {ing.isBlockedSpec ? (
-                                        <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 border border-rose-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap">
-                                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> BLOCKED ({ing.qcStatus})
+                                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">
+                                          BLOCKED ({ing.qcStatus})
                                         </span>
                                       ) : isShort ? (
-                                        <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap">
-                                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Shortage ({ing.shortageQty} {ing.uom})
+                                        <span className="inline-flex items-center gap-1 bg-yellow-50 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">
+                                          Shortage ({ing.shortageQty} {ing.uom})
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap">
-                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sufficient
+                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">
+                                          Sufficient
                                         </span>
                                       )}
                                     </td>
@@ -2220,23 +2301,23 @@ function InventoryWIP() {
 
               {/* OUT-OF-SPEC BLOCKED ALERT BANNER */}
               {hasBlockedSpec && (
-                <div className="p-4 rounded-2xl bg-rose-50/90 border border-rose-200 text-rose-950 flex items-start gap-3 animate-in fade-in">
-                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="p-4 rounded-2xl bg-red-50/90 border border-red-200 text-red-950 flex items-start gap-3 animate-in fade-in">
+                  <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                   <div className="flex flex-col gap-1 text-xs">
-                    <span className="font-extrabold text-rose-900 uppercase tracking-wide">
+                    <span className="font-extrabold text-red-900 uppercase tracking-wide">
                       Production Blocked: Out-of-Specification (Failed Spec) Materials Detected
                     </span>
-                    <p className="text-rose-700 leading-relaxed">
+                    <p className="text-red-700 leading-relaxed">
                       The following raw material(s) in this recipe are currently flagged as <strong>Quarantine</strong> or <strong>Rejected</strong> and are strictly barred from production allocation:
                     </p>
-                    <ul className="list-disc list-inside font-bold text-rose-900 space-y-0.5">
+                    <ul className="list-disc list-inside font-bold text-red-900 space-y-0.5">
                       {blockedSpecMaterials.map((b, i) => (
                         <li key={i}>
-                          {b.name} ({b.materialCode}) — <span className="uppercase text-rose-700 font-black">[{b.qcStatus}]</span>
+                          {b.name} ({b.materialCode}) — <span className="uppercase text-red-700 font-black">[{b.qcStatus}]</span>
                         </li>
                       ))}
                     </ul>
-                    <span className="text-[11px] text-rose-800 font-medium mt-0.5">
+                    <span className="text-[11px] text-red-800 font-medium mt-0.5">
                       A Supplier Return Ticket has been triggered. Please quarantine or replace these materials before initiating this production run.
                     </span>
                   </div>
@@ -2245,7 +2326,7 @@ function InventoryWIP() {
 
               {/* PRODUCTION TIME & SHORTAGE DELAY BANNER */}
               {selectedProduct && (
-                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${hasShortage ? 'bg-amber-50/70 border-amber-200/80 text-amber-950' : 'bg-emerald-50/70 border-emerald-200/80 text-emerald-950'
+                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${hasShortage ? 'bg-yellow-50/70 border-yellow-300/80 text-yellow-950' : 'bg-blue-50/70 border-blue-200/80 text-blue-950'
                   }`}>
                   <div className="flex flex-col gap-0.5">
                     <span className="font-bold text-xs uppercase tracking-wider text-slate-700">
@@ -2291,7 +2372,7 @@ function InventoryWIP() {
                         : "Confirm Batch"
                   }
                   className={`px-6 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 whitespace-nowrap ${hasBlockedSpec
-                    ? 'bg-rose-100 text-rose-700 border border-rose-300 cursor-not-allowed opacity-80'
+                    ? 'bg-red-100 text-red-700 border border-red-300 cursor-not-allowed opacity-80'
                     : !isFormComplete
                       ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-70 shadow-none'
                       : 'bg-[#01390f] hover:bg-[#0a5219] text-white active:scale-[0.99] cursor-pointer'
@@ -2300,7 +2381,7 @@ function InventoryWIP() {
                   {submitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : hasBlockedSpec ? (
-                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
                   ) : (
                     <CheckCircle className="w-4 h-4" />
                   )}
@@ -2539,7 +2620,7 @@ function InventoryWIP() {
                             <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
                               <span>{log.producedQuantity || 0} pcs</span>
                               {log.rejectedQuantity > 0 && (
-                                <span className="block text-[10px] text-rose-700 font-bold font-sans">
+                                <span className="block text-[10px] text-red-700 font-bold font-sans">
                                   ({log.rejectedQuantity} Reject)
                                 </span>
                               )}
@@ -2582,7 +2663,7 @@ function InventoryWIP() {
                                 <button
                                   type="button"
                                   onClick={() => handleDownloadWipPdf(log)}
-                                  className="w-8 h-8 rounded-full bg-white border border-emerald-200 text-[#01390f] hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                   title="Download WIP Batch Sheet PDF"
                                 >
                                   <FileDown className="w-3.5 h-3.5" />
@@ -2605,25 +2686,33 @@ function InventoryWIP() {
       {/* DETAIL MODAL FOR WIP BATCH */}
       {selectedLog && (() => {
         const isLogPending = Boolean(
-          (selectedLog.pendingQuantity || 0) > 0 || selectedLog.status === 'Pending / Shortage'
+          (selectedLog.pendingQuantity || 0) > 0 ||
+          selectedLog.status === 'Pending / Shortage' ||
+          selectedLog.status === 'Pending / In Production'
         );
 
-        const ingredientStockStatus = (selectedLog.ingredientsUsed || []).map((ing) => {
-          const pendingUnits = isLogPending ? Number(selectedLog.pendingQuantity) || 0 : 0;
-          const neededForPending = (Number(ing.unitRequired) || 0) * pendingUnits;
+        const logBatchMultiplier = Number(selectedLog.numberOfBatches) > 0
+          ? Number(selectedLog.numberOfBatches)
+          : (Number(selectedLog.totalBatchWeight) > 0 ? Number(selectedLog.totalBatchWeight) / 5 : 1);
 
-          const currentMat = allRawMaterials.find(
-            (m) =>
-              (m._id || m.id) === ing.rawMaterialId ||
-              m.code === ing.materialCode ||
-              m.itemName === ing.name
-          );
+        const ingredientStockStatus = (selectedLog.ingredientsUsed || []).map((ing) => {
+          const parsedTheor = parseFloat(String(ing.theoreticalWeight || 0).replace(/[^0-9.]/g, '')) || 0;
+          const parsedSpec = parseFloat(String(ing.specification || 0).replace(/[^0-9.]/g, '')) || 0;
+          const unitReq = Number(ing.unitRequired) || parsedTheor || (parsedSpec * 50) || 0;
+          const totalReq = Number(ing.totalRequired) || parseFloat((unitReq * logBatchMultiplier).toFixed(2));
+          const displayQtyDeducted = Number(ing.qtyDeducted) > 0 ? Number(ing.qtyDeducted) : totalReq;
+          const neededForPending = isLogPending ? totalReq : 0;
+
+          const currentMat = matchRawMaterialFromList(ing, allRawMaterials);
 
           const currentStock = currentMat ? Number(currentMat.quantity) || 0 : 0;
           const isInsufficient = isLogPending && currentStock < neededForPending;
 
           return {
             ...ing,
+            unitRequired: unitReq,
+            totalRequired: totalReq,
+            qtyDeducted: displayQtyDeducted,
             neededForPending,
             currentStock,
             isInsufficient,
@@ -2667,7 +2756,7 @@ function InventoryWIP() {
                       </span>
                     </div>
                     {selectedLog.productCode && (
-                      <span className="font-mono font-bold text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg w-fit">
+                      <span className="font-mono font-bold text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full w-fit">
                         {selectedLog.productCode}
                       </span>
                     )}
@@ -2676,7 +2765,7 @@ function InventoryWIP() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/60">
                       <span className="text-slate-400 block text-[10px] uppercase font-bold">Bulk Batch Size</span>
-                      <span className="font-bold text-indigo-700 text-sm font-mono">
+                      <span className="font-bold text-blue-700 text-sm font-mono">
                         {selectedLog.numberOfBatches || 1} Batch ({selectedLog.totalBatchWeight || 5} {selectedLog.batchWeightUom || 'kg'})
                       </span>
                     </div>
@@ -2686,11 +2775,11 @@ function InventoryWIP() {
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/60">
                       <span className="text-slate-400 block text-[10px] uppercase font-bold">Produced Output</span>
-                      <span className="font-bold text-emerald-700 text-sm font-mono">{selectedLog.producedQuantity || selectedLog.targetQuantity} pcs</span>
+                      <span className="font-bold text-blue-700 text-sm font-mono">{selectedLog.producedQuantity || selectedLog.targetQuantity} pcs</span>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200/60">
                       <span className="text-slate-400 block text-[10px] uppercase font-bold">Status</span>
-                      <span className={`font-bold text-sm font-mono ${isLogPending ? 'text-amber-700' : 'text-emerald-700'}`}>
+                      <span className={`font-bold text-sm font-mono ${isLogPending ? 'text-yellow-800' : 'text-blue-700'}`}>
                         {isLogPending ? 'Pending / In Production' : (selectedLog.status || 'Completed')}
                       </span>
                     </div>
@@ -2704,12 +2793,12 @@ function InventoryWIP() {
 
                     return (
                       <div className="flex flex-col gap-3">
-                        <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                        <div className="bg-blue-50/80 border border-blue-200/90 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                           <div>
-                            <span className="font-bold text-xs text-emerald-950 block">
+                            <span className="font-bold text-xs text-blue-950 block">
                               Actual Produced Quantity (Stock-In to Inventory) *
                             </span>
-                            <span className="text-[11px] text-emerald-800 block">
+                            <span className="text-[11px] text-blue-800 block">
                               Adjust if there were rejected / spilled units. Target yield was <strong>{selectedLog.targetQuantity} pcs</strong>.
                             </span>
                           </div>
@@ -2720,9 +2809,9 @@ function InventoryWIP() {
                               max={selectedLog.targetQuantity}
                               value={fulfillProducedQty}
                               onChange={(e) => handleFulfillProducedQtyChange(e.target.value, selectedLog.targetQuantity)}
-                              className="w-24 bg-white border border-emerald-300 rounded-xl px-3 py-1.5 text-sm font-semibold text-emerald-950 text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              className="w-24 bg-white border border-blue-300 rounded-xl px-3 py-1.5 text-sm font-semibold text-blue-950 text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            <span className="font-bold text-xs text-emerald-900 uppercase">
+                            <span className="font-bold text-xs text-blue-900 uppercase">
                               pcs
                             </span>
                           </div>
@@ -2730,35 +2819,35 @@ function InventoryWIP() {
 
                         {/* REJECTION & SCRAP AUDIT REPORT SECTION */}
                         {rejectCount > 0 && (
-                          <div className="bg-rose-50/90 border border-rose-200 rounded-2xl p-4 flex flex-col gap-3 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200">
+                          <div className="bg-red-50/90 border border-red-200 rounded-2xl p-4 flex flex-col gap-3 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                                <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
                                   <AlertTriangle className="w-4 h-4 text-white" />
                                 </div>
                                 <div>
-                                  <span className="font-bold text-xs text-rose-950 block">
+                                  <span className="font-bold text-xs text-red-950 block">
                                     {rejectCount} Defective / Rejected Units Detected (Production Loss)
                                   </span>
-                                  <span className="text-[11px] text-rose-800 block">
+                                  <span className="text-[11px] text-red-800 block">
                                     Target yield is <strong>{targetQty} pcs</strong>. Only <strong>{enteredActual} pcs</strong> will be added to inventory. The remaining <strong>{rejectCount} pcs</strong> will be logged in Scrap &amp; Loss Prevention Audit.
                                   </span>
                                 </div>
                               </div>
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-300 shrink-0">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-50 text-red-700 border border-red-200 shrink-0">
                                 -{rejectCount} pcs Scrap
                               </span>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-rose-200/70 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-red-200/70 text-xs">
                               <div>
-                                <label className="block text-[11px] font-bold text-rose-900 mb-1">
+                                <label className="block text-[11px] font-bold text-red-900 mb-1">
                                   Rejection / Scrap Reason *
                                 </label>
                                 <select
                                   value={rejectionReason}
                                   onChange={(e) => setRejectionReason(e.target.value)}
-                                  className="w-full bg-white border border-rose-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-rose-600 shadow-2xs"
+                                  className="w-full bg-white border border-red-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-red-600 shadow-2xs"
                                 >
                                   <option value="Filling Spillage / Overflow">Filling Spillage / Overflow</option>
                                   <option value="Bottle / Packaging Defect">Bottle / Packaging Defect</option>
@@ -2773,13 +2862,13 @@ function InventoryWIP() {
                                     placeholder="Specify custom reason..."
                                     value={customRejectionReason}
                                     onChange={(e) => setCustomRejectionReason(e.target.value)}
-                                    className="w-full mt-1.5 bg-white border border-rose-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-rose-600"
+                                    className="w-full mt-1.5 bg-white border border-red-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-red-600"
                                   />
                                 )}
                               </div>
 
                               <div>
-                                <label className="block text-[11px] font-bold text-rose-900 mb-1">
+                                <label className="block text-[11px] font-bold text-red-900 mb-1">
                                   QC Inspector / Approver *
                                 </label>
                                 <input
@@ -2787,18 +2876,18 @@ function InventoryWIP() {
                                   placeholder="Inspector Name..."
                                   value={rejectionApprover}
                                   onChange={(e) => setRejectionApprover(e.target.value)}
-                                  className="w-full bg-white border border-rose-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-rose-600 shadow-2xs"
+                                  className="w-full bg-white border border-red-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-red-600 shadow-2xs"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-[11px] font-bold text-rose-900 mb-1">
+                                <label className="block text-[11px] font-bold text-red-900 mb-1">
                                   Disposition *
                                 </label>
                                 <select
                                   value={rejectionDisposition}
                                   onChange={(e) => setRejectionDisposition(e.target.value)}
-                                  className="w-full bg-white border border-rose-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-rose-600 shadow-2xs"
+                                  className="w-full bg-white border border-red-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-red-600 shadow-2xs"
                                 >
                                   <option value="Scrap / Dispose">Scrap / Dispose (Standard Loss)</option>
                                   <option value="Quarantined">Quarantined (Hold for Re-inspection)</option>
@@ -2808,8 +2897,8 @@ function InventoryWIP() {
                             </div>
 
                             {/* DEDUCTION NOTES / DETAILED REASON */}
-                            <div className="pt-2 border-t border-rose-200/70">
-                              <label className="block text-[11px] font-bold text-rose-900 mb-1">
+                            <div className="pt-2 border-t border-red-200/70">
+                              <label className="block text-[11px] font-bold text-red-900 mb-1">
                                 Deduction Notes / Detailed Reason
                               </label>
                               <textarea
@@ -2817,7 +2906,7 @@ function InventoryWIP() {
                                 placeholder="Ilagay ang detalyadong obserbasyon kung bakit nagkaroon ng reject o nabawasan ang quantity..."
                                 value={rejectionNotes}
                                 onChange={(e) => setRejectionNotes(e.target.value)}
-                                className="w-full bg-white border border-rose-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-rose-600 shadow-2xs resize-none"
+                                className="w-full bg-white border border-red-200 text-slate-800 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-red-600 shadow-2xs resize-none"
                               />
                             </div>
                           </div>
@@ -2838,8 +2927,8 @@ function InventoryWIP() {
 
                 {/* INSUFFICIENT STOCK WARNING BANNER */}
                 {isLogPending && hasInsufficientStockForFulfill && (
-                  <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 text-xs font-semibold">
-                    <div className="font-bold text-[11px] text-rose-900 uppercase mb-1">
+                  <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 text-xs font-semibold">
+                    <div className="font-bold text-[11px] text-red-900 uppercase mb-1">
                       INSUFFICIENT RAW MATERIAL STOCK
                     </div>
                     <p className="leading-relaxed">
@@ -2869,7 +2958,7 @@ function InventoryWIP() {
                       {!isFormulaUnlocked ? (
                         <Lock className="w-3.5 h-3.5 group-hover/btn:text-white transition-colors" />
                       ) : (
-                        <Unlock className="w-3.5 h-3.5 text-emerald-600 group-hover/btn:text-white transition-colors" />
+                        <Unlock className="w-3.5 h-3.5 text-blue-600 group-hover/btn:text-white transition-colors" />
                       )}
                     </button>
                   </div>
@@ -2901,13 +2990,13 @@ function InventoryWIP() {
                                   <td className="py-3 px-3.5 font-bold text-slate-800 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                     <span className="text-xs sm:text-sm text-slate-900 font-bold">{matName}</span>
                                   </td>
-                                  <td className="py-3 px-3 text-center font-mono font-bold text-indigo-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                  <td className="py-3 px-3 text-center font-mono font-bold text-blue-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                     {specVal}
                                   </td>
                                   <td className="py-3 px-3 text-center font-mono font-semibold text-slate-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                     {wtVal} <span className="uppercase text-[10px] text-slate-500 font-bold">{uomVal}</span>
                                   </td>
-                                  <td className="py-3 px-3 text-center font-mono font-bold text-rose-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                                  <td className="py-3 px-3 text-center font-mono font-bold text-red-700 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                                     -{Number(ing.qtyDeducted || 0).toLocaleString()} {ing.uom || 'pcs'}
                                   </td>
                                   {isLogPending && (
@@ -2941,9 +3030,9 @@ function InventoryWIP() {
                 <button
                   type="button"
                   onClick={() => handleDownloadWipPdf(selectedLog)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-rose-200 flex items-center gap-1.5 whitespace-nowrap"
+                  className="px-5 py-2.5 sm:py-3 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
                 >
-                  <FileDown className="w-4 h-4 text-rose-600" />
+                  <FileDown className="w-4 h-4 text-blue-600" />
                   <span>Download PDF</span>
                 </button>
                 {isLogPending && (
@@ -3010,12 +3099,12 @@ function InventoryWIP() {
             <div className="flex flex-col flex-1 overflow-hidden text-xs sm:text-sm">
               {/* SCROLLABLE BODY */}
               <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 custom-scrollbar">
-                <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 flex flex-col gap-2">
+                <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-4 flex flex-col gap-2">
                   <span className="font-bold text-xs text-slate-500 uppercase">Batch Details</span>
                   <div className="grid grid-cols-2 gap-2 text-xs text-slate-700">
                     <div>
                       <span className="font-semibold text-slate-500 block">Batch No:</span>
-                      <span className="font-mono font-bold text-emerald-800">{wipBatchCode}</span>
+                      <span className="font-mono font-bold text-blue-700">{wipBatchCode}</span>
                     </div>
                     <div>
                       <span className="font-semibold text-slate-500 block">Finished Good:</span>
@@ -3025,7 +3114,7 @@ function InventoryWIP() {
                       <span className="font-semibold text-slate-500 block">
                         Bulk Batch Cooking:
                       </span>
-                      <span className="font-bold text-indigo-700 font-mono">
+                      <span className="font-bold text-blue-700 font-mono">
                         {numberOfBatches} Batch ({totalBatchWeight} {batchUom.toUpperCase()})
                       </span>
                     </div>
@@ -3035,7 +3124,7 @@ function InventoryWIP() {
                     </div>
                     <div>
                       <span className="font-semibold text-slate-500 block">Production Status:</span>
-                      <span className="font-bold text-amber-700 font-mono">Queued In Production</span>
+                      <span className="font-bold text-yellow-800 font-mono">Queued In Production</span>
                     </div>
                     <div>
                       <span className="font-semibold text-slate-500 block">Mfg Date / Exp Date:</span>
@@ -3069,18 +3158,18 @@ function InventoryWIP() {
                                 <td className="py-2.5 px-3.5 font-bold text-slate-800 whitespace-nowrap">
                                   <span className="text-xs text-slate-900 font-bold">{matName}</span>
                                 </td>
-                                <td className="py-2.5 px-3 text-center font-mono font-bold text-indigo-700 whitespace-nowrap">
+                                <td className="py-2.5 px-3 text-center font-mono font-bold text-blue-700 whitespace-nowrap">
                                   {specVal}
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-700 whitespace-nowrap">
                                   {wtVal} <span className="uppercase text-[10px] text-slate-500 font-bold">{uomVal}</span>
                                 </td>
                                 <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                  <span className="font-mono font-bold text-rose-700">
+                                  <span className="font-mono font-bold text-red-700">
                                     -{Number(ing.qtyDeducted || 0).toLocaleString()} {ing.uom || 'pcs'}
                                   </span>
                                   {ing.shortageQty > 0 && (
-                                    <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-lg font-bold font-mono whitespace-nowrap">
+                                    <span className="ml-1.5 text-[10px] text-yellow-800 bg-yellow-50 border border-yellow-300 px-2 py-0.5 rounded-full font-bold font-mono whitespace-nowrap">
                                       Short: {ing.shortageQty}
                                     </span>
                                   )}
@@ -3094,7 +3183,7 @@ function InventoryWIP() {
                   </div>
                 </div>
 
-                <p className="text-xs text-amber-800 font-semibold bg-amber-50 border border-amber-200/70 rounded-xl p-3.5 mt-2">
+                <p className="text-xs text-yellow-900 font-semibold bg-yellow-50 border border-yellow-300 rounded-xl p-3.5 mt-2">
                   Note: Confirming will register this batch as <strong>In Production</strong>. Raw materials are <strong>NOT</strong> deducted yet. When physical production is finished, click this batch in the Quick-Assistant bar above to fulfill transaction and deduct warehouse stock.
                 </p>
               </div>

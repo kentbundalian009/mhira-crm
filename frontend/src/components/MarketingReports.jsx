@@ -1146,7 +1146,7 @@ function MarketingReports() {
                           if (!hideZeroQty) setShowZeroOnly(false);
                         }}
                         className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${hideZeroQty
-                          ? 'bg-emerald-50 text-[#01390f] border border-emerald-300 shadow-2xs font-bold'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-400 shadow-2xs font-bold'
                           : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                           }`}
                         title="Hide 0 Quantity Items"
@@ -1158,7 +1158,7 @@ function MarketingReports() {
                         type="button"
                         onClick={() => setOnSaleOnly(!onSaleOnly)}
                         className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${onSaleOnly
-                          ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs font-bold'
+                          ? 'bg-yellow-50 text-yellow-800 border border-yellow-400 shadow-2xs font-bold'
                           : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                           }`}
                         title="On Sale / Promo Items Only"
@@ -1188,7 +1188,7 @@ function MarketingReports() {
                         type="button"
                         onClick={() => setActiveOnlyCoupons(!activeOnlyCoupons)}
                         className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${activeOnlyCoupons
-                          ? 'bg-emerald-50 text-[#01390f] border border-emerald-300 shadow-2xs font-bold'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-400 shadow-2xs font-bold'
                           : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                           }`}
                         title="Show Active / Usable Coupons Only"
@@ -1200,7 +1200,7 @@ function MarketingReports() {
                         type="button"
                         onClick={() => setSelectedAudience(selectedAudience === 'Gold' ? 'All' : 'Gold')}
                         className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${selectedAudience === 'Gold'
-                          ? 'bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs font-bold'
+                          ? 'bg-yellow-50 text-yellow-800 border border-yellow-400 shadow-2xs font-bold'
                           : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                           }`}
                         title="Gold Tier Exclusive Coupons"
@@ -1230,7 +1230,7 @@ function MarketingReports() {
                           if (!fiveStarOnly) setCriticalOnly(false);
                         }}
                         className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${fiveStarOnly
-                          ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs font-bold'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-400 shadow-2xs font-bold'
                           : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                           }`}
                         title="Show 5-Star Reviews Only"
@@ -1245,7 +1245,7 @@ function MarketingReports() {
                           if (!criticalOnly) setFiveStarOnly(false);
                         }}
                         className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[22px] w-full ${criticalOnly
-                          ? 'bg-rose-50 text-rose-700 border border-rose-300 shadow-2xs font-bold'
+                          ? 'bg-red-50 text-red-700 border border-red-300 shadow-2xs font-bold'
                           : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                           }`}
                         title="Show Reviews Needing Attention"
@@ -1313,7 +1313,7 @@ function MarketingReports() {
                       <th className="py-3.5 px-4 text-right whitespace-nowrap font-semibold text-white">STORE PRICE</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">QUANTITY</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">UOM</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STATUS</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STOREFRONT STATUS</th>
                     </>
                   ) : activeTab === 'products-vouchers' ? (
                     <>
@@ -1322,7 +1322,7 @@ function MarketingReports() {
                       <th className="py-3.5 px-4 text-right whitespace-nowrap font-semibold text-white">MINIMUM SPEND</th>
                       <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">TARGET AUDIENCE</th>
                       <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">EXPIRY DATE</th>
-                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STATUS</th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap font-semibold text-white">STOREFRONT STATUS</th>
                     </>
                   ) : (
                     <>
@@ -1380,7 +1380,7 @@ function MarketingReports() {
                               </span>
                               {row.isOnSale && (
                                 <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 border border-amber-500/30 uppercase tracking-wide flex-shrink-0">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-yellow-50 text-yellow-800 border-yellow-300 flex-shrink-0">
                                     {row.promoBadge || 'On Sale'}
                                   </span>
                                 </div>
@@ -1420,7 +1420,7 @@ function MarketingReports() {
 
                           {/* 4. Category */}
                           <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded border bg-slate-100 text-slate-700 border-slate-200">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">
                               {row.category || 'Standard'}
                             </span>
                           </td>
@@ -1440,20 +1440,16 @@ function MarketingReports() {
                             {row.uom || 'PCS'}
                           </td>
 
-                          {/* 8. Status (Full-cell color tint: Green for Live, Amber for Draft) */}
+                          {/* 8. Storefront Status (Blue for Live, Yellow for Draft) */}
                           <td
-                            className={`px-4 py-3.5 whitespace-nowrap text-center text-slate-800 font-semibold text-xs transition-colors select-none ${row.isPublished
-                              ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
-                              : 'bg-amber-500/20 group-hover:bg-amber-500/30'
+                            className={`px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs transition-colors select-none ${row.isArchived
+                              ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
+                              : row.isPublished
+                                ? 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
+                                : 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
                               }`}
                           >
-                            <span className="inline-flex items-center gap-1.5">
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${row.isPublished ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-                                  }`}
-                              />
-                              <span>{row.isPublished ? 'Live' : 'Draft'}</span>
-                            </span>
+                            <span>{row.isArchived ? 'Archived' : row.isPublished ? 'Live' : 'Draft'}</span>
                           </td>
                         </tr>
                       );
@@ -1484,7 +1480,16 @@ function MarketingReports() {
 
                           {/* 4. Target Audience */}
                           <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            {row.targetSegment || row.target || 'All Customers'}
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${(row.targetSegment || row.target || '').includes('Gold') ||
+                                (row.targetSegment || row.target || '').includes('Loyal') ||
+                                (row.targetSegment || row.target || '') === 'VIP'
+                                ? 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                                }`}
+                            >
+                              {row.targetSegment || row.target || 'All Customers'}
+                            </span>
                           </td>
 
                           {/* 5. Expiry Date */}
@@ -1494,20 +1499,16 @@ function MarketingReports() {
                               : 'No Expiry'}
                           </td>
 
-                          {/* 6. Status (Active = Green / Expired = Amber) */}
+                          {/* 6. Storefront Status (Blue = Live / Yellow = Draft / Red = Expired) */}
                           <td
-                            className={`px-4 py-3.5 whitespace-nowrap text-center text-slate-800 font-semibold text-xs transition-colors select-none ${!isExpired
-                              ? 'bg-emerald-500/20 group-hover:bg-emerald-500/30'
-                              : 'bg-amber-500/20 group-hover:bg-amber-500/30'
+                            className={`px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs transition-colors select-none ${isExpired
+                              ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
+                              : row.isPublished === false || row.status === 'Draft'
+                                ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
+                                : 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
                               }`}
                           >
-                            <span className="inline-flex items-center gap-1.5">
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${!isExpired ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-                                  }`}
-                              />
-                              <span>{!isExpired ? 'Active / Usable' : 'Expired'}</span>
-                            </span>
+                            <span>{isExpired ? 'Expired' : row.isPublished === false || row.status === 'Draft' ? 'Draft' : 'Live'}</span>
                           </td>
                         </tr>
                       );
@@ -1523,14 +1524,14 @@ function MarketingReports() {
                         {/* 1. Customer */}
                         <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#01390f] font-bold text-xs shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs shrink-0">
                               <User className="w-3.5 h-3.5" />
                             </div>
                             <div className="flex flex-col min-w-0">
                               <span className="font-bold text-slate-800 text-xs truncate">
                                 {row.userName || row.customerName || 'Verified Buyer'}
                               </span>
-                              <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                              <span className="text-[10px] text-blue-700 font-semibold flex items-center gap-1">
                                 <CheckCircle2 className="w-2.5 h-2.5" /> Verified Purchase
                               </span>
                             </div>

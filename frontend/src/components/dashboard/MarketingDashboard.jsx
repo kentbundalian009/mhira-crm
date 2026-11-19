@@ -685,11 +685,11 @@ function MarketingDashboard({ setActiveTab }) {
               <strong className="text-slate-800 font-mono font-bold">{dashboardStats.totalReviews}</strong> customer reviews
             </span>
             {dashboardStats.unreadReviews > 0 ? (
-              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 shrink-0">
+              <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200 shrink-0">
                 {dashboardStats.unreadReviews} Unread
               </span>
             ) : (
-              <span className="text-[10px] font-medium text-[#153E97] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 shrink-0">
+              <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 shrink-0">
                 Audited
               </span>
             )}
@@ -1299,7 +1299,7 @@ function MarketingDashboard({ setActiveTab }) {
                     <th className="pb-2 whitespace-nowrap">Feedback & Campaign Metric</th>
                     <th className="pb-2 text-right whitespace-nowrap">High Rating (#153E97)</th>
                     <th className="pb-2 text-right whitespace-nowrap">Standard / Neutral (#0284c7)</th>
-                    <th className="pb-2 text-center whitespace-nowrap">Status</th>
+                    <th className="pb-2 text-center whitespace-nowrap">Storefront Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">

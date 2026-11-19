@@ -1205,7 +1205,7 @@ function LogisticsShippingSetting() {
                       setCurrentPage(1);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs ${hideDisabled
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-400 font-bold'
                       : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                   >
@@ -1298,7 +1298,7 @@ function LogisticsShippingSetting() {
                         <div className="flex items-center gap-1.5">
                           <span>{item.province}</span>
                           {item.hasCustomOverride && (
-                            <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded font-bold">
+                            <span className="text-[10px] bg-yellow-50 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full font-bold">
                               Custom Override
                             </span>
                           )}
@@ -1326,7 +1326,7 @@ function LogisticsShippingSetting() {
                                   })
                                 }
                                 className={`text-[11px] px-2 py-0.5 rounded border transition-colors cursor-pointer ${cityOverride
-                                  ? 'bg-emerald-50 text-[#01390f] border-emerald-300 font-bold'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold'
                                   : 'bg-white hover:bg-[#EDF7EE] text-slate-600 hover:text-[#01390f] border-slate-200'
                                   }`}
                                 title={`Click to set shipping rate for ${city}, ${item.province}`}
@@ -1447,9 +1447,9 @@ function LogisticsShippingSetting() {
                           {/* 2. RULE CATEGORY (Pill Badge matching Raw Materials) */}
                           <td className="px-4 py-3.5 whitespace-nowrap min-w-[170px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-medium text-xs text-slate-600 transition-colors">
                             <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${isRegion
-                                ? 'bg-blue-50 text-blue-700 border-blue-200/70'
-                                : 'bg-amber-50 text-amber-700 border-amber-200/70'
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${isRegion
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-yellow-50 text-yellow-800 border-yellow-300'
                                 }`}
                             >
                               {isRegion ? (
@@ -1466,7 +1466,7 @@ function LogisticsShippingSetting() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span>{row.name}</span>
                               {!row.isActive && (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full font-bold border border-rose-200">
+                                <span className="inline-flex items-center gap-1 text-[10px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full font-bold border border-red-200">
                                   Disabled
                                 </span>
                               )}
@@ -1502,13 +1502,13 @@ function LogisticsShippingSetting() {
                                 type="button"
                                 onClick={() => handleToggleRowActive(row)}
                                 className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border cursor-pointer transition-opacity hover:opacity-80 ${row.isActive
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70 font-semibold'
-                                  : 'bg-rose-50 text-rose-700 border-rose-200/70 font-semibold'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-red-50 text-red-700 border-red-200'
                                   }`}
                                 title="Click to toggle Active / Disabled status"
                               >
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${row.isActive ? 'bg-emerald-500' : 'bg-rose-500'
+                                  className={`w-1.5 h-1.5 rounded-full ${row.isActive ? 'bg-blue-600' : 'bg-red-600'
                                     }`}
                                 ></span>
                                 <span>{row.isActive ? 'Active Rate' : 'Disabled'}</span>
@@ -1549,7 +1549,7 @@ function LogisticsShippingSetting() {
                                       : 'Enable Regional Rate'
                                   }
                                   className={`w-8 h-8 rounded-full bg-white border flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 ${row.isActive
-                                    ? 'border-slate-200 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600'
+                                    ? 'border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600'
                                     : 'border-slate-200 text-slate-400 hover:bg-slate-600 hover:text-white hover:border-slate-600'
                                     }`}
                                 >
@@ -1562,7 +1562,7 @@ function LogisticsShippingSetting() {
                                     handleRemoveOverride(row.overrideIdx, row.name)
                                   }
                                   title="Delete Location Override"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -1709,7 +1709,7 @@ function LogisticsShippingSetting() {
                           coveredLocationsList.map((item, idx) => (
                             <span
                               key={idx}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200 shadow-2xs group"
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs group"
                             >
                               <span>{item}</span>
                               <button
@@ -2261,7 +2261,7 @@ function LogisticsShippingSetting() {
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                         Cart, Checkout &amp; PayMongo Output
                       </span>
-                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                         {simulatedResult?.isFreeShipping ? 'FREE SHIPPING' : 'LOCATION RATE'}
                       </span>
                     </div>
@@ -2311,7 +2311,7 @@ function LogisticsShippingSetting() {
                   </div>
 
                   {/* QUICK ADJUST & SAVE SECTION: "tas pag may babaguhin ako jan mag save na" */}
-                  <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-200/70 space-y-2.5">
+                  <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-200/70 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <span>Adjust Rate for {simCity || testAddress}</span>

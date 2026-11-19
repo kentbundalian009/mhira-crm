@@ -481,15 +481,15 @@ function LogisticsSupportCenter() {
     const isResolved = status === "resolved";
     if (isResolved) {
       return (
-        <span className="inline-flex items-center gap-1.5 bg-slate-50 text-[#01390f] border border-[#01390f] px-2.5 py-1 rounded-full font-bold text-[11px] whitespace-nowrap shadow-2xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#01390f] animate-pulse"></span>
+        <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap shadow-2xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
           Resolved
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 bg-slate-50 text-amber-950 border border-amber-500 px-2.5 py-1 rounded-full font-bold text-[11px] whitespace-nowrap shadow-2xs">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+      <span className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap shadow-2xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
         Active / Pending
       </span>
     );
@@ -528,10 +528,10 @@ function LogisticsSupportCenter() {
               onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'pending'
                   ? activeCount > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : activeCount > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by Active & Pending Customer Support Cases"
@@ -545,7 +545,7 @@ function LogisticsSupportCenter() {
                   className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${activeCount > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
                     } ${activeTab === 'pending'
                       ? 'bg-[#c81e1e] text-white'
-                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                      : 'bg-red-50 text-red-700 border border-red-200'
                     }`}
                   title={`${activeCount} Active / Pending Support Cases`}
                 >
@@ -567,8 +567,8 @@ function LogisticsSupportCenter() {
             </button>
           </div>
           <div className="flex items-center gap-2 pb-1">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
               <span>Live CSR Sync</span>
             </span>
           </div>
@@ -602,9 +602,9 @@ function LogisticsSupportCenter() {
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <RotateCcw className="w-3.5 h-3.5 text-red-600 shrink-0" />
                   <span className="truncate">Reset Filters</span>
                 </button>
               </div>
@@ -686,7 +686,7 @@ function LogisticsSupportCenter() {
                         e.stopPropagation();
                         setSelectedDate('');
                       }}
-                      className="absolute right-1.5 top-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      className="absolute right-1.5 top-1 text-slate-400 hover:text-red-600 cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -734,7 +734,7 @@ function LogisticsSupportCenter() {
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'pending'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -745,7 +745,7 @@ function LogisticsSupportCenter() {
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'resolved' ? 'all' : 'resolved')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'resolved'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -759,7 +759,7 @@ function LogisticsSupportCenter() {
                     setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                   }}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${selectedDate === new Date().toISOString().split('T')[0]
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -930,7 +930,7 @@ function LogisticsSupportCenter() {
                               <Eye className="w-3.5 h-3.5 text-slate-600 group-hover/btn:text-white transition-colors" />
                               {t.status !== 'resolved' && (
                                 <span
-                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white animate-pulse"
+                                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-600 border-2 border-white animate-pulse"
                                   title="Active / Pending Support Inquiry"
                                 />
                               )}
@@ -1149,12 +1149,12 @@ function LogisticsSupportCenter() {
                               >
                                 {/* RICH ORDER CARD IF SENT BY CUSTOMER */}
                                 {m.orderData && (
-                                  <div className="bg-slate-50 text-slate-900 rounded-xl p-3 border border-emerald-200 shadow-2xs space-y-2 text-left mb-2">
+                                  <div className="bg-slate-50 text-slate-900 rounded-xl p-3 border border-blue-200 shadow-2xs space-y-2 text-left mb-2">
                                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
                                       <span className="font-bold text-[#01390f] text-xs flex items-center gap-1">
                                         📦 Order #{m.orderData.orderNumber}
                                       </span>
-                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-[#01390f] border border-emerald-200">
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                                         {m.orderData.status}
                                       </span>
                                     </div>
@@ -1218,19 +1218,19 @@ function LogisticsSupportCenter() {
 
                     {/* Attachment preview if selected */}
                     {filePreview && (
-                      <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-xl">
                         <img
                           src={filePreview}
                           alt="Preview"
-                          className="w-10 h-10 object-cover rounded-lg border border-emerald-300"
+                          className="w-10 h-10 object-cover rounded-lg border border-blue-300"
                         />
-                        <span className="text-xs text-emerald-800 font-medium truncate flex-1">
+                        <span className="text-xs text-blue-700 font-medium truncate flex-1">
                           {selectedFile?.name || "Photo attachment ready"}
                         </span>
                         <button
                           type="button"
                           onClick={removeSelectedFile}
-                          className="text-rose-600 hover:text-rose-800 text-xs font-bold px-2 py-1"
+                          className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1"
                         >
                           ✕
                         </button>
@@ -1309,7 +1309,7 @@ function LogisticsSupportCenter() {
                       {cannedResponses.map((res, idx) => (
                         <div
                           key={idx}
-                          className="p-3.5 bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-300 rounded-xl transition-all flex items-start justify-between gap-3 group"
+                          className="p-3.5 bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 rounded-xl transition-all flex items-start justify-between gap-3 group"
                         >
                           <p className="text-xs text-slate-700 leading-relaxed">&quot;{res}&quot;</p>
                           <button
@@ -1397,9 +1397,9 @@ function LogisticsSupportCenter() {
                 <button
                   type="button"
                   onClick={() => handleDownloadTicketPdf(selectedTicket)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-rose-200 flex items-center gap-1.5 whitespace-nowrap"
+                  className="px-5 py-2.5 sm:py-3 rounded-full bg-red-50 hover:bg-red-100 text-red-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-red-200 flex items-center gap-1.5 whitespace-nowrap"
                 >
-                  <FileDown className="w-3.5 h-3.5 text-rose-600" />
+                  <FileDown className="w-3.5 h-3.5 text-red-600" />
                   <span>Transcript PDF</span>
                 </button>
 
@@ -1417,7 +1417,7 @@ function LogisticsSupportCenter() {
                       type="button"
                       disabled={isUpdatingStatus}
                       onClick={() => handleToggleResolve("human")}
-                      className="px-6 py-2.5 sm:py-3 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
+                      className="px-6 py-2.5 sm:py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                     >
                       {isUpdatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>Re-open Ticket</span>

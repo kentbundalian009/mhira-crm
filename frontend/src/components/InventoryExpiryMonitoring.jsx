@@ -460,8 +460,7 @@ function InventoryExpiryMonitoring() {
   const renderStatusBadge = (item) => {
     if (item.status === 'Disposed') {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md font-semibold border border-slate-200 whitespace-nowrap">
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+        <span className="inline-flex items-center text-[10px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full font-bold border border-red-200 whitespace-nowrap">
           Disposed
         </span>
       );
@@ -469,31 +468,27 @@ function InventoryExpiryMonitoring() {
     const days = item.daysUntilExpiry;
     if (days <= 0) {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-md font-semibold border border-rose-200 whitespace-nowrap">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+        <span className="inline-flex items-center text-[10px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full font-bold border border-red-200 whitespace-nowrap">
           Expired ({Math.abs(days)}d ago)
         </span>
       );
     }
     if (days <= 30) {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-md font-semibold border border-rose-200 whitespace-nowrap">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+        <span className="inline-flex items-center text-[10px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full font-bold border border-red-200 whitespace-nowrap">
           Critical ({days}d left)
         </span>
       );
     }
     if (days <= 60) {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-md font-semibold border border-amber-300 whitespace-nowrap">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+        <span className="inline-flex items-center text-[10px] text-yellow-800 bg-yellow-50 px-2 py-0.5 rounded-full font-bold border border-yellow-300 whitespace-nowrap">
           Near Expiry ({days}d left)
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md font-semibold border border-emerald-200 whitespace-nowrap">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+      <span className="inline-flex items-center text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full font-bold border border-blue-200 whitespace-nowrap">
         Safe ({days}d left)
       </span>
     );
@@ -501,7 +496,7 @@ function InventoryExpiryMonitoring() {
 
   const renderCategoryBadge = (category) => {
     return (
-      <span className="font-semibold text-slate-800 text-xs sm:text-sm">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
         {category || 'General'}
       </span>
     );
@@ -659,12 +654,12 @@ function InventoryExpiryMonitoring() {
                       if (!showCriticalOnly) setShowExpiredOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs whitespace-nowrap ${showCriticalOnly
-                      ? 'bg-rose-50 text-rose-700 border border-rose-300'
+                      ? 'bg-red-50 text-red-700 border border-red-300 font-bold'
                       : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title="Filter Critical Batches (<= 30 days left)"
                   >
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
                     <span>Critical (≤ 30d)</span>
                     <span className="font-mono text-[11px]">({expiryStats.criticalCount})</span>
                   </button>
@@ -677,7 +672,7 @@ function InventoryExpiryMonitoring() {
                       if (!showExpiredOnly) setShowCriticalOnly(false);
                     }}
                     className={`flex items-center justify-center gap-1.5 px-2 py-1 sm:py-0.5 rounded text-xs font-semibold cursor-pointer transition-colors h-[30px] sm:h-[22px] w-full shadow-2xs whitespace-nowrap ${showExpiredOnly
-                      ? 'bg-red-50 text-red-700 border border-red-300'
+                      ? 'bg-red-50 text-red-700 border border-red-300 font-bold'
                       : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                       }`}
                     title="Filter Expired Batches"
@@ -787,7 +782,7 @@ function InventoryExpiryMonitoring() {
 
                         {/* 3. CATEGORY (Pill Badge) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                             {item.category || 'General'}
                           </span>
                         </td>
@@ -822,14 +817,14 @@ function InventoryExpiryMonitoring() {
                         {/* 8. DAYS REMAINING (Clean Tinted Cell, Dot Removed) */}
                         <td
                           className={`px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none ${item.status === 'Disposed'
-                              ? 'bg-slate-200/60 group-hover:bg-slate-200/80 text-slate-700'
+                              ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                               : isExpired
-                                ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                                 : isCritical
-                                  ? 'bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800'
+                                  ? 'bg-red-500/20 group-hover:bg-red-500/30 text-red-900'
                                   : isNear
-                                    ? 'bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-900'
-                                    : 'bg-emerald-500/20 group-hover:bg-emerald-500/30 text-emerald-900'
+                                    ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30 text-yellow-900'
+                                    : 'bg-blue-500/20 group-hover:bg-blue-500/30 text-blue-900'
                             }`}
                         >
                           <span>
@@ -982,19 +977,19 @@ function InventoryExpiryMonitoring() {
 
               {/* ACTION TO WRITE-OFF IF EXPIRED & NOT YET DISPOSED */}
               {selectedItem.daysUntilExpiry <= 0 && selectedItem.status !== 'Disposed' && (
-                <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3.5 flex items-center justify-between gap-3">
+                <div className="bg-red-50/70 border border-red-200 rounded-xl p-3.5 flex items-center justify-between gap-3">
                   <div>
-                    <span className="font-bold text-rose-800 text-xs block">
+                    <span className="font-bold text-red-800 text-xs block">
                       Shelf Life Expired
                     </span>
-                    <span className="text-[11px] text-rose-600">
+                    <span className="text-[11px] text-red-600">
                       This batch has reached 0 days remaining and should be formally written off.
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => openDisposeModal(selectedItem)}
-                    className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
                   >
                     <span>Write-Off Stock</span>
                   </button>
@@ -1014,9 +1009,9 @@ function InventoryExpiryMonitoring() {
               <button
                 type="button"
                 onClick={() => handleDownloadExpiryPdf(selectedItem)}
-                className="px-5 py-2.5 sm:py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-rose-200 flex items-center gap-1.5 whitespace-nowrap"
+                className="px-5 py-2.5 sm:py-3 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
               >
-                <FileDown className="w-3.5 h-3.5 text-rose-600" />
+                <FileDown className="w-3.5 h-3.5 text-blue-600" />
                 <span>Download Slip</span>
               </button>
             </div>
@@ -1028,12 +1023,12 @@ function InventoryExpiryMonitoring() {
       {disposeModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-rose-50/80 shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-red-50/80 shrink-0">
               <div>
-                <h3 className="text-sm font-bold text-rose-900 whitespace-nowrap">
+                <h3 className="text-sm font-bold text-red-900 whitespace-nowrap">
                   Dispose Expired Batch ({disposeModalItem.batchNo})
                 </h3>
-                <p className="text-xs text-rose-700">Write off stock past shelf life</p>
+                <p className="text-xs text-red-700">Write off stock past shelf life</p>
               </div>
               <button
                 type="button"
@@ -1046,7 +1041,7 @@ function InventoryExpiryMonitoring() {
 
             <form onSubmit={handleConfirmDisposal} className="flex flex-col flex-1 overflow-hidden">
               <div className="p-6 flex flex-col gap-4 overflow-y-auto text-xs sm:text-sm">
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-900">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-red-900">
                   <p className="text-xs">
                     Batch expired on <strong>{disposeModalItem.expiryDate}</strong>. Confirming removal from active inventory.
                   </p>
@@ -1073,7 +1068,7 @@ function InventoryExpiryMonitoring() {
                     value={disposalForm.reason}
                     onChange={(e) => setDisposalForm({ ...disposalForm, reason: e.target.value })}
                     required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-rose-500 cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-red-500 cursor-pointer"
                   >
                     <option>Expired Stock / Shelf Life Exceeded</option>
                     <option>Degraded Quality / Chemical Breakdown</option>
@@ -1086,7 +1081,7 @@ function InventoryExpiryMonitoring() {
                     value={disposalForm.notes}
                     onChange={(e) => setDisposalForm({ ...disposalForm, notes: e.target.value })}
                     placeholder="Enter formal write-off remarks..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-rose-500 resize-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-red-500 resize-none"
                   />
                 </div>
               </div>
@@ -1102,7 +1097,7 @@ function InventoryExpiryMonitoring() {
                 <button
                   type="submit"
                   disabled={disposing}
-                  className="px-6 py-2.5 sm:py-3 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                  className="px-6 py-2.5 sm:py-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
                 >
                   {disposing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   <span>Confirm Write-Off</span>

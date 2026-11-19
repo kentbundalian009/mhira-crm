@@ -662,22 +662,22 @@ function LogisticsReturnManagement() {
     switch (s) {
       case 'approved':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
             Approved
           </span>
         );
       case 'rejected':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 border border-rose-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
             Rejected
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 px-2.5 py-0.5 rounded-md font-semibold text-xs whitespace-nowrap shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+          <span className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
             Pending Review
           </span>
         );
@@ -726,10 +726,10 @@ function LogisticsReturnManagement() {
               onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'pending'
                   ? (counts.pending || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-rose-50/80 font-bold shadow-2xs'
+                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
                     : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
                   : (counts.pending || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-rose-50/40'
+                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by Pending Return Requests"
@@ -743,7 +743,7 @@ function LogisticsReturnManagement() {
                   className={`h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 leading-none shadow-xs ${counts.pending > 99 ? 'min-w-5 px-1' : 'w-5 aspect-square'
                     } ${activeTab === 'pending'
                       ? 'bg-[#c81e1e] text-white'
-                      : 'bg-rose-100 text-[#c81e1e] border border-rose-200'
+                      : 'bg-red-50 text-red-700 border border-red-200'
                     }`}
                   title={`${counts.pending} Pending Return Requests`}
                 >
@@ -798,10 +798,10 @@ function LogisticsReturnManagement() {
                 <button
                   type="button"
                   onClick={handleOpenScrapModal}
-                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-700 hover:text-rose-800 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-red-50 text-red-700 hover:text-red-800 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                   title="Loss Prevention & Scrap Audit Log"
                 >
-                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" />
                   <span className="truncate">Scrap Audit Log</span>
                 </button>
                 <button
@@ -815,9 +815,9 @@ function LogisticsReturnManagement() {
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
+                  className="flex items-center gap-1.5 px-2 py-1 lg:py-0.5 rounded bg-slate-50 lg:bg-transparent border border-slate-200/80 lg:border-transparent hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors text-xs font-semibold cursor-pointer text-left w-full h-[28px] lg:h-[22px]"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <RotateCcw className="w-3.5 h-3.5 text-red-600 shrink-0" />
                   <span className="truncate">Reset Filters</span>
                 </button>
               </div>
@@ -899,7 +899,7 @@ function LogisticsReturnManagement() {
                         e.stopPropagation();
                         setSelectedDate('');
                       }}
-                      className="absolute right-1.5 top-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      className="absolute right-1.5 top-1 text-slate-400 hover:text-red-600 cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -947,7 +947,7 @@ function LogisticsReturnManagement() {
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'pending'
-                    ? 'bg-amber-50 border-amber-600 text-amber-700 font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -958,7 +958,7 @@ function LogisticsReturnManagement() {
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'approved' ? 'all' : 'approved')}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs ${activeTab === 'approved'
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -972,7 +972,7 @@ function LogisticsReturnManagement() {
                     setSelectedDate(selectedDate === todayStr ? '' : todayStr);
                   }}
                   className={`h-[30px] sm:h-[22px] text-xs px-2 rounded border font-medium flex items-center justify-center cursor-pointer transition-colors shadow-2xs sm:col-span-2 md:col-span-1 ${selectedDate === new Date().toISOString().split('T')[0]
-                    ? 'bg-emerald-50 border-[#01390f] text-[#01390f] font-semibold'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-600'
                     }`}
                 >
@@ -1098,7 +1098,7 @@ function LogisticsReturnManagement() {
                           title={req.reason || 'N/A'}
                         >
                           <div className="flex items-center gap-1.5 truncate">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <AlertCircle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
                             <span className="truncate">{req.reason || 'Damaged / Defective'}</span>
                           </div>
                         </td>
@@ -1331,7 +1331,7 @@ function LogisticsReturnManagement() {
                 {/* TAB 1: RMA REVIEW WORKSPACE */}
                 {activeDrawerTab === 'review' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
-                    <div className="bg-emerald-50/70 border border-emerald-200/80 p-4 rounded-2xl flex items-center justify-between">
+                    <div className="bg-blue-50/70 border border-blue-200/80 p-4 rounded-2xl flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-[#01390f] text-white flex items-center justify-center">
                           <RotateCcw className="w-5 h-5" />
@@ -1347,7 +1347,7 @@ function LogisticsReturnManagement() {
                       <button
                         type="button"
                         onClick={() => handleDownloadReturnPdf(selectedReturn)}
-                        className="bg-white hover:bg-emerald-100 text-[#01390f] border border-emerald-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        className="bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
                       >
                         <FileDown className="w-3.5 h-3.5" />
                         <span>RMA Slip</span>
@@ -1404,7 +1404,7 @@ function LogisticsReturnManagement() {
                   <div className="space-y-4 animate-in fade-in duration-150">
                     <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-sm space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">
                           QUALITY ASSURANCE & DISPOSITION WORKSPACE
                         </span>
                         <span className="text-xs font-mono bg-white/10 px-2 py-0.5 rounded text-white">
@@ -1427,7 +1427,7 @@ function LogisticsReturnManagement() {
                         {/* Option 1: Return to Inventory */}
                         <label
                           className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Return to Inventory'
-                            ? 'border-[#01390f] bg-emerald-50/50 shadow-xs'
+                            ? 'border-[#01390f] bg-blue-50/50 shadow-xs'
                             : 'border-slate-200 bg-white hover:border-slate-300'
                             }`}
                         >
@@ -1453,7 +1453,7 @@ function LogisticsReturnManagement() {
                         {/* Option 2: Dispose / Scrap */}
                         <label
                           className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Dispose/Scrap'
-                            ? 'border-rose-500 bg-rose-50/50 shadow-xs'
+                            ? 'border-red-500 bg-red-50/50 shadow-xs'
                             : 'border-slate-200 bg-white hover:border-slate-300'
                             }`}
                         >
@@ -1463,11 +1463,11 @@ function LogisticsReturnManagement() {
                             value="Dispose/Scrap"
                             checked={restockAction === 'Dispose/Scrap'}
                             onChange={(e) => setRestockAction(e.target.value)}
-                            className="mt-1 accent-rose-600"
+                            className="mt-1 accent-red-600"
                           />
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 font-bold text-rose-900 text-xs">
-                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                            <div className="flex items-center gap-1.5 font-bold text-red-900 text-xs">
+                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
                               <span>Dispose / Scrap</span>
                             </div>
                             <span className="text-[11px] text-slate-500 mt-1 leading-snug">
@@ -1508,7 +1508,7 @@ function LogisticsReturnManagement() {
                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
                       <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
                         <span>Approver / Inspector Name </span>
-                        <span className="text-rose-600">*</span>
+                        <span className="text-red-600">*</span>
                         <span className="text-[10px] text-slate-400 font-normal lowercase ml-1">
                           (strictly required to prevent shrinkage/theft)
                         </span>
@@ -1524,19 +1524,19 @@ function LogisticsReturnManagement() {
 
                     {/* SCRAP REASON INPUT (IF DISPOSE / SCRAP SELECTED) */}
                     {restockAction === 'Dispose/Scrap' && (
-                      <div className="bg-rose-50/60 p-4 rounded-2xl border border-rose-200 space-y-2 animate-in fade-in duration-200">
-                        <label className="text-xs font-bold text-rose-900 uppercase tracking-wider block">
+                      <div className="bg-red-50/60 p-4 rounded-2xl border border-red-200 space-y-2 animate-in fade-in duration-200">
+                        <label className="text-xs font-bold text-red-900 uppercase tracking-wider block">
                           <span>Reason for Rejection / Scrap Disposal </span>
-                          <span className="text-rose-600">*</span>
+                          <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={dispositionReason}
                           onChange={(e) => setDispositionReason(e.target.value)}
                           placeholder="e.g., Broken bottle seal / contaminated formula / leaking container"
-                          className="w-full bg-white border border-rose-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-rose-600 shadow-2xs"
+                          className="w-full bg-white border border-red-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-red-600 shadow-2xs"
                         />
-                        <div className="flex items-center gap-1.5 text-[11px] text-rose-800 pt-1">
+                        <div className="flex items-center gap-1.5 text-[11px] text-red-800 pt-1">
                           <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                           <span>
                             Items will NOT return to available stock. Automatic audit record will be logged under Order #{selectedReturn.orderId?._id?.slice(-8) || selectedReturn.orderId?.slice(-8) || 'N/A'}.
@@ -1615,10 +1615,10 @@ function LogisticsReturnManagement() {
                           disabled={updating}
                           onClick={() => handleStatusUpdate(selectedReturn._id, 'Approved')}
                           className={`p-3.5 rounded-xl border text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs active:scale-95 disabled:opacity-50 ${restockAction === 'Return to Inventory'
-                            ? 'border-emerald-300 bg-emerald-600 hover:bg-emerald-700'
+                            ? 'border-blue-300 bg-blue-600 hover:bg-blue-700'
                             : restockAction === 'Send Replacement to Client'
                               ? 'border-blue-300 bg-blue-600 hover:bg-blue-700'
-                              : 'border-amber-400 bg-amber-600 hover:bg-amber-700'
+                              : 'border-yellow-400 bg-yellow-500 hover:bg-yellow-600'
                             }`}
                         >
                           {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -1635,7 +1635,7 @@ function LogisticsReturnManagement() {
                           type="button"
                           disabled={updating}
                           onClick={() => handleStatusUpdate(selectedReturn._id, 'Rejected')}
-                          className="p-3.5 rounded-xl border border-rose-300 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs active:scale-95 disabled:opacity-50"
+                          className="p-3.5 rounded-xl border border-red-300 bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs active:scale-95 disabled:opacity-50"
                         >
                           {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                           <span>Decline / Reject RMA</span>
@@ -1673,7 +1673,7 @@ function LogisticsReturnManagement() {
                         </div>
                         <div className="flex justify-between items-center py-1.5">
                           <span className="text-slate-500">Return Reason Category:</span>
-                          <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          <span className="font-bold text-yellow-800 bg-yellow-50 px-2 py-0.5 rounded-full text-[10px] border border-yellow-300">
                             {selectedReturn.reason || 'Damaged Item'}
                           </span>
                         </div>
@@ -1714,9 +1714,9 @@ function LogisticsReturnManagement() {
                 <button
                   type="button"
                   onClick={() => handleDownloadReturnPdf(selectedReturn)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-rose-200 flex items-center gap-1.5 whitespace-nowrap"
+                  className="px-5 py-2.5 sm:py-3 rounded-full bg-red-50 hover:bg-red-100 text-red-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-red-200 flex items-center gap-1.5 whitespace-nowrap"
                 >
-                  <FileDown className="w-3.5 h-3.5 text-rose-600" />
+                  <FileDown className="w-3.5 h-3.5 text-red-600" />
                   <span>RMA Slip PDF</span>
                 </button>
 
@@ -1759,7 +1759,7 @@ function LogisticsReturnManagement() {
                 <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
                   Rejection & Scrap Audit Log
                 </h3>
-                <span className="text-[10px] bg-rose-50 text-rose-700 px-2.5 py-0.5 rounded-full font-mono font-bold border border-rose-200">
+                <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200">
                   Anti-Shrinkage Audit
                 </span>
               </div>
@@ -1790,13 +1790,13 @@ function LogisticsReturnManagement() {
               </div>
               <div className="bg-white p-3 rounded-xl border border-slate-200/80 flex items-center justify-between shadow-2xs">
                 <span className="text-slate-500 font-medium">Total Quantity Scrapped:</span>
-                <span className="font-mono font-black text-rose-600 text-sm">
+                <span className="font-mono font-black text-red-600 text-sm">
                   {scrapLogs.reduce((acc, cur) => acc + (Number(cur.quantity) || 0), 0).toLocaleString()} units
                 </span>
               </div>
               <div className="bg-white p-3 rounded-xl border border-slate-200/80 flex items-center justify-between shadow-2xs">
                 <span className="text-slate-500 font-medium">Mandatory Attribution:</span>
-                <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
+                <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full text-[10px] border border-blue-200">
                   100% Enforced
                 </span>
               </div>
@@ -1913,7 +1913,7 @@ function LogisticsReturnManagement() {
 
                         {/* 4. ITEM TYPE (Pill Badge) */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#01390f] border border-emerald-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                             {log.itemType}
                           </span>
                         </td>
@@ -1938,13 +1938,13 @@ function LogisticsReturnManagement() {
 
                         {/* 8. APPROVER */}
                         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                             {log.approverName}
                           </span>
                         </td>
 
                         {/* 9. DISPOSITION (Status Tinted Cell) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none bg-rose-500/20 group-hover:bg-rose-500/30 text-rose-800">
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold transition-colors select-none bg-red-500/20 group-hover:bg-red-500/30 text-red-900">
                           <span>{log.disposition || 'Scrap / Dispose'}</span>
                         </td>
                       </tr>

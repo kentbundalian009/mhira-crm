@@ -75,7 +75,17 @@ export const invalidateProductsCache = () => {
     lastPublicProductsTime = 0;
 };
 
-// 1. Fetch Public Products for Customers (OurCollection.jsx & Navbar)
+const normalizeProductCode = (code) => {
+    const raw = String(code || '').toLowerCase().trim();
+    if (!raw) return '';
+    const fgMatch = raw.match(/^(?:fg-inv-|fg-?)0*(\d+)$/i);
+    if (fgMatch) return `fg-${fgMatch[1]}`;
+    const pkgMatch = raw.match(/^(?:pkg-?)0*(\d+)$/i);
+    if (pkgMatch) return `pkg-${pkgMatch[1]}`;
+    return raw;
+};
+
+// 1. Fetch Public Products for Customers (OurCollection.jsx, CustomerPackageSet.jsx & Navbar)
 export const getPublicProducts = async (req, res) => {
     try {
         const { search, category, navbarTag } = req.query;
@@ -83,33 +93,136 @@ export const getPublicProducts = async (req, res) => {
         let combined = [];
 
         // Check if raw public products exist in cache
-        if (cachedPublicProducts && Array.isArray(cachedPublicProducts) && cachedPublicProducts.length > 0 && now - lastPublicProductsTime < CACHE_TTL_MS) {
+        if (cachedPublicProducts !== null && Array.isArray(cachedPublicProducts) && now - lastPublicProductsTime < CACHE_TTL_MS) {
             combined = cachedPublicProducts;
         } else {
-            // Fetch from Marketing Collections & Inventory Products (Lean fast parallel queries)
-            const [marketingDocs, inventoryDocs] = await Promise.all([
-                Collection.find({ isPublished: { $ne: false }, isArchived: { $ne: true } }).lean().maxTimeMS(8000).catch(() => []),
-                Product.find({ isArchived: { $ne: true } }).lean().maxTimeMS(8000).catch(() => [])
+            // Fetch all Marketing Collections & Inventory Products so we can accurately cross-check archive states
+            const [allMarketingDocs, allInventoryDocs] = await Promise.all([
+                Collection.find({}).lean().maxTimeMS(8000).catch(() => []),
+                Product.find({}).lean().maxTimeMS(8000).catch(() => [])
             ]);
 
-            const mktMap = new Map();
-            marketingDocs.forEach((m) => {
-                if (m.code) mktMap.set((m.code || '').toLowerCase().trim(), m);
-                if (m._id) mktMap.set(String(m._id), m);
-            });
-
             const invMap = new Map();
-            inventoryDocs.forEach((inv) => {
-                if (inv.code) invMap.set((inv.code || '').toLowerCase().trim(), inv);
+            const invNameMap = new Map();
+            allInventoryDocs.forEach((inv) => {
+                if (!inv) return;
                 if (inv._id) invMap.set(String(inv._id), inv);
+                const rawCode = (inv.code || '').toLowerCase().trim();
+                const normCode = normalizeProductCode(inv.code);
+                if (rawCode) invMap.set(rawCode, inv);
+                if (normCode) invMap.set(normCode, inv);
+                const nameKey = (inv.itemName || '').toLowerCase().trim();
+                const descKey = (inv.itemDescription || '').toLowerCase().trim();
+                if (nameKey) invNameMap.set(nameKey, inv);
+                if (descKey) invNameMap.set(descKey, inv);
             });
 
+            const mktMap = new Map();
+            const mktByProductMap = new Map();
             const seenCodes = new Set();
             const seenIds = new Set();
+            const seenNames = new Set();
+
+            allMarketingDocs.forEach((m) => {
+                if (!m) return;
+                const mId = m._id ? String(m._id) : '';
+                const mRef = m.productRef ? String(m.productRef?._id || m.productRef?.id || m.productRef) : '';
+                const rawCode = (m.code || '').toLowerCase().trim();
+                const normCode = normalizeProductCode(m.code);
+                const mName = (m.itemName || m.itemDescription || '').toLowerCase().trim();
+
+                if (mId) {
+                    mktMap.set(mId, m);
+                    seenIds.add(mId);
+                }
+                if (mRef) {
+                    mktMap.set(mRef, m);
+                    seenIds.add(mRef);
+                }
+                if (rawCode) {
+                    mktMap.set(rawCode, m);
+                    seenCodes.add(rawCode);
+                }
+                if (normCode) {
+                    mktMap.set(normCode, m);
+                    seenCodes.add(normCode);
+                }
+                if (mName) {
+                    seenNames.add(mName);
+                }
+
+                const isBundleDoc = Boolean(
+                    m.isBundle ||
+                    m.category === 'Package Sets' ||
+                    m.category === 'Package Set' ||
+                    m.navbarTag === 'Package Sets' ||
+                    (Array.isArray(m.bundleItems) && m.bundleItems.length > 0)
+                );
+
+                if (!isBundleDoc) {
+                    if (mId) mktByProductMap.set(mId, m);
+                    if (mRef) mktByProductMap.set(mRef, m);
+                    if (rawCode) mktByProductMap.set(rawCode, m);
+                    if (normCode) mktByProductMap.set(normCode, m);
+                    if (mName) mktByProductMap.set(mName, m);
+                }
+            });
 
             // 1. Process Marketing Docs first (contains exact prices ₱300, ₱280, ₱250, ₱225)
-            for (const mkt of marketingDocs) {
-                const matchedInv = (mkt.code && invMap.get((mkt.code || '').toLowerCase().trim())) || (mkt.productRef && invMap.get(String(mkt.productRef)));
+            for (const mkt of allMarketingDocs) {
+                if (!mkt) continue;
+
+                // Exclude if archived or draft in Products Catalog / Package Sets
+                if (mkt.isArchived === true || mkt.isPublished === false) {
+                    continue;
+                }
+
+                const rawCode = (mkt.code || '').toLowerCase().trim();
+                const normCode = normalizeProductCode(mkt.code);
+                const mRef = mkt.productRef ? String(mkt.productRef?._id || mkt.productRef?.id || mkt.productRef) : '';
+                const mName = (mkt.itemName || mkt.itemDescription || '').toLowerCase().trim();
+
+                const matchedInv =
+                    (mRef && invMap.get(mRef)) ||
+                    (rawCode && invMap.get(rawCode)) ||
+                    (normCode && invMap.get(normCode)) ||
+                    (mName && invNameMap.get(mName));
+
+                // Exclude if the corresponding Finished Good is archived in Inventory -> Finished Goods
+                if (matchedInv && matchedInv.isArchived === true) {
+                    continue;
+                }
+
+                // If this is a Package Set / Bundle, exclude if any bundled product is archived in Finished Goods or Products Catalog
+                if (Array.isArray(mkt.bundleItems) && mkt.bundleItems.length > 0) {
+                    const hasArchivedBundleItem = mkt.bundleItems.some((bi) => {
+                        if (!bi) return false;
+                        const biRef = bi.productRef ? String(bi.productRef?._id || bi.productRef?.id || bi.productRef) : '';
+                        const biCode = (bi.code || '').toLowerCase().trim();
+                        const biNormCode = normalizeProductCode(bi.code);
+                        const biName = (bi.itemName || bi.itemDescription || '').toLowerCase().trim();
+
+                        const biInv =
+                            (biRef && invMap.get(biRef)) ||
+                            (biCode && invMap.get(biCode)) ||
+                            (biNormCode && invMap.get(biNormCode)) ||
+                            (biName && invNameMap.get(biName));
+                        if (biInv && biInv.isArchived === true) return true;
+
+                        const biMkt =
+                            (biRef && mktByProductMap.get(biRef)) ||
+                            (biCode && mktByProductMap.get(biCode)) ||
+                            (biNormCode && mktByProductMap.get(biNormCode));
+                        if (biMkt && (biMkt.isArchived === true || biMkt.isPublished === false)) return true;
+
+                        return false;
+                    });
+
+                    if (hasArchivedBundleItem) {
+                        continue;
+                    }
+                }
+
                 const syncedTitle = matchedInv?.itemName || matchedInv?.itemDescription || mkt.itemName || mkt.itemDescription || 'Mhira Natural Product';
                 const item = {
                     ...mkt,
@@ -124,48 +237,50 @@ export const getPublicProducts = async (req, res) => {
                     uom: mkt.uom || matchedInv?.uom || 'ML',
                     bundleItems: mkt.bundleItems || [],
                     isBundle: Boolean(mkt.isBundle || mkt.category === 'Package Sets' || (mkt.bundleItems && mkt.bundleItems.length > 0)),
+                    isArchived: false,
                 };
                 combined.push(item);
-                if (mkt.code) seenCodes.add((mkt.code || '').toLowerCase().trim());
-                if (mkt._id) seenIds.add(String(mkt._id));
             }
 
-            // 2. Add any additional inventory products not yet in marketing
-            for (const inv of inventoryDocs) {
+            // 2. Add any additional active inventory products not yet in marketing catalog
+            for (const inv of allInventoryDocs) {
+                if (!inv || inv.isArchived === true) continue;
                 const invCode = (inv.code || '').toLowerCase().trim();
+                const normCode = normalizeProductCode(inv.code);
                 const invId = String(inv._id);
-                if (!seenCodes.has(invCode) && !seenIds.has(invId)) {
+                const invName = (inv.itemName || inv.itemDescription || '').toLowerCase().trim();
+                if (
+                    !seenCodes.has(invCode) &&
+                    (!normCode || !seenCodes.has(normCode)) &&
+                    !seenIds.has(invId) &&
+                    (!invName || !seenNames.has(invName))
+                ) {
                     const formatted = formatInventoryToStorefront(inv);
-                    const matchingMkt = mktMap.get(invCode);
-                    if (matchingMkt) {
-                        if (matchingMkt.price) formatted.price = matchingMkt.price;
-                        if (matchingMkt.image) formatted.image = matchingMkt.image;
-                        if (matchingMkt.images?.length > 0) formatted.images = matchingMkt.images;
-                        if (matchingMkt.category) formatted.category = matchingMkt.category;
-                    }
                     combined.push(formatted);
-                    seenCodes.add(invCode);
+                    if (invCode) seenCodes.add(invCode);
+                    if (normCode) seenCodes.add(normCode);
+                    if (invName) seenNames.add(invName);
                     seenIds.add(invId);
                 }
             }
 
-            // If empty, fallback to active database direct query
-            if (combined.length === 0) {
+            // Fallback to direct DB query only if Mongoose queries returned nothing at all
+            if (allMarketingDocs.length === 0 && allInventoryDocs.length === 0) {
                 try {
                     const db = mongoose.connection.db;
                     if (db) {
-                        const directProds = await db.collection('products').find({}).toArray();
+                        const directProds = await db.collection('products').find({ isArchived: { $ne: true } }).toArray();
                         for (const dp of directProds) {
-                            combined.push(formatInventoryToStorefront(dp));
+                            if (!dp.isArchived) {
+                                combined.push(formatInventoryToStorefront(dp));
+                            }
                         }
                     }
                 } catch (e) {}
             }
 
-            if (combined.length > 0) {
-                cachedPublicProducts = combined;
-                lastPublicProductsTime = Date.now();
-            }
+            cachedPublicProducts = combined;
+            lastPublicProductsTime = Date.now();
         }
 
         // Apply filtering in-memory
@@ -254,8 +369,38 @@ export const getPublicProductById = async (req, res) => {
             }
         }
 
-        if (!product) {
+        if (!product || product.isArchived === true || product.isPublished === false) {
             return res.status(404).json({ message: 'Product not found' });
+        }
+
+        // Verify that neither the Marketing Catalog entry nor the Inventory Finished Good is archived
+        if (product.productRef || product.code || product._id) {
+            const invOrConds = [];
+            const mktOrConds = [];
+            if (product.productRef && mongoose.Types.ObjectId.isValid(product.productRef)) {
+                invOrConds.push({ _id: product.productRef });
+                mktOrConds.push({ productRef: product.productRef });
+            }
+            if (product._id && mongoose.Types.ObjectId.isValid(product._id)) {
+                mktOrConds.push({ productRef: product._id });
+            }
+            if (product.code) {
+                const codeRegex = new RegExp(`^${String(product.code).trim()}$`, 'i');
+                invOrConds.push({ code: codeRegex });
+                mktOrConds.push({ code: codeRegex });
+            }
+            if (invOrConds.length > 0) {
+                const linkedInv = await Product.findOne({ $or: invOrConds }).lean().catch(() => null);
+                if (linkedInv && linkedInv.isArchived === true) {
+                    return res.status(404).json({ message: 'Product is archived' });
+                }
+            }
+            if (mktOrConds.length > 0) {
+                const linkedMkt = await Collection.findOne({ $or: mktOrConds }).lean().catch(() => null);
+                if (linkedMkt && (linkedMkt.isArchived === true || linkedMkt.isPublished === false)) {
+                    return res.status(404).json({ message: 'Product is archived or unpublished' });
+                }
+            }
         }
 
         const normalized = {
@@ -342,17 +487,7 @@ export const getInventoryProducts = async (req, res) => {
             .lean()
             .maxTimeMS(8000);
 
-        if (products && products.length > 0) {
-            return res.status(200).json(products);
-        }
-
-        const db = mongoose.connection.db;
-        if (db) {
-            const direct = await db.collection('products').find({}).toArray();
-            return res.status(200).json(direct || []);
-        }
-
-        return res.status(200).json([]);
+        return res.status(200).json(products || []);
     } catch (error) {
         return res.status(500).json({ message: 'Error fetching inventory products', error: error.message });
     }
