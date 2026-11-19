@@ -310,6 +310,77 @@ function LogisticsOrderManagement() {
     fetchOrders(true);
   });
 
+  // Finished Goods Inventory Stock Integration (Accurate stock from InventoryFinishedGoods)
+  const [finishedGoodsList, setFinishedGoodsList] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_inventory_products');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const fetchFinishedGoods = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/inventory-products`).catch(async () => {
+        return await axios.get(`${API_BASE_URL}/products`).catch(() => ({ data: [] }));
+      });
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      if (Array.isArray(data) && data.length > 0) {
+        setFinishedGoodsList(data);
+        try {
+          localStorage.setItem('cached_inventory_products', JSON.stringify(data));
+        } catch {}
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    fetchFinishedGoods();
+  }, [fetchFinishedGoods]);
+
+  useLiveSync(['products', 'inventory', 'inventory_products'], () => {
+    fetchFinishedGoods();
+  });
+
+  const getProductInventoryStock = useCallback((it) => {
+    if (!it) return 0;
+    const pId = String(it.product?._id || it.product?.id || it.product || it.productId || '');
+    const pCode = String(it.code || it.product?.code || '').trim().toLowerCase();
+    const pName = String(it.name || it.product?.name || it.product?.itemName || it.product?.itemDescription || '').trim().toLowerCase();
+
+    let matched = null;
+    if (pId && pId.length >= 12) {
+      matched = finishedGoodsList.find((p) => String(p._id) === pId);
+    }
+    if (!matched && pCode) {
+      matched = finishedGoodsList.find((p) => p.code && p.code.toLowerCase() === pCode);
+    }
+    if (!matched && pName) {
+      matched = finishedGoodsList.find(
+        (p) =>
+          (p.itemName && p.itemName.toLowerCase() === pName) ||
+          (p.itemDescription && p.itemDescription.toLowerCase() === pName) ||
+          (p.itemName && pName.includes(p.itemName.toLowerCase())) ||
+          (p.itemDescription && pName.includes(p.itemDescription.toLowerCase()))
+      );
+    }
+
+    if (matched && typeof matched.quantity !== 'undefined') {
+      return Number(matched.quantity ?? 0);
+    }
+
+    if (typeof it.inventoryStock === 'number') {
+      return it.inventoryStock;
+    }
+
+    if (it.product && typeof it.product.quantity === 'number') {
+      return it.product.quantity;
+    }
+
+    return 0;
+  }, [finishedGoodsList]);
+
   useEffect(() => {
     fetchOrders(true);
 
@@ -2139,13 +2210,7 @@ function LogisticsOrderManagement() {
                               const itemSpec = it.specification || it.product?.specification || it.product?.spec;
                               const itemUom = it.uom || it.product?.uom || 'PCS';
                               const qty = Number(it.quantity || 1);
-                              const stockQty = Number(
-                                it.inventoryStock !== undefined
-                                  ? it.inventoryStock
-                                  : it.product?.quantity !== undefined
-                                  ? it.product.quantity
-                                  : 50
-                              );
+                              const stockQty = getProductInventoryStock(it);
                               const hasEnoughStock = stockQty >= qty;
 
                               return (
@@ -2734,16 +2799,19 @@ function LogisticsOrderManagement() {
                             isPending: true,
                           };
 
-                          displayTimeline = [orderPlacedItem, confirmationItem];
+                          // Sort: Pending / Latest stage at top (index 0), earlier completed stage at bottom (index 1)
+                          displayTimeline = [confirmationItem, orderPlacedItem];
                         } else {
-                          // For confirmed or in-transit orders, map timeline items and ensure names match
-                          displayTimeline = rawTimeline.map((item) => {
-                            let title = item.title;
-                            if (title.toLowerCase().includes('confirmed')) {
-                              title = 'Order Confirmation / Called Order';
-                            }
-                            return { ...item, title };
-                          });
+                          // For confirmed or in-transit orders, map timeline items and sort reverse chronological (newest at top)
+                          displayTimeline = rawTimeline
+                            .map((item) => {
+                              let title = item.title;
+                              if (title.toLowerCase().includes('confirmed')) {
+                                title = 'Order Confirmation / Called Order';
+                              }
+                              return { ...item, title };
+                            })
+                            .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
                         }
 
                         if (displayTimeline.length === 0) {
@@ -2779,8 +2847,6 @@ function LogisticsOrderManagement() {
                                     className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${
                                       isCancellation
                                         ? 'bg-red-500'
-                                        : isWarning
-                                        ? 'bg-amber-400'
                                         : 'bg-blue-600'
                                     }`}
                                   />

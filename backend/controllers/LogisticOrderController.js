@@ -419,36 +419,39 @@ const attachUserDetailsToOrders = async (orders) => {
       if (u.username) userMap.set(u.username.toLowerCase(), u);
     }
 
-    // Lookup live inventory stock for items
-    const pIds = [];
-    for (const ord of orders) {
-      for (const it of (ord.items || [])) {
-        const id = it.product?._id || it.product?.id || it.product || it.productId;
-        if (id && mongoose.Types.ObjectId.isValid(id)) pIds.push(id);
-      }
-    }
-    const productMap = new Map();
-    if (pIds.length > 0) {
-      const prods = await Product.find({ _id: { $in: pIds } }, "quantity code itemName itemDescription")
-        .lean()
-        .maxTimeMS(3000)
-        .catch(() => []);
-      for (const p of prods) {
-        productMap.set(String(p._id), p);
-      }
+    // Lookup exact Finished Goods products from Product inventory
+    const allFinishedGoods = await Product.find({}, "code itemName itemDescription quantity specification uom image")
+      .lean()
+      .maxTimeMS(4000)
+      .catch(() => []);
+
+    const productById = new Map();
+    const productByCode = new Map();
+    const productByName = new Map();
+
+    for (const p of allFinishedGoods) {
+      if (p._id) productById.set(String(p._id), p);
+      if (p.code) productByCode.set(String(p.code).trim().toLowerCase(), p);
+      if (p.itemName) productByName.set(String(p.itemName).trim().toLowerCase(), p);
+      if (p.itemDescription) productByName.set(String(p.itemDescription).trim().toLowerCase(), p);
     }
 
     return orders.map((order) => {
       if (Array.isArray(order.items)) {
         for (const it of order.items) {
           const id = String(it.product?._id || it.product?.id || it.product || it.productId || "");
-          const p = productMap.get(id);
-          if (p) {
-            it.inventoryStock = Number(p.quantity || 0);
+          const code = String(it.code || it.product?.code || "").trim().toLowerCase();
+          const name = String(it.name || it.product?.name || it.product?.itemName || it.product?.itemDescription || "").trim().toLowerCase();
+
+          const matched = productById.get(id) || productByCode.get(code) || productByName.get(name);
+          if (matched) {
+            it.inventoryStock = Number(matched.quantity ?? 0);
+            it.code = it.code || matched.code;
+            it.uom = it.uom || matched.uom;
           } else if (it.product && typeof it.product.quantity === "number") {
             it.inventoryStock = it.product.quantity;
           } else {
-            it.inventoryStock = 50;
+            it.inventoryStock = 0;
           }
         }
       }
