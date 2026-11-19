@@ -123,6 +123,15 @@ function LogisticsOrderManagement() {
     payMongoDetails: null,
   });
 
+  // Cancel Order with Reason Modal State
+  const [cancelOrderModal, setCancelOrderModal] = useState({
+    isOpen: false,
+    order: null,
+    reason: 'Customer requested cancellation',
+    customNote: '',
+    isSubmitting: false,
+  });
+
   // Custom Process Note State
   const [customNote, setCustomNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -856,6 +865,56 @@ function LogisticsOrderManagement() {
       console.error('Error verifying payment:', err);
       showErrorToast('Failed to verify payment status.');
       setPaymentVerifyModal((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  };
+
+  // Open Cancel Order Modal with Reason
+  const handleOpenCancelOrderModal = (order) => {
+    const target = order || selectedOrder;
+    if (!target) return;
+    setCancelOrderModal({
+      isOpen: true,
+      order: target,
+      reason: 'Customer requested cancellation',
+      customNote: '',
+      isSubmitting: false,
+    });
+  };
+
+  // Confirm and Execute Cancellation with Reason
+  const handleConfirmCancelOrder = async () => {
+    if (!cancelOrderModal.order) return;
+    setCancelOrderModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      const orderId = cancelOrderModal.order._id;
+      const combinedReason = cancelOrderModal.customNote.trim()
+        ? `${cancelOrderModal.reason} - ${cancelOrderModal.customNote.trim()}`
+        : cancelOrderModal.reason;
+
+      await handleUpdateStatus(orderId, 'Cancelled', {
+        cancellationReason: combinedReason,
+        timelineEntry: {
+          title: 'Order Cancelled by Staff',
+          description: `Reason: ${combinedReason}`,
+          status: 'Cancelled',
+          actor: 'Logistics Staff',
+        },
+      });
+
+      setCancelOrderModal({
+        isOpen: false,
+        order: null,
+        reason: 'Customer requested cancellation',
+        customNote: '',
+        isSubmitting: false,
+      });
+      setSelectedOrder(null);
+      setActiveTab('cancel');
+      showSuccessToast(`Order #${orderId.slice(-8).toUpperCase()} has been cancelled and moved to Cancel tab.`);
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      showErrorToast('Failed to cancel order.');
+      setCancelOrderModal((prev) => ({ ...prev, isSubmitting: false }));
     }
   };
 
@@ -2385,7 +2444,7 @@ function LogisticsOrderManagement() {
                           <div className="pt-1">
                             <button
                               type="button"
-                              onClick={() => handleUpdateStatus(selectedOrder._id, 'Cancelled')}
+                              onClick={() => handleOpenCancelOrderModal(selectedOrder)}
                               className="w-full py-2 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
                               <XCircle className="w-3.5 h-3.5" />
@@ -2729,45 +2788,9 @@ function LogisticsOrderManagement() {
 
               {/* DRAWER FOOTER ACTIONS */}
               <div className="p-4 bg-slate-100/90 border-t border-slate-200 flex items-center justify-between shrink-0">
-                {getWorkflowStepIndex(selectedOrder.status) > 0 ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadWaybillPdf(selectedOrder)}
-                      className="px-4 py-2 sm:py-2.5 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
-                      title="Download 100x150mm Airway Bill / Shipping Label"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Waybill PDF</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadOrderPdf(selectedOrder)}
-                      className="px-4 py-2 sm:py-2.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-slate-300 flex items-center gap-1.5 whitespace-nowrap"
-                      title="Download A4 Customer Delivery Receipt & Invoice"
-                    >
-                      <FileDown className="w-3.5 h-3.5 text-slate-600" />
-                      <span>Invoice PDF</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div />
-                )}
-
-                <div className="flex items-center gap-2">
-                  {getWorkflowStepIndex(selectedOrder.status) > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedOrder(null)}
-                      className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-                    >
-                      Close
-                    </button>
-                  )}
-
-                  {/* Process-Specific Single Forward Action Button */}
-                  {getWorkflowStepIndex(selectedOrder.status) === 0 && (
+                {getWorkflowStepIndex(selectedOrder.status) === 0 ? (
+                  <div className="flex items-center justify-between w-full">
+                    {/* Confirm Order on the left */}
                     <button
                       type="button"
                       onClick={() => handleUpdateStatus(selectedOrder._id, 'Waiting for Courier')}
@@ -2776,45 +2799,90 @@ function LogisticsOrderManagement() {
                       <Check className="w-3.5 h-3.5" />
                       <span>Confirm Order</span>
                     </button>
-                  )}
 
-                  {getWorkflowStepIndex(selectedOrder.status) === 1 && (
+                    {/* Cancel Order (Circle X Icon) on the far right */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const effTracking = trackingNumber.trim() || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
-                        if (!trackingNumber.trim()) setTrackingNumber(effTracking);
-                        handleUpdateStatus(selectedOrder._id, 'In Transit', {
-                          courier: selectedCourier,
-                          trackingNumber: effTracking,
-                          timelineEntry: 'Handed Over to Courier Rider & Finished Goods Inventory Deducted',
-                        });
-                      }}
-                      className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                      onClick={() => handleOpenCancelOrderModal(selectedOrder)}
+                      title="Cancel Order"
+                      aria-label="Cancel Order"
+                      className="w-10 h-10 rounded-full border border-red-300 bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-all shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer shrink-0"
                     >
-                      <Truck className="w-3.5 h-3.5" />
-                      <span>Handover to Rider & Deduct Stock</span>
+                      <XCircle className="w-5 h-5 text-red-600" />
                     </button>
-                  )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadWaybillPdf(selectedOrder)}
+                        className="px-4 py-2 sm:py-2.5 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
+                        title="Download 100x150mm Airway Bill / Shipping Label"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Waybill PDF</span>
+                      </button>
 
-                  {getWorkflowStepIndex(selectedOrder.status) === 2 && (
-                    <button
-                      type="button"
-                      onClick={handleOpenPodModal}
-                      className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>Mark Delivered (Upload POD)</span>
-                    </button>
-                  )}
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadOrderPdf(selectedOrder)}
+                        className="px-4 py-2 sm:py-2.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-slate-300 flex items-center gap-1.5 whitespace-nowrap"
+                        title="Download A4 Customer Delivery Receipt & Invoice"
+                      >
+                        <FileDown className="w-3.5 h-3.5 text-slate-600" />
+                        <span>Invoice PDF</span>
+                      </button>
+                    </div>
 
-                  {getWorkflowStepIndex(selectedOrder.status) === 3 && (
-                    <span className="px-5 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 flex items-center gap-1.5 whitespace-nowrap">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Order Completed</span>
-                    </span>
-                  )}
-                </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrder(null)}
+                        className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
+                      >
+                        Close
+                      </button>
+
+                      {getWorkflowStepIndex(selectedOrder.status) === 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const effTracking = trackingNumber.trim() || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
+                            if (!trackingNumber.trim()) setTrackingNumber(effTracking);
+                            handleUpdateStatus(selectedOrder._id, 'In Transit', {
+                              courier: selectedCourier,
+                              trackingNumber: effTracking,
+                              timelineEntry: 'Handed Over to Courier Rider & Finished Goods Inventory Deducted',
+                            });
+                          }}
+                          className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>Handover to Rider & Deduct Stock</span>
+                        </button>
+                      )}
+
+                      {getWorkflowStepIndex(selectedOrder.status) === 2 && (
+                        <button
+                          type="button"
+                          onClick={handleOpenPodModal}
+                          className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Mark Delivered (Upload POD)</span>
+                        </button>
+                      )}
+
+                      {getWorkflowStepIndex(selectedOrder.status) === 3 && (
+                        <span className="px-5 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 flex items-center gap-1.5 whitespace-nowrap">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Order Completed</span>
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -2952,6 +3020,110 @@ function LogisticsOrderManagement() {
               >
                 {paymentVerifyModal.isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 <span>Confirm & Mark as Paid</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL ORDER MODAL WITH REASON */}
+      {cancelOrderModal.isOpen && cancelOrderModal.order && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 font-['Poppins',sans-serif]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-red-50 text-red-700 border border-red-200 flex items-center justify-center shadow-xs shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Cancel Order</h3>
+                  <p className="text-[11px] text-slate-500">Provide a reason to cancel this order</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancelOrderModal({ isOpen: false, order: null, reason: 'Customer requested cancellation', customNote: '', isSubmitting: false })}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Order Brief Info */}
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Order ID:</span>
+                <span className="font-mono font-bold text-slate-800">#{cancelOrderModal.order._id?.slice(-8).toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Customer:</span>
+                <span className="font-bold text-slate-900">{cancelOrderModal.order.customerName || cancelOrderModal.order.userId?.name || 'Customer'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Payment:</span>
+                <span className="font-bold text-slate-700">{getDisplayPaymentMethod(cancelOrderModal.order)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                <span className="text-slate-700 font-bold">Total Amount:</span>
+                <span className="font-mono font-black text-slate-900 text-sm">
+                  ₱{Number(cancelOrderModal.order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Reason Selection */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Cancellation Reason: <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={cancelOrderModal.reason}
+                onChange={(e) => setCancelOrderModal((prev) => ({ ...prev, reason: e.target.value }))}
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 cursor-pointer"
+              >
+                <option value="Customer requested cancellation">Customer requested cancellation</option>
+                <option value="Customer unreachable / Invalid contact details">Customer unreachable / Invalid contact details</option>
+                <option value="Wrong delivery address provided">Wrong delivery address provided</option>
+                <option value="Out of stock / item damaged">Out of stock / item damaged</option>
+                <option value="Suspected duplicate or fraudulent order">Suspected duplicate or fraudulent order</option>
+                <option value="Customer changed mind / payment channel">Customer changed mind / payment channel</option>
+                <option value="Other reason">Other reason</option>
+              </select>
+            </div>
+
+            {/* Additional Remarks */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Internal Remarks / Notes (Optional):
+              </label>
+              <textarea
+                rows={2}
+                value={cancelOrderModal.customNote}
+                onChange={(e) => setCancelOrderModal((prev) => ({ ...prev, customNote: e.target.value }))}
+                placeholder="Add additional remarks or details for the audit log..."
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none"
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancelOrderModal({ isOpen: false, order: null, reason: 'Customer requested cancellation', customNote: '', isSubmitting: false })}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-300 transition-all cursor-pointer text-center"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                disabled={cancelOrderModal.isSubmitting}
+                onClick={handleConfirmCancelOrder}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                {cancelOrderModal.isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                <span>Confirm Cancel</span>
               </button>
             </div>
           </div>
