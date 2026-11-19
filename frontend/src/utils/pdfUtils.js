@@ -135,7 +135,10 @@ export const downloadWaybillPdf = (order) => {
   const itemsList = order.items || [];
   const totalItemsCount = itemsList.reduce((acc, it) => acc + (it.quantity || 1), 0);
   itemsList.slice(0, 3).forEach((it) => {
-    doc.text(`• ${(it.name || "Product").substring(0, 38)} (x${it.quantity || 1})`, 7, itemY);
+    const rawName = String(it.name || it.product?.name || it.product?.itemName || "Product");
+    // Only display pure product name without product code or SKU
+    const cleanName = rawName.replace(/^[A-Z0-9]+-[A-Z0-9-]+\s*[-:]*\s*/i, "").replace(/\[.*?\]/g, "").trim() || "Product";
+    doc.text(`• ${cleanName.substring(0, 38)} (x${it.quantity || 1})`, 7, itemY);
     itemY += 3.5;
   });
   if (itemsList.length > 3) {
@@ -156,6 +159,14 @@ export const downloadWaybillPdf = (order) => {
   doc.text("Date Received:", 54, 143.5);
 
   const fileName = `Waybill_${courierName.replace(/\s+/g, "_")}_${trackingNo}.pdf`;
+  try {
+    const blobUrl = doc.output("bloburl");
+    if (blobUrl && typeof window !== "undefined") {
+      window.open(blobUrl, "_blank");
+    }
+  } catch (e) {
+    console.warn("Could not preview waybill in new tab:", e);
+  }
   doc.save(fileName);
   return fileName;
 };

@@ -260,6 +260,9 @@ function LogisticsOrderManagement() {
       }
       fetchOrders(true);
       notifyLiveSync('orders');
+      if (newStatus === 'Waiting for Courier' || newStatus === 'To Ship') {
+        setActiveTab('waiting-courier');
+      }
       if (newStatus === 'In Transit' || newStatus === 'To Receive') {
         showSuccessToast(
           `Order dispatched via ${payload.courier || 'courier'}! Inventory stock deducted from Finished Goods.`
@@ -1763,7 +1766,7 @@ function LogisticsOrderManagement() {
                                 <span>Review</span>
                               </button>
                             )}
-                            {order.status !== 'Order Placed' && (
+                            {getWorkflowStepIndex(order.status) > 0 && (
                               <button
                                 type="button"
                                 onClick={() => handleDownloadWaybillPdf(order)}
