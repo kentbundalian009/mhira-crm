@@ -90,6 +90,37 @@ const formatShippingAddress = (addr) => {
   return String(addr || "");
 };
 
+const getDisplayPaymentMethod = (order) => {
+  if (!order) return "Cash on Delivery";
+  const rawMethod = String(order.paymentMethod || "").trim();
+  const lowerMethod = rawMethod.toLowerCase();
+  const detailType = String(order.paymentDetails?.paymentMethodType || "").toLowerCase().trim();
+
+  const mapTypeToLabel = (t) => {
+    if (!t) return "";
+    if (t.includes("gcash")) return "GCash";
+    if (t.includes("paymaya") || t.includes("maya")) return "Maya";
+    if (t.includes("grab")) return "GrabPay";
+    if (t.includes("billease")) return "BillEase";
+    if (t.includes("dob") || t.includes("bpi") || t.includes("online banking")) return "Online Banking (BPI / UB)";
+    if (t === "card" || (t.includes("card") && !t.includes("e-wallet"))) return "Credit / Debit Card";
+    return "";
+  };
+
+  if (
+    !rawMethod ||
+    lowerMethod.includes("e-wallet / card") ||
+    lowerMethod.includes("e-wallet / online") ||
+    lowerMethod === "paymongo" ||
+    lowerMethod === "paymongo online payment"
+  ) {
+    const mapped = mapTypeToLabel(detailType);
+    if (mapped) return mapped;
+  }
+
+  return rawMethod || "Cash on Delivery";
+};
+
 // ================= INTERACTIVE STAR RATING WIDGET (DRAG & HOVER GLOW) =================
 function StarRatingWidget({
   value = 0,
@@ -343,8 +374,17 @@ function CustomerOrders() {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const isPaymentSuccess = urlParams.get("payment") === "success" || urlParams.get("payment_status") === "success";
+      const isPaymentCancelled = urlParams.get("payment") === "cancelled";
       const sessionId = urlParams.get("session_id") || urlParams.get("sessionId");
       const orderId = urlParams.get("orderId") || urlParams.get("order_id");
+
+      if (isPaymentCancelled) {
+        showErrorToast("Online payment was not completed. Click 'Pay Now' on your order to retry payment.");
+        setActiveTab("Order Placed");
+        fetchOrders();
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
 
       if (isPaymentSuccess && (sessionId || orderId)) {
         const verifyPayment = async () => {
@@ -354,10 +394,10 @@ function CustomerOrders() {
             );
             if (res.data?.paid || res.data?.paymentStatus === "Paid") {
               showSuccessToast("Payment successful! Your order has been placed and is now being prepared for shipping. 🎉");
-              setActiveTab("To Ship");
+              setActiveTab("Waiting for Courier");
             } else {
               showSuccessToast("Payment session received! Order status will update shortly.");
-              setActiveTab("To Pay");
+              setActiveTab("Order Placed");
             }
           } catch (err) {
             console.error("Payment verification check:", err);
@@ -886,7 +926,7 @@ function CustomerOrders() {
       doc.setTextColor(100, 116, 139);
       doc.text("Payment :", 145, 63);
       doc.setTextColor(15, 23, 42);
-      doc.text(order.paymentMethod || "Cash on Delivery", 168, 63);
+      doc.text(getDisplayPaymentMethod(order), 168, 63);
 
       const startTableY = Math.max(addrBottomY + 7, 72);
 
@@ -1055,7 +1095,7 @@ function CustomerOrders() {
         doc.text("PREPAID / NON-COD  [ DO NOT COLLECT CASH ]", 7, 41);
         doc.setFontSize(8);
         const refStr = order.paymentDetails?.referenceNumber ? ` | Ref: ${order.paymentDetails.referenceNumber}` : "";
-        doc.text(`PAID ONLINE (${order.paymentDetails?.paymentMethodType || order.paymentMethod || "E-PAYMENT"}${refStr}) - PHP ${totalAmount}`, 7, 46.5);
+        doc.text(`PAID ONLINE (${getDisplayPaymentMethod(order)}${refStr}) - PHP ${totalAmount}`, 7, 46.5);
       }
 
       // 4. Consignee (Receiver / TO)
@@ -1487,6 +1527,16 @@ function CustomerOrders() {
               const isToReceive = (sLower === "in transit" || sLower === "to receive" || sLower === "shipped" || sLower === "out for delivery") && !isDelivered && !isCompleted && !isCancelled;
               const isToShip = (sLower === "waiting for courier" || sLower === "waiting-courier" || sLower === "to ship" || sLower === "processing" || sLower === "preparing") && !isCancelled && !isCompleted && !isToReceive && !isDelivered;
               const isToPay = !isCancelled && !isReturned && !isCompleted && !isDelivered && !isToShip && !isToReceive;
+              const displayPaymentMethod = getDisplayPaymentMethod(order);
+              const isCodOrder =
+                displayPaymentMethod.toLowerCase().includes("cod") ||
+                displayPaymentMethod.toLowerCase().includes("cash on delivery");
+              const isPaidOrder =
+                (order.paymentStatus || "").toLowerCase() === "paid" ||
+                isCompleted ||
+                isDelivered;
+              const needsOnlinePayment =
+                !isCodOrder && !isPaidOrder && !isCancelled && !isReturned && isToPay;
 
               const orderIdDisplay = order._id ? String(order._id).slice(-12).toUpperCase() : "ORD-0000";
               const rawOrderId = order._id ? String(order._id) : "";
@@ -1738,26 +1788,24 @@ function CustomerOrders() {
                   <div className="px-4 sm:px-6 py-3.5 bg-slate-50/40 border-t border-[#E1E9EF] flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
-                        {order.paymentMethod || "Cash on Delivery"}
+                        {displayPaymentMethod}
                       </span>
                       {(() => {
-                        const isCod = (order.paymentMethod || "").toLowerCase().includes("cod") || (order.paymentMethod || "").toLowerCase().includes("cash on delivery");
-                        const isPaid = (order.paymentStatus || "").toLowerCase() === "paid" || isCompleted || isDelivered;
                         const payRef = order.paymentDetails?.referenceNumber;
                         return (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                isPaid
+                                isPaidOrder
                                   ? "bg-blue-50 text-blue-700 border-blue-200"
                                   : "bg-yellow-50 text-yellow-800 border-yellow-300"
                               }`}
                             >
-                              {isPaid
-                                ? (isCod ? "COD Collected • Paid" : "Online Paid")
-                                : (isCod ? "COD • To Collect" : "Payment Pending")}
+                              {isPaidOrder
+                                ? (isCodOrder ? "COD Collected • Paid" : "Online Paid")
+                                : (isCodOrder ? "COD • To Collect" : "Payment Pending")}
                             </span>
-                            {isPaid && payRef && (
+                            {isPaidOrder && payRef && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
                                 Ref: {payRef}
                               </span>
@@ -1789,10 +1837,22 @@ function CustomerOrders() {
                   <div className="px-4 sm:px-6 py-3 border-t border-slate-100 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                     {/* LEFT: CONTEXTUAL GUIDANCE / STAR RATING */}
                     <div className="text-slate-500 flex items-center gap-2 flex-wrap">
-                      {isToPay && (
+                      {needsOnlinePayment && (
                         <span className="text-yellow-800 font-medium inline-flex items-center gap-1.5">
                           <Clock size={13} className="text-yellow-600" />
-                          <span>Awaiting online payment (GCash, Maya, Card) via PayMongo.</span>
+                          <span>Online payment not yet completed ({displayPaymentMethod}). Click Pay Now to pay via PayMongo.</span>
+                        </span>
+                      )}
+                      {isToPay && !needsOnlinePayment && isCodOrder && (
+                        <span className="text-yellow-800 font-medium inline-flex items-center gap-1.5">
+                          <Clock size={13} className="text-yellow-600" />
+                          <span>Order placed (Cash on Delivery). Waiting for seller confirmation & packing.</span>
+                        </span>
+                      )}
+                      {isToPay && !needsOnlinePayment && !isCodOrder && (
+                        <span className="text-blue-700 font-medium inline-flex items-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-blue-600" />
+                          <span>Payment confirmed ({displayPaymentMethod}). Waiting for seller packing.</span>
                         </span>
                       )}
                       {isToShip && !isToPay && (
@@ -1847,8 +1907,8 @@ function CustomerOrders() {
 
                     {/* RIGHT: CONSOLIDATED ACTION BUTTONS (EXACTLY ONCE EACH) */}
                     <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
-                      {/* Contextual Action 1: Pay Now */}
-                      {isToPay && (
+                      {/* Contextual Action 1: Pay Now (ONLY for unpaid Online Payments, NEVER for COD) */}
+                      {needsOnlinePayment && (
                         <button
                           type="button"
                           disabled={payingOrderId === order._id}

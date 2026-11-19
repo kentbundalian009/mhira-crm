@@ -57,6 +57,37 @@ import { useLiveSync, notifyLiveSync } from '../utils/liveSync';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
 
+const getDisplayPaymentMethod = (order) => {
+  if (!order) return 'Cash on Delivery';
+  const rawMethod = String(order.paymentMethod || '').trim();
+  const lowerMethod = rawMethod.toLowerCase();
+  const detailType = String(order.paymentDetails?.paymentMethodType || '').toLowerCase().trim();
+
+  const mapTypeToLabel = (t) => {
+    if (!t) return '';
+    if (t.includes('gcash')) return 'GCash';
+    if (t.includes('paymaya') || t.includes('maya')) return 'Maya';
+    if (t.includes('grab')) return 'GrabPay';
+    if (t.includes('billease')) return 'BillEase';
+    if (t.includes('dob') || t.includes('bpi') || t.includes('online banking')) return 'Online Banking (BPI / UB)';
+    if (t === 'card' || (t.includes('card') && !t.includes('e-wallet'))) return 'Credit / Debit Card';
+    return '';
+  };
+
+  if (
+    !rawMethod ||
+    lowerMethod.includes('e-wallet / card') ||
+    lowerMethod.includes('e-wallet / online') ||
+    lowerMethod === 'paymongo' ||
+    lowerMethod === 'paymongo online payment'
+  ) {
+    const mapped = mapTypeToLabel(detailType);
+    if (mapped) return mapped;
+  }
+
+  return rawMethod || 'Cash on Delivery';
+};
+
 const API_BASE_URL =
   import.meta.env.MODE === 'production'
     ? 'https://mhira-crmsystem.onrender.com/api'
@@ -844,11 +875,9 @@ function LogisticsOrderManagement() {
       payMongoDetails: order?.paymentDetails || null,
     });
 
-    const isOnline = (order?.paymentMethod || '').toLowerCase().includes('paymongo') ||
-      (order?.paymentMethod || '').toLowerCase().includes('e-wallet') ||
-      (order?.paymentMethod || '').toLowerCase().includes('online') ||
-      (order?.paymentMethod || '').toLowerCase().includes('card') ||
-      Boolean(order?.checkoutSessionId);
+    const lowerPm = (order?.paymentMethod || '').toLowerCase();
+    const isCod = lowerPm.includes('cod') || lowerPm.includes('cash on delivery');
+    const isOnline = !isCod || Boolean(order?.checkoutSessionId);
 
     if (isOnline && !existingRef) {
       handleAutoFetchPayMongo(order);
@@ -1780,7 +1809,7 @@ function LogisticsOrderManagement() {
                             return (
                               <div className="flex flex-col items-center justify-center gap-1">
                                 <span className="font-mono text-xs font-bold text-slate-800 uppercase">
-                                  {order.paymentMethod || 'Cash on Delivery'}
+                                  {getDisplayPaymentMethod(order)}
                                 </span>
                                 {isCod ? (
                                   isDelivered || isPaid ? (
@@ -2245,7 +2274,7 @@ function LogisticsOrderManagement() {
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-600">
                         <span>Payment Method:</span>
-                        <span className="font-bold text-slate-800">{selectedOrder.paymentMethod || 'Cash on Delivery'}</span>
+                        <span className="font-bold text-slate-800">{getDisplayPaymentMethod(selectedOrder)}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-600">
                         <span>Payment Settlement:</span>

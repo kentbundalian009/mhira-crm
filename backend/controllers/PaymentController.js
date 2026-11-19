@@ -62,6 +62,57 @@ const getPayMongoAuthHeader = () => {
 
 const MHIRA_BRAND_FALLBACK_IMAGE = "https://files.catbox.moe/hrz9h0.png";
 
+const ALL_PAYMONGO_TYPES = ["gcash", "paymaya", "card", "grab_pay", "dob", "billease"];
+
+const PAYMONGO_METHOD_MAP = {
+  gcash: { type: "gcash", label: "GCash" },
+  paymaya: { type: "paymaya", label: "Maya" },
+  maya: { type: "paymaya", label: "Maya" },
+  card: { type: "card", label: "Credit / Debit Card" },
+  "credit / debit card": { type: "card", label: "Credit / Debit Card" },
+  "credit/debit card": { type: "card", label: "Credit / Debit Card" },
+  grab_pay: { type: "grab_pay", label: "GrabPay" },
+  grabpay: { type: "grab_pay", label: "GrabPay" },
+  dob: { type: "dob", label: "Online Banking (BPI / UB)" },
+  dob_ubp: { type: "dob", label: "Online Banking (BPI / UB)" },
+  "online banking": { type: "dob", label: "Online Banking (BPI / UB)" },
+  "online banking (bpi / ub)": { type: "dob", label: "Online Banking (BPI / UB)" },
+  bpi: { type: "dob", label: "Online Banking (BPI / UB)" },
+  billease: { type: "billease", label: "BillEase" },
+};
+
+export const resolvePayMongoMethod = (input) => {
+  const raw = String(input || "").toLowerCase().trim();
+  if (!raw) {
+    return { types: ALL_PAYMONGO_TYPES, label: "PayMongo Online Payment", singleType: "" };
+  }
+  if (PAYMONGO_METHOD_MAP[raw]) {
+    const m = PAYMONGO_METHOD_MAP[raw];
+    return { types: [m.type], label: m.label, singleType: m.type };
+  }
+  if (raw.includes("gcash")) return { types: ["gcash"], label: "GCash", singleType: "gcash" };
+  if (raw.includes("maya")) return { types: ["paymaya"], label: "Maya", singleType: "paymaya" };
+  if (raw.includes("grab")) return { types: ["grab_pay"], label: "GrabPay", singleType: "grab_pay" };
+  if (raw.includes("billease")) return { types: ["billease"], label: "BillEase", singleType: "billease" };
+  if (raw.includes("dob") || raw.includes("bpi") || raw.includes("online banking")) {
+    return { types: ["dob"], label: "Online Banking (BPI / UB)", singleType: "dob" };
+  }
+  if (raw.includes("card") && !raw.includes("e-wallet")) {
+    return { types: ["card"], label: "Credit / Debit Card", singleType: "card" };
+  }
+  return { types: ALL_PAYMONGO_TYPES, label: "PayMongo Online Payment", singleType: "" };
+};
+
+export const formatPayMongoMethodLabel = (rawType, fallback = "PayMongo Online Payment") => {
+  const resolved = resolvePayMongoMethod(rawType);
+  if (resolved.singleType) return resolved.label;
+  const fb = String(fallback || "").trim();
+  if (fb && !fb.toLowerCase().includes("e-wallet / card") && !fb.toLowerCase().includes("e-wallet / online")) {
+    return fb;
+  }
+  return resolved.label;
+};
+
 /**
  * Helper to upload base64 image on the fly to permanent CDN if needed
  */
@@ -137,6 +188,8 @@ export const createPayMongoCheckoutSession = async (req, res) => {
       voucherCode = "",
       voucherDiscount = 0,
       pointsRedeemed = 0,
+      paymentMethod = "",
+      paymongoMethodType = "",
       successUrl,
       cancelUrl,
     } = req.body;
@@ -209,6 +262,8 @@ export const createPayMongoCheckoutSession = async (req, res) => {
     const finalShippingFee = Number(computedShipping.shippingFee ?? shippingFee ?? 0);
     const totalAmount = Math.max(20, Math.round((merchandiseSubtotal - totalDiscount + finalShippingFee) * 100) / 100);
 
+    const resolvedMethod = resolvePayMongoMethod(paymongoMethodType || paymentMethod);
+
     // Create the order in database initially as "To Pay" / "Pending Payment"
     const newOrder = new Order({
       userId,
@@ -216,7 +271,10 @@ export const createPayMongoCheckoutSession = async (req, res) => {
       totalAmount,
       status: "To Pay",
       paymentStatus: "Pending Payment",
-      paymentMethod: "E-Wallet / Card (PayMongo)",
+      paymentMethod: resolvedMethod.label,
+      paymentDetails: resolvedMethod.singleType
+        ? { paymentMethodType: resolvedMethod.singleType }
+        : {},
       shippingAddress: shippingAddress || "Default Address",
       customerNotes: customerNotes || "",
       shippingFee: finalShippingFee,
@@ -226,7 +284,7 @@ export const createPayMongoCheckoutSession = async (req, res) => {
       trackingTimeline: [
         {
           title: "Order Placed",
-          description: "Order registered. Awaiting electronic payment completion via PayMongo.",
+          description: `Order registered. Awaiting ${resolvedMethod.label} payment completion via PayMongo.`,
           timestamp: new Date(),
           status: "To Pay",
         },
@@ -299,7 +357,7 @@ export const createPayMongoCheckoutSession = async (req, res) => {
     // Determine return URLs
     const clientOrigin = req.headers.origin || "http://localhost:5173";
     const finalSuccessUrl = successUrl || `${clientOrigin}/orders?payment=success&orderId=${newOrder._id}`;
-    const finalCancelUrl = cancelUrl || `${clientOrigin}/checkout?payment=cancelled&orderId=${newOrder._id}`;
+    const finalCancelUrl = cancelUrl || `${clientOrigin}/orders?payment=cancelled&orderId=${newOrder._id}`;
     const urlDelimiter = finalSuccessUrl.includes("?") ? "&" : "?";
     const sessionSuccessUrl = `${finalSuccessUrl}${urlDelimiter}session_id={CHECKOUT_SESSION_ID}`;
 
@@ -311,7 +369,7 @@ export const createPayMongoCheckoutSession = async (req, res) => {
           send_email_receipt: true,
           show_description: true,
           show_line_items: true,
-          payment_method_types: ["gcash", "paymaya", "card", "grab_pay", "dob", "billease"],
+          payment_method_types: resolvedMethod.types,
           line_items: paymongoLineItems,
           description: `MHIRA Cosmetics Order #${String(newOrder._id).slice(-8).toUpperCase()}`,
           success_url: sessionSuccessUrl,
@@ -440,20 +498,25 @@ export const verifyPayMongoPayment = async (req, res) => {
         paidPayment?.attributes?.source?.type ||
         paidPayment?.attributes?.payment_method_type ||
         paidPayment?.attributes?.payment_method_used ||
+        order.paymentDetails?.paymentMethodType ||
         "PayMongo E-Payment";
 
+      const cleanPaymentLabel = formatPayMongoMethodLabel(paymentMethodType, order.paymentMethod);
+      order.paymentMethod = cleanPaymentLabel;
+
       order.paymentDetails = {
+        ...(order.paymentDetails || {}),
         paymentId: paidPayment?.id || "",
         paymentMethodType,
         amountPaid: paidPayment?.attributes?.amount ? paidPayment.attributes.amount / 100 : order.totalAmount,
         paidAt: new Date(),
-        referenceNumber: paidPayment?.attributes?.tax_amount || paidPayment?.id || "",
+        referenceNumber: paidPayment?.attributes?.external_reference_number || paidPayment?.id || "",
       };
 
       // Add timeline entry
       order.trackingTimeline.push({
         title: "Payment Confirmed",
-        description: `Payment received via PayMongo (${paymentMethodType.toUpperCase()}). Order is now in 'To Ship' status and is being prepared.`,
+        description: `Payment received via ${cleanPaymentLabel} (PayMongo). Order is now in 'To Ship' status and is being prepared.`,
         timestamp: new Date(),
         status: "To Ship",
       });
@@ -522,12 +585,35 @@ export const handlePayMongoWebhook = async (req, res) => {
       if (sessionId) {
         const order = await Order.findOne({ checkoutSessionId: sessionId });
         if (order && order.paymentStatus !== "Paid") {
+          const payments = checkoutSession?.attributes?.payments || [];
+          const paidPayment =
+            payments.find((p) => (p.attributes?.status || "").toLowerCase() === "paid") || payments[0];
+          const paymentMethodType =
+            paidPayment?.attributes?.source?.type ||
+            paidPayment?.attributes?.payment_method_type ||
+            paidPayment?.attributes?.payment_method_used ||
+            order.paymentDetails?.paymentMethodType ||
+            "";
+          const cleanPaymentLabel = formatPayMongoMethodLabel(paymentMethodType, order.paymentMethod);
+
           order.paymentStatus = "Paid";
           order.status = "To Ship";
           order.paidAt = new Date();
+          order.paymentMethod = cleanPaymentLabel;
+          order.paymentDetails = {
+            ...(order.paymentDetails || {}),
+            paymentId: paidPayment?.id || order.paymentDetails?.paymentId || "",
+            paymentMethodType: paymentMethodType || order.paymentDetails?.paymentMethodType || "",
+            referenceNumber:
+              paidPayment?.attributes?.external_reference_number ||
+              paidPayment?.id ||
+              order.paymentDetails?.referenceNumber ||
+              "",
+            paidAt: new Date(),
+          };
           order.trackingTimeline.push({
             title: "Payment Confirmed (Webhook)",
-            description: "Payment confirmed via PayMongo webhook. Order queued for packing and shipping.",
+            description: `Payment confirmed via ${cleanPaymentLabel} (PayMongo webhook). Order queued for packing and shipping.`,
             timestamp: new Date(),
             status: "To Ship",
           });
@@ -603,6 +689,20 @@ export const payExistingOrder = async (req, res) => {
     if (order.paymentStatus === "Paid") {
       return res.status(400).json({ success: false, message: "Order is already paid." });
     }
+    const lowerMethod = String(order.paymentMethod || "").toLowerCase();
+    if (lowerMethod.includes("cod") || lowerMethod.includes("cash on delivery")) {
+      return res.status(400).json({
+        success: false,
+        message: "Cash on Delivery (COD) orders do not require online payment.",
+      });
+    }
+
+    const resolvedMethod = resolvePayMongoMethod(
+      req.body?.paymongoMethodType ||
+        req.body?.paymentMethod ||
+        order.paymentDetails?.paymentMethodType ||
+        order.paymentMethod
+    );
 
     const merchandiseSubtotal = (order.items || []).reduce(
       (acc, item) => acc + Number(item.price || 0) * Number(item.quantity || 1),
@@ -652,7 +752,7 @@ export const payExistingOrder = async (req, res) => {
           send_email_receipt: true,
           show_description: true,
           show_line_items: true,
-          payment_method_types: ["gcash", "paymaya", "card", "grab_pay", "dob", "billease"],
+          payment_method_types: resolvedMethod.types,
           line_items: paymongoLineItems,
           description: `MHIRA Cosmetics Order #${String(order._id).slice(-8).toUpperCase()}`,
           success_url: `${finalSuccessUrl}&session_id={CHECKOUT_SESSION_ID}`,
@@ -836,6 +936,9 @@ export const syncPayMongoOrderReference = async (req, res) => {
       : new Date();
 
     const isPaid = (matchedPayment.attributes?.status || "").toLowerCase() === "paid";
+
+    const cleanLabel = formatPayMongoMethodLabel(channel, order.paymentMethod);
+    order.paymentMethod = cleanLabel;
 
     // Update order paymentDetails
     order.paymentDetails = {

@@ -121,6 +121,75 @@ const BillEaseLogo = () => (
   </div>
 );
 
+const PAYMENT_OPTIONS = [
+  {
+    id: "GCash",
+    label: "GCash",
+    subtitle: "Direct GCash e-wallet checkout via PayMongo",
+    note: "Pag-click ng Complete Order, didiretso ka agad sa GCash payment portal ng PayMongo.",
+    paymongoType: "gcash",
+    logos: () => <GCashLogo />,
+  },
+  {
+    id: "Maya",
+    label: "Maya",
+    subtitle: "Direct Maya e-wallet checkout via PayMongo",
+    note: "Pag-click ng Complete Order, didiretso ka agad sa Maya payment portal ng PayMongo.",
+    paymongoType: "paymaya",
+    logos: () => <MayaLogo />,
+  },
+  {
+    id: "Credit / Debit Card",
+    label: "Credit / Debit Card",
+    subtitle: "Visa & Mastercard checkout via PayMongo",
+    note: "Pag-click ng Complete Order, didiretso ka agad sa Card payment form ng PayMongo.",
+    paymongoType: "card",
+    logos: () => (
+      <div className="flex items-center gap-1">
+        <VisaLogo />
+        <MastercardLogo />
+      </div>
+    ),
+  },
+  {
+    id: "GrabPay",
+    label: "GrabPay",
+    subtitle: "Direct GrabPay wallet checkout via PayMongo",
+    note: "Pag-click ng Complete Order, didiretso ka agad sa GrabPay payment portal ng PayMongo.",
+    paymongoType: "grab_pay",
+    logos: () => <GrabPayLogo />,
+  },
+  {
+    id: "Online Banking (BPI / UB)",
+    label: "Online Banking (BPI / UB)",
+    subtitle: "Direct online bank transfer via PayMongo",
+    note: "Pag-click ng Complete Order, didiretso ka agad sa Online Banking (BPI / UnionBank) ng PayMongo.",
+    paymongoType: "dob",
+    logos: () => <BPILogo />,
+  },
+  {
+    id: "BillEase",
+    label: "BillEase",
+    subtitle: "Buy Now, Pay Later installment via PayMongo",
+    note: "Pag-click ng Complete Order, didiretso ka agad sa BillEase checkout ng PayMongo.",
+    paymongoType: "billease",
+    logos: () => <BillEaseLogo />,
+  },
+  {
+    id: "Cash on Delivery",
+    label: "Cash on Delivery (COD)",
+    subtitle: "Pay cash upon parcel delivery to courier",
+    note: "Cash Payment / Pay upon parcel delivery to courier. No online payment required.",
+    paymongoType: null,
+    logos: () => (
+      <div className="h-5 px-2 rounded bg-amber-50 border border-amber-200 flex items-center justify-center gap-1 shrink-0 select-none text-amber-800 font-bold text-[10px]">
+        <Banknote className="w-3 h-3" />
+        <span>COD</span>
+      </div>
+    ),
+  },
+];
+
 function CustomerCheckout() {
   const navigate = useNavigate();
   const userId = getUserId();
@@ -789,17 +858,18 @@ function CustomerCheckout() {
       const activeAddressStr = formattedAddressText;
       const finalShippingAddress = `${activeRecipient} (${activePhone}) - ${activeAddressStr}${customerMessage ? ` [Note: ${customerMessage.trim()}]` : ""}`;
 
-      const isPayMongo =
-        paymentMethod === "E-Wallet / Online Payment (PayMongo)" ||
-        paymentMethod.includes("PayMongo") ||
-        paymentMethod.includes("E-Wallet") ||
-        paymentMethod.includes("GCash");
+      const selectedPaymentOption =
+        PAYMENT_OPTIONS.find((opt) => opt.id === paymentMethod) ||
+        PAYMENT_OPTIONS[PAYMENT_OPTIONS.length - 1];
+      const isPayMongo = Boolean(selectedPaymentOption?.paymongoType);
 
       if (isPayMongo) {
         const res = await axios.post(`${API_BASE_URL}/api/payments/create-checkout-session`, {
           userId,
           shippingAddress: finalShippingAddress,
           customerNotes: customerMessage.trim(),
+          paymentMethod: selectedPaymentOption.id,
+          paymongoMethodType: selectedPaymentOption.paymongoType,
           shippingFee,
           protectionFee: 0,
           voucherCode: appliedVoucher?.code || "",
@@ -817,7 +887,7 @@ function CustomerCheckout() {
             };
           }),
           successUrl: `${window.location.origin}/orders?payment=success`,
-          cancelUrl: `${window.location.origin}/checkout?payment=cancelled`,
+          cancelUrl: `${window.location.origin}/orders?payment=cancelled`,
         });
 
         if (res.data?.checkoutUrl) {
@@ -835,7 +905,7 @@ function CustomerCheckout() {
           window.dispatchEvent(new Event("cartUpdated"));
           window.dispatchEvent(new Event("ordersUpdated"));
           setIsConfirmOrderModalOpen(false);
-          showSuccessToast("Redirecting to PayMongo payment gateway... 💳");
+          showSuccessToast(`Redirecting directly to ${selectedPaymentOption.label} (PayMongo)... 💳`);
           window.location.href = res.data.checkoutUrl;
           return;
         }
@@ -1120,112 +1190,64 @@ function CustomerCheckout() {
               </div>
 
               <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white shadow-2xs divide-y divide-gray-200">
-                {/* OPTION 1: E-WALLET & ONLINE PAYMENT (PAYMONGO: GCASH, MAYA, CARDS, BPI, BILLEASE) */}
-                <div>
-                  <label
-                    onClick={() => setPaymentMethod("E-Wallet / Online Payment (PayMongo)")}
-                    className={`p-3.5 sm:p-4 flex items-center justify-between cursor-pointer transition-colors ${
-                      paymentMethod === "E-Wallet / Online Payment (PayMongo)"
-                        ? "bg-[#EDF7EE]/70"
-                        : "hover:bg-slate-50/60"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                          paymentMethod === "E-Wallet / Online Payment (PayMongo)"
-                            ? "border-[#01390f]"
-                            : "border-slate-300"
+                {PAYMENT_OPTIONS.map((opt) => {
+                  const isSelected = paymentMethod === opt.id;
+                  const isCodOpt = !opt.paymongoType;
+
+                  return (
+                    <div key={opt.id}>
+                      <label
+                        onClick={() => setPaymentMethod(opt.id)}
+                        className={`p-3.5 sm:p-4 flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected
+                            ? "bg-[#EDF7EE]/70"
+                            : "hover:bg-slate-50/60"
                         }`}
                       >
-                        {paymentMethod === "E-Wallet / Online Payment (PayMongo)" && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-[#01390f]" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-xs sm:text-sm font-semibold text-slate-900 block select-none">
-                          E-Wallets, Cards & Online Banking
-                        </span>
-                        <span className="text-[11px] text-slate-500 block truncate">
-                          Instant checkout via PayMongo gateway
-                        </span>
-                      </div>
-                    </div>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                              isSelected ? "border-[#01390f]" : "border-slate-300"
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#01390f]" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-900 block select-none">
+                              {opt.label}
+                            </span>
+                            <span className="text-[11px] text-slate-500 block truncate">
+                              {opt.subtitle}
+                            </span>
+                          </div>
+                        </div>
 
-                    {/* Channel Logos Preview */}
-                    <div className="flex items-center gap-1 shrink-0 ml-2 overflow-x-auto">
-                      <MastercardLogo />
-                      <VisaLogo />
-                      <GCashLogo />
-                      <MayaLogo />
-                      <GrabPayLogo />
-                    </div>
-                  </label>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          {opt.logos()}
+                        </div>
+                      </label>
 
-                  {paymentMethod === "E-Wallet / Online Payment (PayMongo)" && (
-                    <div className="bg-[#EDF7EE]/50 px-4 py-3 text-xs text-slate-700 border-t border-gray-200 flex items-start gap-2.5">
-                      <ShieldCheck className="w-4 h-4 text-[#01390f] shrink-0 mt-0.5" />
-                      <p className="text-[11px] sm:text-xs text-slate-600 leading-relaxed">
-                        <strong className="text-slate-900 font-semibold">Note:</strong> Pag-click mo ng{" "}
-                        <strong className="text-[#01390f]">Complete Order</strong>, ire-redirect ka sa PayMongo secure portal. Doon mo pipiliin ang iyong gustong payment method (Card, E-Wallets tulad ng GCash/Maya, Online Banking, o Buy Now Pay Later) sa kanilang mga tabs.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* OPTION 2: CASH ON DELIVERY (COD) */}
-                <div>
-                  <label
-                    onClick={() => setPaymentMethod("Cash on Delivery")}
-                    className={`p-3.5 sm:p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                      paymentMethod === "Cash on Delivery"
-                        ? "bg-[#EDF7EE]/60"
-                        : "hover:bg-slate-50/60"
-                    }`}
-                  >
-                    <div className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      paymentMethod === "Cash on Delivery"
-                        ? "border-[#01390f]"
-                        : "border-slate-300"
-                    }`}>
-                      {paymentMethod === "Cash on Delivery" && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#01390f]" />
+                      {isSelected && (
+                        <div
+                          className={`px-4 py-3 text-xs border-t border-gray-200 flex items-start gap-2.5 ${
+                            isCodOpt
+                              ? "bg-slate-100/90 text-slate-700"
+                              : "bg-[#EDF7EE]/50 text-slate-700"
+                          }`}
+                        >
+                          {!isCodOpt && (
+                            <ShieldCheck className="w-4 h-4 text-[#01390f] shrink-0 mt-0.5" />
+                          )}
+                          <p className="text-[11px] sm:text-xs text-slate-600 leading-relaxed">
+                            {opt.note}
+                          </p>
+                        </div>
                       )}
                     </div>
-                    <span className="text-xs sm:text-sm font-semibold text-slate-900 select-none">
-                      Cash on Delivery (COD)
-                    </span>
-                  </label>
-
-                  {paymentMethod === "Cash on Delivery" && (
-                    <div className="bg-slate-100/90 px-4 py-3 text-xs text-slate-700 border-t border-gray-200">
-                      Cash Payment / Pay upon parcel delivery to courier
-                    </div>
-                  )}
-                </div>
-
-                {/* OPTION 3: BANK DEPOSIT */}
-                <label
-                  onClick={() => setPaymentMethod("Bank Deposit")}
-                  className={`p-3.5 sm:p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                    paymentMethod === "Bank Deposit"
-                      ? "bg-[#EDF7EE]/60"
-                      : "hover:bg-slate-50/60"
-                  }`}
-                >
-                  <div className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                    paymentMethod === "Bank Deposit"
-                      ? "border-[#01390f]"
-                      : "border-slate-300"
-                  }`}>
-                    {paymentMethod === "Bank Deposit" && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#01390f]" />
-                    )}
-                  </div>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-900 select-none">
-                    Bank Deposit
-                  </span>
-                </label>
+                  );
+                })}
               </div>
             </div>
 
@@ -1569,24 +1591,22 @@ function CustomerCheckout() {
                 </div>
                 <div className="flex items-center justify-between pt-0.5">
                   <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                    {paymentMethod}
+                    {paymentMethod === "Cash on Delivery" ? "Cash on Delivery (COD)" : paymentMethod}
                   </span>
-                  {paymentMethod.includes("PayMongo") ? (
-                    <span className="text-[10px] font-semibold bg-[#EDF7EE] text-[#01390f] px-2 py-0.5 rounded-full border border-[#01390f]/20">
-                      Online Gateway
-                    </span>
-                  ) : paymentMethod === "Cash on Delivery" ? (
+                  {paymentMethod === "Cash on Delivery" ? (
                     <span className="text-[10px] font-semibold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
                       COD
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="text-[10px] font-semibold bg-[#EDF7EE] text-[#01390f] px-2 py-0.5 rounded-full border border-[#01390f]/20">
+                      PayMongo Direct
+                    </span>
+                  )}
                 </div>
                 <p className="text-slate-500 text-[11px] leading-relaxed">
-                  {paymentMethod.includes("PayMongo") || paymentMethod.includes("E-Wallet")
-                    ? "Redirects to PayMongo secure gateway (GCash, Maya, Card)"
-                    : paymentMethod === "Cash on Delivery"
+                  {paymentMethod === "Cash on Delivery"
                     ? "Pay cash upon parcel delivery to courier"
-                    : "Transfer & upload receipt proof"}
+                    : `Redirects directly to ${paymentMethod} via PayMongo secure gateway`}
                 </p>
               </div>
 
