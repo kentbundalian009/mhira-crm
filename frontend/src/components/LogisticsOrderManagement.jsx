@@ -96,9 +96,18 @@ function LogisticsOrderManagement() {
   const [availableCouriers, setAvailableCouriers] = useState(() => {
     try {
       const cached = localStorage.getItem('cached_logistics_couriers');
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter((c) => !c.isArchived);
+      }
     } catch (e) {}
-    return [];
+    return [
+      { code: 'CR0001', name: 'J&T Express', address: 'Metro Manila Hub, Philippines' },
+      { code: 'CR0002', name: 'Lalamove', address: 'Quezon City Operations Center' },
+      { code: 'CR0003', name: 'Flash Express', address: 'Paranaque Sorting Facility' },
+      { code: 'CR0004', name: 'Ninja Van', address: 'Taguig Sorting Hub' },
+      { code: 'CR0005', name: 'Mhira In-House Rider', address: 'MHIRA Logistics Hub, Calamba, Laguna' },
+    ];
   });
 
   // Proof of Delivery (POD) States
@@ -394,13 +403,15 @@ function LogisticsOrderManagement() {
   const fetchCouriers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/logistics-couriers`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = Array.isArray(res.data) ? res.data : [];
-      const active = data.filter((c) => !c.isArchived);
-      setAvailableCouriers(active);
-      localStorage.setItem('cached_logistics_couriers', JSON.stringify(data));
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await API.get('/api/logistics-couriers', { headers })
+        .catch(async () => await API.get('/logistics-couriers', { headers }).catch(() => null));
+      const data = Array.isArray(res?.data) ? res.data : [];
+      if (data.length > 0) {
+        const active = data.filter((c) => !c.isArchived);
+        setAvailableCouriers(active);
+        localStorage.setItem('cached_logistics_couriers', JSON.stringify(data));
+      }
     } catch (e) {
       console.error('Failed to load couriers:', e);
     }

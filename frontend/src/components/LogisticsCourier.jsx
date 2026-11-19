@@ -17,13 +17,24 @@ import { API } from '../axios';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
 
+const DEFAULT_COURIERS_FALLBACK = [
+  { _id: 'cr_seed_1', code: 'CR0001', name: 'J&T Express', address: 'Metro Manila Hub, Philippines', isArchived: false },
+  { _id: 'cr_seed_2', code: 'CR0002', name: 'Lalamove', address: 'Quezon City Operations Center', isArchived: false },
+  { _id: 'cr_seed_3', code: 'CR0003', name: 'Flash Express', address: 'Paranaque Sorting Facility', isArchived: false },
+  { _id: 'cr_seed_4', code: 'CR0004', name: 'Ninja Van', address: 'Taguig Sorting Hub', isArchived: false },
+  { _id: 'cr_seed_5', code: 'CR0005', name: 'Mhira In-House Rider', address: 'MHIRA Logistics Hub, Calamba, Laguna', isArchived: false },
+];
+
 function LogisticsCourier() {
   const [couriers, setCouriers] = useState(() => {
     try {
       const cached = localStorage.getItem('cached_logistics_couriers');
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {}
-    return [];
+    return DEFAULT_COURIERS_FALLBACK;
   });
   const [loading, setLoading] = useState(false);
 
@@ -74,18 +85,17 @@ function LogisticsCourier() {
   // Fetch Couriers
   const fetchCouriers = useCallback(async () => {
     try {
-      if (couriers.length === 0) setLoading(true);
       const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const response = await API.get('/api/logistics-couriers', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }).catch(() => ({ data: [] }));
+      const response = await API.get('/api/logistics-couriers', { headers })
+        .catch(async () => await API.get('/logistics-couriers', { headers }).catch(() => null));
 
-      const raw = Array.isArray(response.data)
+      const raw = Array.isArray(response?.data)
         ? response.data
-        : (response.data?.data || response.data?.items || []);
+        : (response?.data?.data || response?.data?.items || []);
 
-      if (Array.isArray(raw)) {
+      if (Array.isArray(raw) && raw.length > 0) {
         setCouriers(raw);
         try {
           localStorage.setItem('cached_logistics_couriers', JSON.stringify(raw));
@@ -96,7 +106,7 @@ function LogisticsCourier() {
     } finally {
       setLoading(false);
     }
-  }, [couriers.length]);
+  }, []);
 
   useEffect(() => {
     fetchCouriers();

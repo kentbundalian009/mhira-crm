@@ -199,6 +199,7 @@ app.use("/api/coupons", MarketingCouponRoutes);
 app.use("/api/shipping-rates", LogisticsShippingRoutes);
 app.use("/api/logistics/shipping-rates", LogisticsShippingRoutes);
 app.use("/api/logistics-couriers", LogisticCourierRoutes);
+app.use("/logistics-couriers", LogisticCourierRoutes);
 app.use("/api/story", MarketingStoryRoutes);
 app.use("/api/marketing/story", MarketingStoryRoutes);
 app.use("/api/logistics/sales-report", LogisticSalesReportRoutes);
