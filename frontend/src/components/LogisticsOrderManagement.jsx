@@ -2681,100 +2681,28 @@ function LogisticsOrderManagement() {
                 {/* TAB 5: PROCESS RECORDS & AUDIT TRAIL WORKSPACE */}
                 {activeDrawerTab === 'timeline' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
-                    {/* 3 Status KPI Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* 1. Payment Verification Status */}
-                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Payment Audit</span>
-                        {(() => {
-                          const isCod = (selectedOrder.paymentMethod || '').toUpperCase().includes('COD') || (selectedOrder.paymentMethod || '').toUpperCase().includes('CASH');
-                          const isPaid = (selectedOrder.paymentStatus || '').toLowerCase() === 'paid' || ((selectedOrder.status || '').toLowerCase() === 'delivered' && isCod);
-                          return (
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isPaid ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-300'}`}>
-                                  {isPaid ? (isCod ? 'COD Collected • Paid' : 'Online Paid') : (isCod ? 'COD' : 'Payment Pending')}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-slate-600 mt-1 font-medium">
-                                {selectedOrder.paymentMethod || 'COD'} • ₱{Number(selectedOrder.totalAmount || 0).toLocaleString()}
-                              </p>
-                              {!isPaid && !isCod && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenPaymentVerifyModal(selectedOrder)}
-                                  className="mt-2 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  Verify E-Payment Now
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-
-                      {/* 2. Warehouse Stock Deduction Status */}
-                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Inventory Stock</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedOrder.inventoryDeducted ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-300'}`}>
-                            {selectedOrder.inventoryDeducted ? 'Stock Deducted' : 'Pending Handover'}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-600 mt-1 font-medium">
-                          {selectedOrder.inventoryDeducted
-                            ? `Deducted from Finished Goods (${(selectedOrder.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0)} units)`
-                            : 'Stock reserved. Deducts upon rider handover.'}
-                        </p>
-                      </div>
-
-                      {/* 3. Waybill / Airway Bill Status */}
-                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Waybill Status</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedOrder.trackingNumber ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-300'}`}>
-                            {selectedOrder.trackingNumber ? 'Waybill Generated' : 'Pending Waybill'}
-                          </span>
-                        </div>
-                        <p className="text-[11px] font-mono text-slate-600 truncate mt-1">
-                          {selectedOrder.trackingNumber ? `${selectedOrder.courier || 'Courier'}: ${selectedOrder.trackingNumber}` : 'No tracking number yet'}
-                        </p>
-                        {selectedOrder.status !== 'Order Placed' && (
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadWaybillPdf(selectedOrder)}
-                            className="mt-1 text-[10px] font-bold text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <Printer className="w-3 h-3 text-blue-600" />
-                            <span>Download Waybill PDF</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Chronological Audit Trail & Process Logs */}
+                    {/* Process Audit Trail */}
                     <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <History className="w-4 h-4 text-[#01390f]" />
-                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                            Chronological Process Audit Trail ({selectedOrder.trackingTimeline?.length || 0} Records)
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold text-slate-400">Realtime Log</span>
-                      </div>
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                        Process Audit
+                      </span>
 
                       {(!selectedOrder.trackingTimeline || selectedOrder.trackingTimeline.length === 0) ? (
                         <div className="text-center py-6 text-slate-400 text-xs">
                           No process timeline records logged yet for this order.
                         </div>
                       ) : (
-                        <div className="space-y-4 border-l-2 border-blue-200 ml-2.5 pl-4 py-1">
+                        <div className="space-y-4 border-l-2 border-[#01390f]/20 ml-2.5 pl-4 py-1">
                           {selectedOrder.trackingTimeline.map((item, tIdx) => {
                             const isLatest = tIdx === 0;
                             const titleLower = (item.title || '').toLowerCase();
                             const isCancellation = titleLower.includes('cancel') || titleLower.includes('declined');
                             const isWarning = titleLower.includes('waiting') || titleLower.includes('pending') || titleLower.includes('delayed');
+
+                            const d = item.timestamp ? new Date(item.timestamp) : new Date();
+                            const formattedDateTime = !isNaN(d.getTime())
+                              ? `${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
+                              : '';
 
                             return (
                               <div key={tIdx} className="relative space-y-1">
@@ -2784,7 +2712,7 @@ function LogisticsOrderManagement() {
                                     ? 'bg-red-500'
                                     : isWarning
                                       ? 'bg-yellow-500'
-                                      : 'bg-blue-600'
+                                      : 'bg-emerald-600'
                                     }`}
                                 />
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
@@ -2796,13 +2724,13 @@ function LogisticsOrderManagement() {
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                                    <span className="font-semibold text-slate-700">{item.actor || 'Logistics Team'}</span>
-                                    <span>•</span>
-                                    <span>{new Date(item.timestamp).toLocaleString()}</span>
-                                  </div>
+                                  {formattedDateTime && (
+                                    <span className="text-[11px] text-slate-500 font-mono">
+                                      {formattedDateTime}
+                                    </span>
+                                  )}
                                 </div>
-                                <p className="text-xs text-slate-600 leading-relaxed bg-white p-2.5 rounded-xl border border-slate-200/70">
+                                <p className="text-xs text-slate-600 leading-relaxed">
                                   {item.description}
                                 </p>
                               </div>
