@@ -2226,51 +2226,29 @@ function LogisticsOrderManagement() {
                     ) : (
                       /* When order is at Stage 2 (Waiting for Courier / To Ship) or above */
                       <div className="space-y-4">
-                        {/* Dispatch Status Overview */}
-                        <div className="bg-blue-50/70 border border-blue-200/80 p-4 rounded-2xl flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-[#01390f] text-white flex items-center justify-center">
-                              <Truck className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
-                                {getWorkflowStepIndex(selectedOrder.status) === 1
-                                  ? 'Stage 2: Ready for Courier Handover'
-                                  : 'Stage 3: Dispatched to Courier Partner'}
-                              </h4>
-                              <p className="text-[11px] text-slate-500">
-                                {getWorkflowStepIndex(selectedOrder.status) === 1
-                                  ? 'Parcel is packed. Assign courier and tracking number to dispatch.'
-                                  : `Parcel is in transit with ${selectedCourier}.`}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="text-xs font-mono font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200">
-                            {selectedOrder.status}
-                          </span>
-                        </div>
 
-                        {/* Courier Partner & Waybill Form */}
-                        <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+
+                        {/* SECTION 1: Assigned Courier & Tracking (Flat, Minimal, No Bulky Outer Containers) */}
+                        <div className="bg-white p-4 rounded-xl border border-slate-200/90 space-y-3">
+                          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                            <span className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
                               Assigned Courier & Waybill Label
                             </span>
-                            <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                            <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                               Thermal 100x150mm
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                             <div>
-                              <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                              <label className="text-xs font-bold text-slate-900 block mb-1">
                                 Courier Partner:
                               </label>
                               <select
                                 value={selectedCourier}
                                 onChange={(e) => setSelectedCourier(e.target.value)}
                                 disabled={getWorkflowStepIndex(selectedOrder.status) > 1}
-                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f] disabled:bg-slate-100 disabled:cursor-not-allowed"
+                                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:border-[#01390f] disabled:bg-slate-100 disabled:cursor-not-allowed"
                               >
                                 <option value="J&T Express">J&T Express</option>
                                 <option value="Lalamove">Lalamove</option>
@@ -2282,7 +2260,7 @@ function LogisticsOrderManagement() {
 
                             <div>
                               <div className="flex items-center justify-between mb-1">
-                                <label className="text-[11px] font-semibold text-slate-600 block">
+                                <label className="text-xs font-bold text-slate-900 block">
                                   Tracking / Waybill No:
                                 </label>
                                 {getWorkflowStepIndex(selectedOrder.status) <= 1 && (
@@ -2306,96 +2284,81 @@ function LogisticsOrderManagement() {
                                 value={trackingNumber}
                                 onChange={(e) => setTrackingNumber(e.target.value)}
                                 disabled={getWorkflowStepIndex(selectedOrder.status) > 1}
-                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-[#01390f] disabled:bg-slate-100 disabled:cursor-not-allowed font-mono"
+                                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-[#01390f] disabled:bg-slate-100 disabled:cursor-not-allowed"
                               />
                             </div>
                           </div>
 
-                          {/* Waybill Action Notice */}
-                          <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-200/70 text-xs">
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              Ready-to-print official Airway Bill (Waybill) with barcode simulation & COD/Prepaid notice.
-                            </span>
-                            <span className="text-[10px] font-mono text-slate-400">
-                              (Use Waybill PDF button in footer)
-                            </span>
-                          </div>
-
-                          {/* Warehouse Finished Goods Inventory Sync Card */}
-                          <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all ${selectedOrder.inventoryDeducted
-                            ? 'bg-blue-50/70 border-blue-200 text-blue-900'
-                            : 'bg-yellow-50/70 border-yellow-300 text-yellow-950'
-                            }`}>
-                            <div className="flex items-center gap-2.5">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${selectedOrder.inventoryDeducted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                <PackageCheck className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <div className="font-bold flex items-center gap-1.5">
-                                  <span>Warehouse Inventory Stock:</span>
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedOrder.inventoryDeducted
+                          {/* Warehouse Stock Sync - Compact 1-line layout */}
+                          <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">Warehouse Inventory Stock:</span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  selectedOrder.inventoryDeducted
                                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                     : 'bg-yellow-50 text-yellow-800 border border-yellow-300'
-                                    }`}>
-                                    {selectedOrder.inventoryDeducted ? 'Stock Deducted' : 'Pending Rider Handover'}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] opacity-80 mt-0.5">
-                                  {selectedOrder.inventoryDeducted
-                                    ? `Finished Goods inventory deducted for ${(selectedOrder.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0)} units.`
-                                    : 'Items reserved in packing. Stock will be automatically deducted from Finished Goods when handed over to rider.'}
-                                </p>
-                              </div>
+                                }`}
+                              >
+                                {selectedOrder.inventoryDeducted ? 'Stock Deducted' : 'Pending Rider Handover'}
+                              </span>
                             </div>
+                            <span className="text-[11px] text-slate-500">
+                              {selectedOrder.inventoryDeducted
+                                ? 'Deducted from Finished Goods upon rider handover.'
+                                : 'Stock reserved. Deducts upon rider handover.'}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Shopee/TikTok Style: Estimated Delivery Schedule & Weather Delay Card */}
-                        <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="w-4 h-4 text-[#01390f]" />
-                              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        {/* SECTION 2: Estimated Delivery Schedule (Compact, Maximize Height) */}
+                        <div className="bg-white p-4 rounded-xl border border-slate-200/90 space-y-3">
+                          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarDays className="w-3.5 h-3.5 text-[#01390f]" />
+                              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                                 Estimated Delivery Schedule (EDD)
                               </span>
                             </div>
-                            <span className="text-[11px] font-mono text-slate-500 font-semibold">
+                            <span className="text-[10px] font-mono font-bold text-slate-500">
                               Visible to Customer
                             </span>
                           </div>
 
-                          <div>
-                            <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-                              Estimated Arrival Window:
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Aug 28 - Aug 30"
-                              value={eddRange}
-                              onChange={(e) => setEddRange(e.target.value)}
-                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-[#01390f]"
-                            />
-                            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                              <span className="text-[10px] font-semibold text-slate-400">Presets:</span>
+                          <div className="space-y-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                              <label className="text-xs font-bold text-slate-900 whitespace-nowrap">
+                                Estimated Arrival Window:
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Aug 28 - Aug 30"
+                                value={eddRange}
+                                onChange={(e) => setEddRange(e.target.value)}
+                                className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:border-[#01390f]"
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              <span className="text-[10px] font-semibold text-slate-500">Presets:</span>
                               <button
                                 type="button"
                                 onClick={() => applyEddPreset(2, 3)}
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                                className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-colors cursor-pointer"
                               >
                                 +2-3 Days
                               </button>
                               <button
                                 type="button"
                                 onClick={() => applyEddPreset(3, 5)}
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                                className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-colors cursor-pointer"
                               >
                                 +3-5 Days
                               </button>
                               <button
                                 type="button"
                                 onClick={() => applyEddPreset(5, 7)}
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                                className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-colors cursor-pointer"
                               >
                                 +5-7 Days (Provincial)
                               </button>
@@ -2403,11 +2366,11 @@ function LogisticsOrderManagement() {
                           </div>
 
                           {/* Weather / Transit Delay Toggle */}
-                          <div className="pt-2 border-t border-slate-200/80 space-y-2.5">
+                          <div className="pt-2 border-t border-slate-100 space-y-2">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <CloudRain className="w-4 h-4 text-yellow-600" />
-                                <span className="text-xs font-bold text-slate-800">
+                              <div className="flex items-center gap-1.5">
+                                <CloudRain className="w-3.5 h-3.5 text-amber-600" />
+                                <span className="text-xs font-bold text-slate-900">
                                   Weather / Transit Delay Advisory
                                 </span>
                               </div>
@@ -2418,24 +2381,24 @@ function LogisticsOrderManagement() {
                                   onChange={(e) => setEddIsDelayed(e.target.checked)}
                                   className="sr-only peer"
                                 />
-                                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
+                                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
                               </label>
                             </div>
 
                             {eddIsDelayed && (
-                              <div className="bg-yellow-50/80 border border-yellow-300 rounded-xl p-3 space-y-2 animate-in fade-in duration-150">
-                                <div className="flex items-center gap-1.5 text-yellow-900 font-bold text-[11px]">
-                                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-600" />
-                                  <span>Customer Delay Notice Reason:</span>
+                              <div className="bg-amber-50/80 border border-amber-300 rounded-lg p-2.5 space-y-1.5 animate-in fade-in duration-150">
+                                <div className="flex items-center gap-1.5 text-amber-900 font-bold text-[11px]">
+                                  <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                  <span>Delay Notice Reason:</span>
                                 </div>
                                 <input
                                   type="text"
                                   placeholder="e.g. Delayed due to Typhoon / Severe Weather disturbance"
                                   value={eddDelayReason}
                                   onChange={(e) => setEddDelayReason(e.target.value)}
-                                  className="w-full bg-white border border-yellow-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-yellow-500"
+                                  className="w-full bg-white border border-amber-300 rounded px-2.5 py-1 text-xs text-slate-900 outline-none focus:ring-1 focus:ring-amber-500 font-medium"
                                 />
-                                <div className="flex flex-wrap gap-1 pt-1">
+                                <div className="flex flex-wrap gap-1 pt-0.5">
                                   {[
                                     'Typhoon / Severe Weather disturbance',
                                     'Flooded roads & route inaccessible',
@@ -2445,7 +2408,7 @@ function LogisticsOrderManagement() {
                                       key={preset}
                                       type="button"
                                       onClick={() => setEddDelayReason(preset)}
-                                      className="text-[10px] font-bold bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-300 px-2 py-0.5 rounded-full cursor-pointer transition-colors"
+                                      className="text-[10px] font-bold bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
                                     >
                                       {preset}
                                     </button>
@@ -2460,7 +2423,7 @@ function LogisticsOrderManagement() {
                               type="button"
                               onClick={handleSaveEstimatedDelivery}
                               disabled={isSavingEdd}
-                              className="px-4 py-2 rounded-xl text-xs font-bold text-blue-700 bg-white hover:bg-blue-50 border border-blue-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-[#01390f] hover:bg-[#051609] shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
                             >
                               {isSavingEdd ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                               <span>Save Delivery Schedule</span>
@@ -2468,19 +2431,7 @@ function LogisticsOrderManagement() {
                           </div>
                         </div>
 
-                        {/* Danger Zone: Cancel Order (Only if not delivered) */}
-                        {getWorkflowStepIndex(selectedOrder.status) <= 2 && (
-                          <div className="pt-1">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenCancelOrderModal(selectedOrder)}
-                              className="w-full py-2 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Cancel Order & Restore Inventory Stock</span>
-                            </button>
-                          </div>
-                        )}
+
                       </div>
                     )}
                   </div>
@@ -2804,10 +2755,11 @@ function LogisticsOrderManagement() {
               </div>
 
               {/* DRAWER FOOTER ACTIONS */}
+              {/* DRAWER FOOTER: Unified Clean Layout (Same as Order Placed) */}
               <div className="p-4 bg-slate-100/90 border-t border-slate-200 flex items-center justify-between shrink-0">
-                {getWorkflowStepIndex(selectedOrder.status) === 0 ? (
-                  <div className="flex items-center justify-between w-full">
-                    {/* Confirm Order on the left */}
+                <div className="flex items-center justify-between w-full">
+                  {/* Left Side: Primary Action Button per Stage */}
+                  {getWorkflowStepIndex(selectedOrder.status) === 0 && (
                     <button
                       type="button"
                       onClick={() => handleUpdateStatus(selectedOrder._id, 'Waiting for Courier')}
@@ -2816,8 +2768,47 @@ function LogisticsOrderManagement() {
                       <Check className="w-3.5 h-3.5" />
                       <span>Confirm Order</span>
                     </button>
+                  )}
 
-                    {/* Cancel Order (Circle X Icon) on the far right */}
+                  {getWorkflowStepIndex(selectedOrder.status) === 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const effTracking = trackingNumber.trim() || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
+                        if (!trackingNumber.trim()) setTrackingNumber(effTracking);
+                        handleUpdateStatus(selectedOrder._id, 'In Transit', {
+                          courier: selectedCourier,
+                          trackingNumber: effTracking,
+                          timelineEntry: 'Handed Over to Courier Rider & Finished Goods Inventory Deducted',
+                        });
+                      }}
+                      className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                    >
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>Handover to Rider & Deduct Stock</span>
+                    </button>
+                  )}
+
+                  {getWorkflowStepIndex(selectedOrder.status) === 2 && (
+                    <button
+                      type="button"
+                      onClick={handleOpenPodModal}
+                      className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Mark Delivered (Upload POD)</span>
+                    </button>
+                  )}
+
+                  {getWorkflowStepIndex(selectedOrder.status) === 3 && (
+                    <span className="px-5 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 flex items-center gap-1.5 whitespace-nowrap">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Order Completed</span>
+                    </span>
+                  )}
+
+                  {/* Right Side: Circular Cancel Button (or Close when Completed) */}
+                  {getWorkflowStepIndex(selectedOrder.status) <= 2 ? (
                     <button
                       type="button"
                       onClick={() => handleOpenCancelOrderModal(selectedOrder)}
@@ -2827,79 +2818,18 @@ function LogisticsOrderManagement() {
                     >
                       <XCircle className="w-5 h-5 text-red-600" />
                     </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadWaybillPdf(selectedOrder)}
-                        className="px-4 py-2 sm:py-2.5 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-blue-200 flex items-center gap-1.5 whitespace-nowrap"
-                        title="Download 100x150mm Airway Bill / Shipping Label"
-                      >
-                        <Printer className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Waybill PDF</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadOrderPdf(selectedOrder)}
-                        className="px-4 py-2 sm:py-2.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-slate-300 flex items-center gap-1.5 whitespace-nowrap"
-                        title="Download A4 Customer Delivery Receipt & Invoice"
-                      >
-                        <FileDown className="w-3.5 h-3.5 text-slate-600" />
-                        <span>Invoice PDF</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedOrder(null)}
-                        className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-                      >
-                        Close
-                      </button>
-
-                      {getWorkflowStepIndex(selectedOrder.status) === 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const effTracking = trackingNumber.trim() || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
-                            if (!trackingNumber.trim()) setTrackingNumber(effTracking);
-                            handleUpdateStatus(selectedOrder._id, 'In Transit', {
-                              courier: selectedCourier,
-                              trackingNumber: effTracking,
-                              timelineEntry: 'Handed Over to Courier Rider & Finished Goods Inventory Deducted',
-                            });
-                          }}
-                          className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
-                        >
-                          <Truck className="w-3.5 h-3.5" />
-                          <span>Handover to Rider & Deduct Stock</span>
-                        </button>
-                      )}
-
-                      {getWorkflowStepIndex(selectedOrder.status) === 2 && (
-                        <button
-                          type="button"
-                          onClick={handleOpenPodModal}
-                          className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          <span>Mark Delivered (Upload POD)</span>
-                        </button>
-                      )}
-
-                      {getWorkflowStepIndex(selectedOrder.status) === 3 && (
-                        <span className="px-5 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 flex items-center gap-1.5 whitespace-nowrap">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Order Completed</span>
-                        </span>
-                      )}
-                    </div>
-                  </>
-                )}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOrder(null)}
+                      title="Close Drawer"
+                      aria-label="Close Drawer"
+                      className="w-10 h-10 rounded-full border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-all shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer shrink-0 font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
