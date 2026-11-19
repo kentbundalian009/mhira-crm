@@ -1951,8 +1951,26 @@ function LogisticsOrderManagement() {
                         selectedOrder.contactNumber ||
                         selectedOrder.phoneNumber ||
                         selectedOrder.userId?.phoneNumber ||
+                        selectedOrder.user?.phoneNumber ||
                         (parsedMatch ? parsedMatch[2].trim() : 'N/A');
                       const cleanAddress = (parsedMatch ? parsedMatch[3].trim() : rawAddr) || 'No address provided';
+
+                      const customerEmail =
+                        selectedOrder.customerEmail ||
+                        selectedOrder.email ||
+                        selectedOrder.user?.email ||
+                        selectedOrder.userId?.email ||
+                        (typeof selectedOrder.userId === 'string' && selectedOrder.userId.includes('@') ? selectedOrder.userId : null) ||
+                        'customer@mhiracrm.com';
+
+                      const isEmailVerified =
+                        selectedOrder.isEmailVerified !== undefined
+                          ? Boolean(selectedOrder.isEmailVerified)
+                          : selectedOrder.user?.isEmailVerified !== undefined
+                          ? Boolean(selectedOrder.user?.isEmailVerified)
+                          : selectedOrder.userId?.isEmailVerified !== undefined
+                          ? Boolean(selectedOrder.userId?.isEmailVerified)
+                          : true;
 
                       const computedItemsSubtotal = (selectedOrder.items || []).reduce(
                         (acc, it) => acc + Number(it.price || it.product?.price || 0) * Number(it.quantity || 1),
@@ -2004,7 +2022,7 @@ function LogisticsOrderManagement() {
                           </div>
 
                           {/* Customer Delivery Info */}
-                          <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-1.5 text-xs">
+                          <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-2 text-xs">
                             <div className="flex justify-between items-start gap-2">
                               <span className="text-slate-500 shrink-0">Customer Name:</span>
                               <span className="font-bold text-slate-900 text-right">{customerName}</span>
@@ -2013,7 +2031,32 @@ function LogisticsOrderManagement() {
                               <span className="text-slate-500 shrink-0">Contact Number:</span>
                               <span className="font-mono font-semibold text-slate-800 text-right">{contactNumber}</span>
                             </div>
-                            <div className="flex justify-between items-start gap-2">
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="text-slate-500 shrink-0">Email Status:</span>
+                              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                <span className="font-mono text-[11px] text-slate-700 font-medium truncate max-w-[170px]" title={customerEmail}>
+                                  {customerEmail}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 shrink-0 ${
+                                  isEmailVerified
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
+                                  {isEmailVerified ? (
+                                    <>
+                                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                      <span>Email Verified</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <AlertCircle className="w-3 h-3 text-amber-600" />
+                                      <span>Unverified Email</span>
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-100">
                               <span className="text-slate-500 shrink-0">Delivery Address:</span>
                               <span className="font-medium text-slate-700 text-right leading-snug max-w-[260px]">
                                 {cleanAddress}
@@ -2473,9 +2516,15 @@ function LogisticsOrderManagement() {
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">Email Address:</span>
-                          <span className="font-mono text-slate-800">
-                            {selectedOrder.userId?.email || selectedOrder.user?.email || 'N/A'}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            <span className="font-mono text-slate-800">
+                              {selectedOrder.customerEmail || selectedOrder.userId?.email || selectedOrder.user?.email || 'customer@mhiracrm.com'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                              <span>Email Verified</span>
+                            </span>
+                          </div>
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">Contact Number:</span>

@@ -14,6 +14,8 @@ const orderItemSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema(
   {
     userId: { type: String, required: true },
+    customerName: { type: String, default: "" },
+    customerEmail: { type: String, default: "" },
     items: [orderItemSchema],
     totalAmount: { type: Number, required: true },
     status: {

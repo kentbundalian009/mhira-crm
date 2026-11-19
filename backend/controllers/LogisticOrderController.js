@@ -321,6 +321,8 @@ export const createOrder = async (req, res) => {
 
     const newOrder = new Order({
       userId,
+      customerName: req.body.customerName || user?.name || "",
+      customerEmail: req.body.customerEmail || user?.email || (typeof userId === "string" && userId.includes("@") ? userId : ""),
       items: orderItems,
       totalAmount,
       status: "Order Placed",
@@ -385,12 +387,76 @@ const normalizeOrderPayment = (order) => {
   return order;
 };
 
+// Helper to populate customer email, name and email verified status
+const attachUserDetailsToOrders = async (orders) => {
+  if (!Array.isArray(orders) || orders.length === 0) return orders;
+  try {
+    const userIds = [...new Set(orders.map((o) => o.userId).filter(Boolean))];
+    if (userIds.length === 0) return orders.map(normalizeOrderPayment);
+
+    const validObjectIds = userIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const stringIdentifiers = userIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+
+    const users = await User.find(
+      {
+        $or: [
+          ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
+          ...(stringIdentifiers.length > 0
+            ? [{ email: { $in: stringIdentifiers } }, { username: { $in: stringIdentifiers } }]
+            : []),
+        ],
+      },
+      "name email phoneNumber isEmailVerified"
+    )
+      .lean()
+      .maxTimeMS(3000)
+      .catch(() => []);
+
+    const userMap = new Map();
+    for (const u of users) {
+      if (u._id) userMap.set(String(u._id), u);
+      if (u.email) userMap.set(u.email.toLowerCase(), u);
+      if (u.username) userMap.set(u.username.toLowerCase(), u);
+    }
+
+    return orders.map((order) => {
+      const u =
+        userMap.get(String(order.userId)) ||
+        userMap.get(String(order.userId || "").toLowerCase());
+      if (u) {
+        order.customerEmail = order.customerEmail || u.email;
+        order.customerName = order.customerName || u.name;
+        order.isEmailVerified = u.isEmailVerified ?? true;
+        order.user = {
+          name: u.name,
+          email: u.email,
+          phoneNumber: u.phoneNumber,
+          isEmailVerified: u.isEmailVerified ?? true,
+        };
+      } else {
+        const emailFallback =
+          typeof order.userId === "string" && order.userId.includes("@")
+            ? order.userId
+            : "";
+        if (emailFallback) {
+          order.customerEmail = order.customerEmail || emailFallback;
+          order.isEmailVerified = true;
+        }
+      }
+      return normalizeOrderPayment(order);
+    });
+  } catch (err) {
+    console.error("Error attaching user details to orders:", err);
+    return orders.map(normalizeOrderPayment);
+  }
+};
+
 // Get All Orders for Admin / SalesOrderManagement
 export const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 }).lean().maxTimeMS(5000);
-    const normalized = (orders || []).map(normalizeOrderPayment);
-    return res.status(200).json(normalized);
+    const populated = await attachUserDetailsToOrders(orders || []);
+    return res.status(200).json(populated);
   } catch (error) {
     console.error("Error fetching all orders:", error);
     return res.status(200).json([]);
@@ -481,8 +547,8 @@ export const getUserOrders = async (req, res) => {
       }
       orders = await Order.find(staffQuery).sort({ createdAt: -1 }).lean().maxTimeMS(4000).catch(() => []);
     }
-    const normalized = (orders || []).map(normalizeOrderPayment);
-    return res.status(200).json(normalized);
+    const populated = await attachUserDetailsToOrders(orders || []);
+    return res.status(200).json(populated);
   } catch (error) {
     console.error("Error fetching user orders:", error);
     return res.status(200).json([]);
