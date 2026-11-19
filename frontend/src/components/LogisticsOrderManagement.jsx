@@ -948,13 +948,6 @@ function LogisticsOrderManagement() {
       const trackingNo = order.trackingNumber || `JT${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
       const fileName = downloadWaybillPdf({ ...order, courier: courierName, trackingNumber: trackingNo });
       if (fileName) showSuccessToast(`Waybill generated & downloaded: ${fileName}`);
-
-      // Log timeline event
-      handleLogTimelineEvent(order._id, {
-        title: 'Waybill Generated & Downloaded',
-        description: `Waybill shipping label generated for ${courierName} (Tracking: ${trackingNo}).`,
-        actor: 'Logistics Officer',
-      });
     } catch (err) {
       console.error('Error generating Waybill PDF:', err);
       showErrorToast('Failed to generate Waybill shipping label.');
@@ -2687,57 +2680,113 @@ function LogisticsOrderManagement() {
                         Process Audit
                       </span>
 
-                      {(!selectedOrder.trackingTimeline || selectedOrder.trackingTimeline.length === 0) ? (
-                        <div className="text-center py-6 text-slate-400 text-xs">
-                          No process timeline records logged yet for this order.
-                        </div>
-                      ) : (
-                        <div className="space-y-4 border-l-2 border-blue-200 ml-2.5 pl-4 py-1">
-                          {selectedOrder.trackingTimeline.map((item, tIdx) => {
-                            const isLatest = tIdx === 0;
-                            const titleLower = (item.title || '').toLowerCase();
-                            const isCancellation = titleLower.includes('cancel') || titleLower.includes('declined');
-                            const isWarning = titleLower.includes('waiting') || titleLower.includes('pending') || titleLower.includes('delayed');
+                      {(() => {
+                        // 1. Filter out unwanted logs like 'Waybill Generated & Downloaded'
+                        const rawTimeline = (selectedOrder.trackingTimeline || []).filter((item) => {
+                          const t = (item.title || '').toLowerCase();
+                          return !t.includes('waybill') && !t.includes('download');
+                        });
 
-                            const d = item.timestamp ? new Date(item.timestamp) : new Date();
-                            const formattedDateTime = !isNaN(d.getTime())
-                              ? `${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
-                              : '';
+                        // 2. Format timeline specifically for Order Placed stage: exactly 2 items
+                        let displayTimeline = [];
+                        const isOrderPlacedStatus =
+                          (selectedOrder.status || '').toLowerCase() === 'order placed' ||
+                          getWorkflowStepIndex(selectedOrder.status) === 0;
 
-                            return (
-                              <div key={tIdx} className="relative space-y-1">
-                                {/* Timeline node */}
-                                <div
-                                  className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${isCancellation
-                                    ? 'bg-red-500'
-                                    : isWarning
-                                      ? 'bg-yellow-500'
-                                      : 'bg-blue-600'
+                        if (isOrderPlacedStatus) {
+                          // Item 1: Order Placed
+                          const orderPlacedItem = rawTimeline.find((i) =>
+                            (i.title || '').toLowerCase().includes('order placed')
+                          ) || {
+                            title: 'Order Placed',
+                            description: 'Your order has been placed and is waiting for seller confirmation.',
+                            timestamp: selectedOrder.createdAt || new Date(),
+                          };
+
+                          // Item 2: Order Confirmation / Called Order (Pending confirmation)
+                          const confirmationItem = rawTimeline.find((i) =>
+                            (i.title || '').toLowerCase().includes('confirm') ||
+                            (i.title || '').toLowerCase().includes('called')
+                          ) || {
+                            title: 'Order Confirmation / Called Order',
+                            description: 'Pending customer call confirmation and address verification by logistics desk.',
+                            isPending: true,
+                          };
+
+                          displayTimeline = [orderPlacedItem, confirmationItem];
+                        } else {
+                          // For confirmed or in-transit orders, map timeline items and ensure names match
+                          displayTimeline = rawTimeline.map((item) => {
+                            let title = item.title;
+                            if (title.toLowerCase().includes('confirmed')) {
+                              title = 'Order Confirmation / Called Order';
+                            }
+                            return { ...item, title };
+                          });
+                        }
+
+                        if (displayTimeline.length === 0) {
+                          return (
+                            <div className="text-center py-6 text-slate-400 text-xs">
+                              No process timeline records logged yet for this order.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-4 border-l-2 border-blue-200 ml-2.5 pl-4 py-1">
+                            {displayTimeline.map((item, tIdx) => {
+                              const isLatest = tIdx === 0 && !item.isPending;
+                              const titleLower = (item.title || '').toLowerCase();
+                              const isCancellation = titleLower.includes('cancel') || titleLower.includes('declined');
+                              const isWarning = item.isPending || titleLower.includes('waiting') || titleLower.includes('pending');
+
+                              let formattedDateTime = '';
+                              if (item.timestamp) {
+                                const d = new Date(item.timestamp);
+                                if (!isNaN(d.getTime())) {
+                                  formattedDateTime = `${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                                }
+                              } else if (item.isPending) {
+                                formattedDateTime = 'Pending Confirmation';
+                              }
+
+                              return (
+                                <div key={tIdx} className="relative space-y-1">
+                                  {/* Timeline node */}
+                                  <div
+                                    className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${
+                                      isCancellation
+                                        ? 'bg-red-500'
+                                        : isWarning
+                                        ? 'bg-amber-400'
+                                        : 'bg-blue-600'
                                     }`}
-                                />
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                  <div className="flex items-center gap-2">
-                                    <h5 className="text-xs font-bold text-slate-900">{item.title}</h5>
-                                    {isLatest && (
-                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                        Latest Activity
+                                  />
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <h5 className="text-xs font-bold text-slate-900">{item.title}</h5>
+                                      {isLatest && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                          Latest Activity
+                                        </span>
+                                      )}
+                                    </div>
+                                    {formattedDateTime && (
+                                      <span className={`text-[11px] font-mono ${item.isPending ? 'text-amber-600 font-semibold' : 'text-slate-500'}`}>
+                                        {formattedDateTime}
                                       </span>
                                     )}
                                   </div>
-                                  {formattedDateTime && (
-                                    <span className="text-[11px] text-slate-500 font-mono">
-                                      {formattedDateTime}
-                                    </span>
-                                  )}
+                                  <p className="text-xs text-slate-600 leading-relaxed">
+                                    {item.description}
+                                  </p>
                                 </div>
-                                <p className="text-xs text-slate-600 leading-relaxed">
-                                  {item.description}
-                                </p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
