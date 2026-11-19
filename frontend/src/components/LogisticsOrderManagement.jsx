@@ -2692,7 +2692,7 @@ function LogisticsOrderManagement() {
                           No process timeline records logged yet for this order.
                         </div>
                       ) : (
-                        <div className="space-y-4 border-l-2 border-[#01390f]/20 ml-2.5 pl-4 py-1">
+                        <div className="space-y-4 border-l-2 border-blue-200 ml-2.5 pl-4 py-1">
                           {selectedOrder.trackingTimeline.map((item, tIdx) => {
                             const isLatest = tIdx === 0;
                             const titleLower = (item.title || '').toLowerCase();
@@ -2712,7 +2712,7 @@ function LogisticsOrderManagement() {
                                     ? 'bg-red-500'
                                     : isWarning
                                       ? 'bg-yellow-500'
-                                      : 'bg-emerald-600'
+                                      : 'bg-blue-600'
                                     }`}
                                 />
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
