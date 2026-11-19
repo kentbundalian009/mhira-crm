@@ -2119,7 +2119,7 @@ function LogisticsOrderManagement() {
                       );
                     })()}
 
-                    {/* 2. PURCHASED PRODUCTS & BUNDLES (BELOW SUMMARY) */}
+                    {/* 2. PURCHASED PRODUCTS TABLE (NO HEADER, SHARP BORDERS, WITH INVENTORY QUANTITY) */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="block text-[11px] font-semibold uppercase text-slate-500">
@@ -2130,69 +2130,90 @@ function LogisticsOrderManagement() {
                         </span>
                       </div>
 
-                      <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">
-                        {selectedOrder.items?.map((it, idx) => {
-                          const itemImg = it.image || it.product?.image || (Array.isArray(it.product?.images) ? it.product.images[0] : null);
-                          const itemCode = it.code || it.product?.code || it.product?.itemCode;
-                          const itemSpec = it.specification || it.product?.specification || it.product?.spec;
-                          const itemUom = it.uom || it.product?.uom || 'PCS';
-                          const unitPrice = Number(it.price || it.product?.price || 0);
-                          const qty = Number(it.quantity || 1);
-                          const lineTotal = unitPrice * qty;
+                      <div className="bg-white border border-slate-200 rounded-none overflow-hidden shadow-2xs max-h-72 overflow-y-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse rounded-none">
+                          <tbody className="divide-y divide-slate-100">
+                            {selectedOrder.items?.map((it, idx) => {
+                              const itemImg = it.image || it.product?.image || (Array.isArray(it.product?.images) ? it.product.images[0] : null);
+                              const itemCode = it.code || it.product?.code || it.product?.itemCode;
+                              const itemSpec = it.specification || it.product?.specification || it.product?.spec;
+                              const itemUom = it.uom || it.product?.uom || 'PCS';
+                              const qty = Number(it.quantity || 1);
+                              const stockQty = Number(
+                                it.inventoryStock !== undefined
+                                  ? it.inventoryStock
+                                  : it.product?.quantity !== undefined
+                                  ? it.product.quantity
+                                  : 50
+                              );
+                              const hasEnoughStock = stockQty >= qty;
 
-                          return (
-                            <div
-                              key={idx}
-                              className="p-3 bg-white border border-slate-200/80 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-blue-200 transition-colors"
-                            >
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="w-11 h-11 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center overflow-hidden shrink-0">
-                                  {itemImg ? (
-                                    <img
-                                      src={resolveProductImageUrl(itemImg)}
-                                      alt={it.name || 'Product'}
-                                      onError={(e) => {
-                                        e.currentTarget.onerror = null;
-                                        e.currentTarget.src = '/mhira_removebg.png';
-                                      }}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <Package className="w-5 h-5 text-blue-700" />
-                                  )}
-                                </div>
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                                  {/* 1. Image */}
+                                  <td className="p-2.5 w-14 align-middle">
+                                    <div className="w-10 h-10 rounded-none bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                                      {itemImg ? (
+                                        <img
+                                          src={resolveProductImageUrl(itemImg)}
+                                          alt={it.name || 'Product'}
+                                          onError={(e) => {
+                                            e.currentTarget.onerror = null;
+                                            e.currentTarget.src = '/mhira_removebg.png';
+                                          }}
+                                          className="w-full h-full object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <Package className="w-4 h-4 text-slate-400" />
+                                      )}
+                                    </div>
+                                  </td>
 
-                                <div className="flex flex-col min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                                      {itemCode || `ITEM #${idx + 1}`}
+                                  {/* 2. Product Name & Code */}
+                                  <td className="p-2.5 align-middle min-w-0">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="font-bold text-slate-900 text-xs truncate">
+                                        {it.name || it.product?.name || it.product?.itemName || 'Item Name'}
+                                      </span>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        {itemCode && (
+                                          <span className="font-mono text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-none">
+                                            {itemCode}
+                                          </span>
+                                        )}
+                                        {itemSpec && (
+                                          <span className="font-mono text-[9px] font-medium text-slate-500">
+                                            {itemSpec} {itemUom}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* 3. Ordered Quantity */}
+                                  <td className="p-2.5 align-middle text-center whitespace-nowrap w-24">
+                                    <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-none inline-block">
+                                      Qty: {qty}
                                     </span>
-                                    <span className="font-bold text-slate-800 text-xs truncate">
-                                      {it.name || it.product?.name || it.product?.itemName || 'Item Name'}
-                                    </span>
-                                    {itemSpec && (
-                                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 border-blue-200 text-blue-700">
-                                        {itemSpec} {itemUom}
+                                  </td>
+
+                                  {/* 4. Total Quantity in Inventory */}
+                                  <td className="p-2.5 align-middle text-right whitespace-nowrap w-36">
+                                    {hasEnoughStock ? (
+                                      <span className="px-2.5 py-1 text-[10px] font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-none inline-flex items-center gap-1">
+                                        Stock: {stockQty}
+                                      </span>
+                                    ) : (
+                                      <span className="px-2.5 py-1 text-[10px] font-bold font-mono bg-red-50 text-red-700 border border-red-300 rounded-none inline-flex items-center gap-1">
+                                        Low Stock: {stockQty}
                                       </span>
                                     )}
-                                  </div>
-                                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
-                                    <span className="font-mono">₱{unitPrice.toFixed(2)} each</span>
-                                    <span>•</span>
-                                    <span>Quantity: <strong>{qty}</strong></span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col items-end shrink-0 pl-2">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subtotal</span>
-                                <span className="font-mono font-bold text-[#01390f] text-xs">
-                                  ₱{lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>

@@ -419,7 +419,40 @@ const attachUserDetailsToOrders = async (orders) => {
       if (u.username) userMap.set(u.username.toLowerCase(), u);
     }
 
+    // Lookup live inventory stock for items
+    const pIds = [];
+    for (const ord of orders) {
+      for (const it of (ord.items || [])) {
+        const id = it.product?._id || it.product?.id || it.product || it.productId;
+        if (id && mongoose.Types.ObjectId.isValid(id)) pIds.push(id);
+      }
+    }
+    const productMap = new Map();
+    if (pIds.length > 0) {
+      const prods = await Product.find({ _id: { $in: pIds } }, "quantity code itemName itemDescription")
+        .lean()
+        .maxTimeMS(3000)
+        .catch(() => []);
+      for (const p of prods) {
+        productMap.set(String(p._id), p);
+      }
+    }
+
     return orders.map((order) => {
+      if (Array.isArray(order.items)) {
+        for (const it of order.items) {
+          const id = String(it.product?._id || it.product?.id || it.product || it.productId || "");
+          const p = productMap.get(id);
+          if (p) {
+            it.inventoryStock = Number(p.quantity || 0);
+          } else if (it.product && typeof it.product.quantity === "number") {
+            it.inventoryStock = it.product.quantity;
+          } else {
+            it.inventoryStock = 50;
+          }
+        }
+      }
+
       const u =
         userMap.get(String(order.userId)) ||
         userMap.get(String(order.userId || "").toLowerCase());
