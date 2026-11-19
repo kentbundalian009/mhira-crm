@@ -656,7 +656,7 @@ export const updateOrderStatus = async (req, res) => {
     if (!order.trackingTimeline) order.trackingTimeline = [];
     if (status === "To Ship" || status === "Waiting for Courier") {
       order.trackingTimeline.push({
-        title: "Order Confirmation / Called Order",
+        title: "Order Confirmation",
         description: "Seller verified customer address & confirmed order via call triage. Parcel packed for courier.",
         timestamp: new Date(),
         status: status,

@@ -2286,7 +2286,7 @@ function LogisticsOrderManagement() {
                                     )}
                                     {availableCouriers.map((c) => (
                                       <option key={c._id || c.code} value={c.name}>
-                                        {c.name} {c.code ? `(${c.code})` : ''}
+                                        {c.name}
                                       </option>
                                     ))}
                                   </>
@@ -2303,35 +2303,9 @@ function LogisticsOrderManagement() {
                             </div>
 
                             <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-bold text-slate-900 block">
-                                  Tracking / Waybill No:
-                                </label>
-                                {getWorkflowStepIndex(selectedOrder.status) <= 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const matchedCourier = availableCouriers.find((c) => c.name === selectedCourier);
-                                      let prefix = 'JT';
-                                      if (selectedCourier === 'Lalamove') {
-                                        prefix = 'LLM';
-                                      } else if (selectedCourier === 'Flash Express') {
-                                        prefix = 'TH';
-                                      } else if (selectedCourier === 'Ninja Van') {
-                                        prefix = 'NV';
-                                      } else if (matchedCourier?.code) {
-                                        prefix = matchedCourier.code.replace(/[^A-Za-z]/g, '') || 'CR';
-                                      }
-                                      const generated = `${prefix}${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
-                                      setTrackingNumber(generated);
-                                      showSuccessToast(`Generated Waybill #: ${generated}`);
-                                    }}
-                                    className="text-[10px] font-bold text-blue-700 hover:underline cursor-pointer"
-                                  >
-                                    + Auto-Generate
-                                  </button>
-                                )}
-                              </div>
+                              <label className="text-xs font-bold text-slate-900 block mb-1">
+                                Tracking / Waybill No:
+                              </label>
                               <input
                                 type="text"
                                 placeholder="e.g. JT94829104820"
@@ -2470,18 +2444,6 @@ function LogisticsOrderManagement() {
                                 </div>
                               </div>
                             )}
-                          </div>
-
-                          <div className="pt-1 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={handleSaveEstimatedDelivery}
-                              disabled={isSavingEdd}
-                              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-[#01390f] hover:bg-[#051609] shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
-                            >
-                              {isSavingEdd ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                              <span>Save Delivery Schedule</span>
-                            </button>
                           </div>
                         </div>
 
@@ -2719,12 +2681,12 @@ function LogisticsOrderManagement() {
                             timestamp: selectedOrder.createdAt || new Date(),
                           };
 
-                          // Item 2: Order Confirmation / Called Order (Pending confirmation)
+                          // Item 2: Order Confirmation (Pending confirmation)
                           const confirmationItem = rawTimeline.find((i) =>
                             (i.title || '').toLowerCase().includes('confirm') ||
                             (i.title || '').toLowerCase().includes('called')
                           ) || {
-                            title: 'Order Confirmation / Called Order',
+                            title: 'Order Confirmation',
                             description: 'Pending customer call confirmation and address verification by logistics desk.',
                             isPending: true,
                           };
@@ -2736,8 +2698,8 @@ function LogisticsOrderManagement() {
                           displayTimeline = rawTimeline
                             .map((item) => {
                               let title = item.title;
-                              if (title.toLowerCase().includes('confirmed')) {
-                                title = 'Order Confirmation / Called Order';
+                              if (title.toLowerCase().includes('confirm') || title.toLowerCase().includes('called')) {
+                                title = 'Order Confirmation';
                               }
                               return { ...item, title };
                             })
@@ -2834,6 +2796,11 @@ function LogisticsOrderManagement() {
                           courier: selectedCourier,
                           trackingNumber: effTracking,
                           timelineEntry: 'Handed Over to Courier Rider & Finished Goods Inventory Deducted',
+                          estimatedDelivery: {
+                            formattedRange: eddRange,
+                            isDelayed: eddIsDelayed,
+                            delayReason: eddDelayReason,
+                          },
                         });
                       }}
                       className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
