@@ -11,13 +11,9 @@ import {
   Truck,
   MapPin,
   FileSpreadsheet,
-  FileText,
   ArrowUpDown,
-  Building2,
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { API, API_BASE_URL } from '../axios';
+import { API } from '../axios';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import TablePagination from './common/TablePagination';
 
@@ -34,6 +30,7 @@ function LogisticsCourier() {
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedName, setSelectedName] = useState('All');
+  const [selectedAddress, setSelectedAddress] = useState('All');
   const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
   const [sortBy, setSortBy] = useState('default'); // 'default' | 'name_asc' | 'name_desc' | 'code_asc' | 'address_asc'
 
@@ -105,10 +102,16 @@ function LogisticsCourier() {
     fetchCouriers();
   }, [fetchCouriers]);
 
-  // Unique names for dropdown filter
+  // Unique names & addresses for dropdown filters
   const existingCourierNames = useMemo(() => {
     return Array.from(
       new Set(couriers.map((c) => c.name).filter((v) => v && v.trim() !== ''))
+    );
+  }, [couriers]);
+
+  const existingAddresses = useMemo(() => {
+    return Array.from(
+      new Set(couriers.map((c) => c.address).filter((v) => v && v.trim() !== ''))
     );
   }, [couriers]);
 
@@ -142,6 +145,11 @@ function LogisticsCourier() {
         if ((item.name || '') !== selectedName) return false;
       }
 
+      // 4. Address filter
+      if (selectedAddress !== 'All') {
+        if ((item.address || '') !== selectedAddress) return false;
+      }
+
       return true;
     });
 
@@ -156,11 +164,10 @@ function LogisticsCourier() {
     }
 
     return list;
-  }, [couriers, viewMode, searchQuery, selectedName, sortBy]);
+  }, [couriers, viewMode, searchQuery, selectedName, selectedAddress, sortBy]);
 
   // Pagination calculation
   const totalItems = filteredCouriers.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
   const paginatedCouriers = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredCouriers.slice(start, start + itemsPerPage);
@@ -168,11 +175,13 @@ function LogisticsCourier() {
 
   const activeFiltersCount = (searchQuery.trim() !== '' ? 1 : 0) +
     (selectedName !== 'All' ? 1 : 0) +
+    (selectedAddress !== 'All' ? 1 : 0) +
     (sortBy !== 'default' ? 1 : 0);
 
   const handleClearAllFilters = () => {
     setSearchQuery('');
     setSelectedName('All');
+    setSelectedAddress('All');
     setSortBy('default');
     setCurrentPage(1);
   };
@@ -303,97 +312,17 @@ function LogisticsCourier() {
     }
   };
 
-  // Export to Excel / CSV
-  const handleExportCSV = () => {
-    if (filteredCouriers.length === 0) {
-      showErrorToast('No couriers to export.');
-      return;
-    }
-
-    const headers = ['Courier Code', 'Courier Name', 'Address', 'Status'];
-    const rows = filteredCouriers.map((c) => [
-      `"${c.code || ''}"`,
-      `"${(c.name || '').replace(/"/g, '""')}"`,
-      `"${(c.address || '').replace(/"/g, '""')}"`,
-      `"${c.isArchived ? 'Archived' : 'Active'}"`,
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `logistics_couriers_${viewMode}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showSuccessToast('Couriers exported to CSV successfully!');
-  };
-
-  // Export to PDF
-  const handleExportPDF = () => {
-    if (filteredCouriers.length === 0) {
-      showErrorToast('No couriers to export.');
-      return;
-    }
-
-    try {
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('MHIRA NATURAL SKINCARE - COURIER PARTNERS DIRECTORY', 14, 15);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text(`Report Generated: ${new Date().toLocaleString()} | View: ${viewMode.toUpperCase()}`, 14, 21);
-
-      const tableData = filteredCouriers.map((c, idx) => [
-        idx + 1,
-        c.code || 'N/A',
-        c.name || 'N/A',
-        c.address || 'N/A',
-        c.isArchived ? 'Archived' : 'Active',
-      ]);
-
-      autoTable(doc, {
-        head: [['#', 'Courier Code', 'Courier Name', 'Address', 'Status']],
-        body: tableData,
-        startY: 26,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [1, 57, 15],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 8,
-        },
-        bodyStyles: {
-          fontSize: 8,
-          textColor: [30, 41, 59],
-        },
-        columnStyles: {
-          0: { halign: 'center', cellWidth: 15 },
-          1: { fontStyle: 'bold', halign: 'center', cellWidth: 35 },
-          2: { fontStyle: 'bold', cellWidth: 70 },
-          3: { cellWidth: 120 },
-          4: { halign: 'center', cellWidth: 25 },
-        },
-        margin: { left: 14, right: 14 },
-      });
-
-      doc.save(`couriers_directory_${viewMode}_${new Date().toISOString().slice(0, 10)}.pdf`);
-      showSuccessToast(`Exported ${filteredCouriers.length} couriers to PDF!`);
-    } catch (err) {
-      console.error('PDF export error:', err);
-      showErrorToast('Failed to generate PDF report.');
-    }
-  };
-
   return (
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif]">
-      {/* MAIN CARD CONTAINER */}
+      {/* MAIN CARD CONTAINER (HOUSING TOOLBAR, FILTERS & TABLE) */}
       <div className="w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-6 transition-colors duration-200">
         
-        {/* COMPACT EXCEL RIBBON TOOLBAR */}
+        {/* ======================================================== */}
+        {/* COMPACT EXCEL RIBBON TOOLBAR (SEAMLESS WHITE DESIGN)     */}
+        {/* ======================================================== */}
         <div className="w-full bg-white flex flex-col">
-          {/* TOP BAR: TABS */}
+
+          {/* TOP BAR: EXCEL SHEET TABS */}
           <div className="flex items-center justify-between bg-white px-1 pt-1 pb-0">
             <div className="flex items-center gap-1 -mb-px">
               {statusModules.map((mod) => {
@@ -413,7 +342,7 @@ function LogisticsCourier() {
                     }`}
                   >
                     {mod.id === 'active' ? (
-                      <Truck className="w-3.5 h-3.5 text-[#01390f]" />
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
                     ) : (
                       <Archive className="w-3.5 h-3.5 text-slate-500" />
                     )}
@@ -424,11 +353,13 @@ function LogisticsCourier() {
             </div>
           </div>
 
-          {/* RIBBON TOOLBAR CONTROLS */}
-          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap border-t border-slate-100">
-            {/* GROUP 1: ACTIONS */}
+          {/* MS EXCEL-STYLE RIBBON TOOLBAR (CLEAN WHITE BACKGROUND - 1 ROW NO WRAPPING) */}
+          <div className="py-2.5 bg-white flex items-stretch gap-2.5 overflow-x-auto flex-nowrap">
+
+            {/* GROUP 1: ACTIONS (Fixed Width: Tall Full-Height + Stacked Layers) */}
             <div className={`${viewMode === 'archived' ? 'w-[140px]' : 'w-[230px]'} shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]`}>
               <div className="flex items-stretch gap-1.5 flex-1">
+                {/* 1 COLUMN NA 1 LAYER: Tall Full-Height Action Button */}
                 {viewMode !== 'archived' && (
                   <button
                     type="button"
@@ -443,7 +374,9 @@ function LogisticsCourier() {
                   </button>
                 )}
 
+                {/* Stacked Compact Rows / Reset Filters */}
                 <div className={`flex-1 min-w-0 flex flex-col ${viewMode === 'archived' ? 'justify-center items-center py-1' : 'justify-center py-0.5'}`}>
+                  {/* Layer 1: Reset Filters */}
                   <button
                     type="button"
                     onClick={handleClearAllFilters}
@@ -452,178 +385,160 @@ function LogisticsCourier() {
                     title={activeFiltersCount > 0 ? `Reset active filters (${activeFiltersCount})` : 'No active filters'}
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="text-[11px] font-medium text-slate-700">Clear</span>
+                    <span className="whitespace-nowrap">
+                      Reset Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
+                    </span>
                   </button>
                 </div>
               </div>
 
-              <div className="w-full text-center border-t border-slate-200/80 pt-1 mt-auto">
-                <span className="text-[9px] font-semibold text-slate-700 uppercase tracking-widest block">
-                  Actions
-                </span>
+              {/* Group Caption */}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-0.5 select-none">
+                Actions
               </div>
             </div>
 
-            {/* GROUP 2: FILTERS */}
-            <div className="w-[300px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex flex-col justify-between gap-1 flex-1 py-0.5">
-                {/* Search */}
-                <div className="relative w-full">
-                  <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+            {/* GROUP 2: SEARCH & FILTERS (Equal 3-Column Grid) */}
+            <div className="flex flex-col justify-between flex-1 min-h-[92px] pl-1">
+              <div className="flex flex-col justify-between flex-1 py-0.5 space-y-1">
+
+                {/* Layer 1: Search Bar */}
+                <div className="relative flex items-center w-full">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search Code, Name, Address..."
                     value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="w-full pl-6 pr-6 py-0.5 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#01390f] h-[22px]"
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded px-2.5 pl-8 pr-7 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#01390f] h-[38px] font-normal shadow-2xs transition-colors"
+                    title="Search Code, Name, Address..."
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-1.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title="Clear search"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   )}
                 </div>
 
-                {/* Name Filter */}
-                <div className="flex items-center gap-1.5 w-full">
-                  <span className="text-[10px] font-medium text-slate-700 w-12 shrink-0">Name:</span>
-                  <select
-                    value={selectedName}
-                    onChange={(e) => {
-                      setSelectedName(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="flex-1 py-0.5 px-1.5 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700 focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
-                  >
-                    <option value="All">All Couriers</option>
-                    {existingCourierNames.map((n) => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
+                {/* Layer 2: Filter Dropdowns (Equal 3 Columns: Courier Name, Address, Sort) */}
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  {/* Courier Name Dropdown */}
+                  <div className="relative inline-flex items-center w-full min-w-0">
+                    <Truck className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <select
+                      value={selectedName}
+                      onChange={(e) => setSelectedName(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      title="Filter by Courier Name"
+                    >
+                      <option value="All">All Courier Names ({existingCourierNames.length})</option>
+                      {existingCourierNames.map((name, idx) => (
+                        <option key={idx} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Address Dropdown */}
+                  <div className="relative inline-flex items-center w-full min-w-0">
+                    <MapPin className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <select
+                      value={selectedAddress}
+                      onChange={(e) => setSelectedAddress(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      title="Filter by Address"
+                    >
+                      <option value="All">All Addresses ({existingAddresses.length})</option>
+                      {existingAddresses.map((addr, idx) => (
+                        <option key={idx} value={addr}>{addr}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Sort Select */}
+                  <div className="relative inline-flex items-center w-full min-w-0">
+                    <ArrowUpDown className="w-3.5 h-3.5 absolute left-1.5 text-slate-500 pointer-events-none" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded pl-6 pr-5 py-0.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
+                      title="Sort items"
+                    >
+                      <option value="default">Sort: Default</option>
+                      <option value="name_asc">Name (A → Z)</option>
+                      <option value="name_desc">Name (Z → A)</option>
+                      <option value="code_asc">Code (A → Z)</option>
+                      <option value="address_asc">Address (A → Z)</option>
+                    </select>
+                  </div>
                 </div>
+
               </div>
 
-              <div className="w-full text-center border-t border-slate-200/80 pt-1 mt-auto">
-                <span className="text-[9px] font-semibold text-slate-700 uppercase tracking-widest block">
-                  Filter & Search
-                </span>
+              {/* Group Caption */}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center pt-1 select-none">
+                Search & Filter
               </div>
             </div>
 
-            {/* GROUP 3: SORT & PAGE SIZE */}
-            <div className="w-[190px] shrink-0 flex flex-col justify-between border-r border-slate-200 pr-2.5 min-h-[92px]">
-              <div className="flex flex-col justify-between gap-1 flex-1 py-0.5">
-                <div className="flex items-center gap-1.5 w-full">
-                  <ArrowUpDown className="w-3 h-3 text-slate-400 shrink-0" />
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="flex-1 py-0.5 px-1.5 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700 focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer truncate"
-                  >
-                    <option value="default">Default Sort</option>
-                    <option value="name_asc">Name: A-Z</option>
-                    <option value="name_desc">Name: Z-A</option>
-                    <option value="code_asc">Code: A-Z</option>
-                    <option value="address_asc">Address: A-Z</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-1.5 w-full">
-                  <span className="text-[10px] font-medium text-slate-700 w-12 shrink-0">Rows:</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="flex-1 py-0.5 px-1.5 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700 focus:outline-none focus:border-[#01390f] h-[22px] cursor-pointer"
-                  >
-                    <option value={10}>10 / page</option>
-                    <option value={20}>20 / page</option>
-                    <option value={50}>50 / page</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="w-full text-center border-t border-slate-200/80 pt-1 mt-auto">
-                <span className="text-[9px] font-semibold text-slate-700 uppercase tracking-widest block">
-                  Display
-                </span>
-              </div>
-            </div>
-
-            {/* GROUP 4: EXPORT */}
-            <div className="w-[150px] shrink-0 flex flex-col justify-between min-h-[92px]">
-              <div className="flex items-center justify-around flex-1 py-1">
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  className="flex flex-col items-center justify-center p-1.5 rounded hover:bg-slate-100 text-slate-700 hover:text-emerald-700 transition-colors cursor-pointer"
-                  title="Export to Excel / CSV"
-                >
-                  <FileSpreadsheet className="w-5 h-5 text-emerald-600 mb-0.5" />
-                  <span className="text-[10px] font-medium">Excel</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleExportPDF}
-                  className="flex flex-col items-center justify-center p-1.5 rounded hover:bg-slate-100 text-slate-700 hover:text-red-700 transition-colors cursor-pointer"
-                  title="Export to PDF Report"
-                >
-                  <FileText className="w-5 h-5 text-red-600 mb-0.5" />
-                  <span className="text-[10px] font-medium">PDF</span>
-                </button>
-              </div>
-
-              <div className="w-full text-center border-t border-slate-200/80 pt-1 mt-auto">
-                <span className="text-[9px] font-semibold text-slate-700 uppercase tracking-widest block">
-                  Export
-                </span>
-              </div>
-            </div>
           </div>
+
         </div>
 
-        {/* DATA TABLE CONTAINER */}
-        <div className="w-full flex flex-col">
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+        {/* CLEAN SEPARATOR BEFORE TABLE */}
+        <hr className="border-slate-200 -mt-4 -mb-2" />
+
+        {/* TABLE MASTERLIST */}
+        <div className="bg-white border-slate-200 rounded-xl border shadow-xs overflow-hidden">
+          {/* TABLE PAGINATION */}
+          <TablePagination
+            currentPage={currentPage}
+            totalItems={filteredCouriers.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onRowsPerPageChange={(rows) => {
+              setItemsPerPage(rows);
+              setCurrentPage(1);
+            }}
+          />
+          <div className="overflow-x-auto relative custom-scrollbar">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
-                  <th className="py-3 px-4 text-center w-12">#</th>
-                  <th className="py-3 px-4 text-center w-36">Courier Code</th>
-                  <th className="py-3 px-4">Courier Name</th>
-                  <th className="py-3 px-4">Address</th>
-                  <th className="py-3 px-4 text-center w-28">Status</th>
-                  <th className="py-3 px-4 text-center w-32">Actions</th>
+                <tr className="bg-[#01390f] text-white font-bold uppercase text-[11px] tracking-wider whitespace-nowrap">
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">COURIER CODE</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px] font-semibold text-white">COURIER NAME</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">ADDRESS</th>
+                  <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px] font-semibold text-white">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center text-slate-400">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="w-6 h-6 animate-spin text-[#01390f]" />
-                        <span>Loading couriers directory...</span>
+                    <td
+                      colSpan="4"
+                      className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Fetching courier records...</span>
                       </div>
                     </td>
                   </tr>
                 ) : paginatedCouriers.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center text-slate-400">
-                      <div className="flex flex-col items-center justify-center gap-1.5">
+                    <td
+                      colSpan="4"
+                      className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
                         <Truck className="w-8 h-8 text-slate-300 mb-1" />
                         <span className="font-semibold text-slate-600">No couriers found</span>
                         <span className="text-[11px]">
-                          {searchQuery || selectedName !== 'All'
+                          {searchQuery || selectedName !== 'All' || selectedAddress !== 'All'
                             ? 'Try clearing filters or search terms'
                             : 'Click the "+ Courier" button to add your first delivery courier'}
                         </span>
@@ -631,95 +546,86 @@ function LogisticsCourier() {
                     </td>
                   </tr>
                 ) : (
-                  paginatedCouriers.map((item, index) => {
-                    const rowNumber = (currentPage - 1) * itemsPerPage + index + 1;
-                    return (
-                      <tr key={item._id || item.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4 text-center text-slate-400 font-medium">
-                          {rowNumber}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="font-mono text-[11px] font-bold text-[#01390f] bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                            {item.code}
+                  paginatedCouriers.map((item) => (
+                    <tr
+                      key={item._id || item.id}
+                      className="hover:bg-slate-50/90 transition-colors text-slate-700 whitespace-nowrap group text-xs sm:text-sm"
+                    >
+                      {/* 1. CODE */}
+                      <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
+                          {item.code || 'N/A'}
+                        </span>
+                      </td>
+
+                      {/* 2. COURIER NAME */}
+                      <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] font-semibold text-slate-900 transition-colors">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs text-slate-800">
+                            {item.name}
                           </span>
-                        </td>
-                        <td className="py-3 px-4 font-bold text-slate-800">
-                          {item.name}
-                        </td>
-                        <td className="py-3 px-4 text-slate-600 text-xs">
-                          {item.address || <span className="text-slate-400 italic">No address specified</span>}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {item.isArchived ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                          {item.isArchived && (
+                            <span className="inline-flex items-center text-[10px] text-red-700 bg-red-50 px-2 py-0.5 rounded-full font-bold border border-red-200">
                               Archived
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              Active
-                            </span>
                           )}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {!item.isArchived ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditModal(item)}
-                                  title="Edit Courier"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleArchive(item)}
-                                  title="Archive Courier"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <Archive className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleArchive(item)}
-                                  title="Restore to Active"
-                                  className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(item._id || item.id)}
-                                  title="Delete Permanently"
-                                  className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                        </div>
+                      </td>
+
+                      {/* 3. ADDRESS */}
+                      <td className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {item.address || 'N/A'}
+                      </td>
+
+                      {/* 4. ACTION (STICKY RIGHT) */}
+                      <td className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] transition-colors text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-24 min-w-[90px]">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {!item.isArchived ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(item)}
+                                title="Edit Courier"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-[#01390f] hover:text-white hover:border-[#01390f] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleArchive(item)}
+                                title="Archive Courier"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Archive className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleArchive(item)}
+                                title="Restore to Active"
+                                className="w-8 h-8 rounded-full bg-white border border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item._id || item.id)}
+                                title="Delete Permanently"
+                                className="w-8 h-8 rounded-full bg-white border border-slate-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
-          </div>
-
-          {/* TABLE PAGINATION */}
-          <div className="mt-4">
-            <TablePagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              itemsPerPage={itemsPerPage}
-              onPageChange={(page) => setCurrentPage(page)}
-            />
           </div>
         </div>
       </div>
@@ -728,7 +634,7 @@ function LogisticsCourier() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 md:p-6 overflow-hidden font-['Poppins',sans-serif]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[88vh] my-auto transition-all animate-in fade-in zoom-in-95 duration-200">
-            {/* MODAL HEADER */}
+            {/* MODAL HEADER (NO ICON) */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
               <h3 className="text-sm font-bold text-slate-800 whitespace-nowrap">
                 {isEditing ? 'Edit Courier' : 'Add Courier'}

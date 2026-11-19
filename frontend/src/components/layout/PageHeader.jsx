@@ -110,6 +110,11 @@ function PageHeader({ activeTab, userRole: userRoleProp, title, description, ico
       description: 'Process product returns, quality inspections, and replacement dispatches.',
       icon: Layers
     },
+    'logistics-courier': {
+      title: 'Courier Management',
+      description: 'Register and manage courier logistics partners, operational hub addresses, and tracking prefixes.',
+      icon: Truck
+    },
     'sales-support': {
       title: 'Support Center',
       description: 'Assist customer inquiries, process tickets, and manage service requests.',
