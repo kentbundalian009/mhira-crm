@@ -419,6 +419,7 @@ function Sidebar({ activeTab, setActiveTab, userRole: userRoleProp }) {
       children: [
         { id: "sales-support", name: "Customer Support", icon: History, roles: ["Logistic", "Logistics"] },
         { id: "sales-returns", name: "Return Management", icon: Layers, roles: ["Logistic", "Logistics"] },
+        { id: "logistics-courier", name: "Courier Management", icon: Truck, roles: ["Logistic", "Logistics"] },
       ],
     },
     { id: "shipping-rates", name: "Shipping Rates & Fees", icon: Truck, section: "sales", group: "Records", roles: ["Logistic", "Logistics"] },

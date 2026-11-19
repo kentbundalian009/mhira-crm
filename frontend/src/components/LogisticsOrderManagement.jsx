@@ -93,6 +93,13 @@ function LogisticsOrderManagement() {
   const [activeDrawerTab, setActiveDrawerTab] = useState('review'); // 'review' | 'dispatch' | 'customer' | 'invoice'
   const [selectedCourier, setSelectedCourier] = useState('J&T Express');
   const [trackingNumber, setTrackingNumber] = useState('');
+  const [availableCouriers, setAvailableCouriers] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_logistics_couriers');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return [];
+  });
 
   // Proof of Delivery (POD) States
   const [isPodModalOpen, setIsPodModalOpen] = useState(false);
@@ -384,20 +391,42 @@ function LogisticsOrderManagement() {
     return 0;
   }, [finishedGoodsList]);
 
+  const fetchCouriers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_BASE_URL}/logistics-couriers`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = Array.isArray(res.data) ? res.data : [];
+      const active = data.filter((c) => !c.isArchived);
+      setAvailableCouriers(active);
+      localStorage.setItem('cached_logistics_couriers', JSON.stringify(data));
+    } catch (e) {
+      console.error('Failed to load couriers:', e);
+    }
+  };
+
   useEffect(() => {
     fetchOrders(true);
+    fetchCouriers();
 
     const handleOrdersUpdated = () => {
       fetchOrders(true);
     };
 
+    const handleCouriersUpdated = () => {
+      fetchCouriers();
+    };
+
     window.addEventListener('ordersUpdated', handleOrdersUpdated);
+    window.addEventListener('couriersUpdated', handleCouriersUpdated);
     const interval = setInterval(() => {
       fetchOrders(true);
     }, 20000);
 
     return () => {
       window.removeEventListener('ordersUpdated', handleOrdersUpdated);
+      window.removeEventListener('couriersUpdated', handleCouriersUpdated);
       clearInterval(interval);
     };
   }, []);
@@ -2250,11 +2279,26 @@ function LogisticsOrderManagement() {
                                 disabled={getWorkflowStepIndex(selectedOrder.status) > 1}
                                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:border-[#01390f] disabled:bg-slate-100 disabled:cursor-not-allowed"
                               >
-                                <option value="J&T Express">J&T Express</option>
-                                <option value="Lalamove">Lalamove</option>
-                                <option value="Flash Express">Flash Express</option>
-                                <option value="Ninja Van">Ninja Van</option>
-                                <option value="In-House Fleet">Mhira In-House Rider</option>
+                                {availableCouriers.length > 0 ? (
+                                  <>
+                                    {selectedCourier && !availableCouriers.some((c) => c.name === selectedCourier) && (
+                                      <option value={selectedCourier}>{selectedCourier}</option>
+                                    )}
+                                    {availableCouriers.map((c) => (
+                                      <option key={c._id || c.code} value={c.name}>
+                                        {c.name} {c.code ? `(${c.code})` : ''}
+                                      </option>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <>
+                                    <option value="J&T Express">J&T Express</option>
+                                    <option value="Lalamove">Lalamove</option>
+                                    <option value="Flash Express">Flash Express</option>
+                                    <option value="Ninja Van">Ninja Van</option>
+                                    <option value="Mhira In-House Rider">Mhira In-House Rider</option>
+                                  </>
+                                )}
                               </select>
                             </div>
 
@@ -2267,7 +2311,17 @@ function LogisticsOrderManagement() {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const prefix = selectedCourier === 'Lalamove' ? 'LLM' : selectedCourier === 'Flash Express' ? 'TH' : selectedCourier === 'Ninja Van' ? 'NV' : 'JT';
+                                      const matchedCourier = availableCouriers.find((c) => c.name === selectedCourier);
+                                      let prefix = 'JT';
+                                      if (selectedCourier === 'Lalamove') {
+                                        prefix = 'LLM';
+                                      } else if (selectedCourier === 'Flash Express') {
+                                        prefix = 'TH';
+                                      } else if (selectedCourier === 'Ninja Van') {
+                                        prefix = 'NV';
+                                      } else if (matchedCourier?.code) {
+                                        prefix = matchedCourier.code.replace(/[^A-Za-z]/g, '') || 'CR';
+                                      }
                                       const generated = `${prefix}${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
                                       setTrackingNumber(generated);
                                       showSuccessToast(`Generated Waybill #: ${generated}`);

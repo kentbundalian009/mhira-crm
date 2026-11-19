@@ -38,6 +38,7 @@ import InventoryReports from "../components/InventoryReports";
 import LogisticsCustomerAnalytics from "../components/LogisticsCustomerAnalytics";
 import LogisticsOrderManagement from "../components/LogisticsOrderManagement";
 import LogisticsReturnManagement from "../components/LogisticsReturnManagement";
+import LogisticsCourier from "../components/LogisticsCourier";
 import LogisticsCustomerSupport from "../components/LogisticsCustomerSupport";
 import LogisticsShippingRatesAndFees from "../components/LogisticsShippingRatesAndFees";
 import LogisticsReports from "../components/LogisticsReports";
@@ -98,6 +99,7 @@ function Dashboard() {
       "sales-orders",
       "sales-analytics",
       "sales-returns",
+      "logistics-courier",
       "sales-support",
       "logistic-reports",
       // Inventory
@@ -127,6 +129,7 @@ function Dashboard() {
       "sales-orders",
       "sales-analytics",
       "sales-returns",
+      "logistics-courier",
       "sales-support",
       "shipping-rates",
       "logistic-shipping-settings",
@@ -334,6 +337,8 @@ function Dashboard() {
         return <InventoryPurchaseRequest />;
       case "sales-returns":
         return <LogisticsReturnManagement />;
+      case "logistics-courier":
+        return <LogisticsCourier />;
       case "sales-support":
         return <LogisticsCustomerSupport />;
       case "shipping-rates":

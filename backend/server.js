@@ -41,6 +41,7 @@ import LogisticReturnRoutes from "./routes/LogisticReturnRoutes.js";
 import LogisticChatbotRoutes from "./routes/LogisticChatbotRoutes.js";
 import LogisticSalesReportRoutes from "./routes/LogisticSalesReportRoutes.js";
 import LogisticsShippingRoutes from "./routes/LogisticsShippingRoutes.js";
+import LogisticCourierRoutes from "./routes/logisticCourierRoutes.js";
 import ScrapAuditLogRoutes from "./routes/ScrapAuditLogRoutes.js";
 import NotificationRoutes from "./routes/NotificationRoutes.js";
 
@@ -197,6 +198,7 @@ app.use("/api/reviews", MarketingReviewRoutes);
 app.use("/api/coupons", MarketingCouponRoutes);
 app.use("/api/shipping-rates", LogisticsShippingRoutes);
 app.use("/api/logistics/shipping-rates", LogisticsShippingRoutes);
+app.use("/api/logistics-couriers", LogisticCourierRoutes);
 app.use("/api/story", MarketingStoryRoutes);
 app.use("/api/marketing/story", MarketingStoryRoutes);
 app.use("/api/logistics/sales-report", LogisticSalesReportRoutes);
