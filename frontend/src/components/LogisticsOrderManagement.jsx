@@ -1676,20 +1676,20 @@ function LogisticsOrderManagement() {
                         key={order._id}
                         className="transition-colors whitespace-nowrap group hover:bg-slate-50/90 text-slate-700 font-medium text-xs sm:text-sm"
                       >
-                        {/* 1. ORDER ID */}
-                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 1. ORDER ID (Not Clickable) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default select-text">
                           <span className="font-mono font-bold text-xs text-slate-800 tracking-wide">
                             #{order._id?.slice(-8).toUpperCase()}
                           </span>
                         </td>
 
-                        {/* 2. ORDER DATE */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 2. ORDER DATE (Not Clickable) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default select-text">
                           {orderDate}
                         </td>
 
-                        {/* 3. PAYMENT METHOD (Styled Badge) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 3. PAYMENT METHOD (Styled Badge, Not Clickable) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default">
                           {(() => {
                             const isCod =
                               (order.paymentMethod || '').toLowerCase().includes('cod') ||
@@ -1708,14 +1708,13 @@ function LogisticsOrderManagement() {
                           })()}
                         </td>
 
-                        {/* 4. TOTAL AMOUNT */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                        {/* 4. TOTAL AMOUNT (Not Clickable) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default select-text">
                           ₱{total}
                         </td>
 
-                        {/* 5. ACTION (Sticky Right) */}
+                        {/* 5. ACTION (Sticky Right, Only Action Buttons Clickable) */}
                         <td
-                          onClick={(e) => e.stopPropagation()}
                           className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-32 min-w-[120px] transition-colors"
                         >
                           <div className="flex items-center justify-center gap-1.5">
@@ -1741,6 +1740,7 @@ function LogisticsOrderManagement() {
                                 <Printer className="w-3.5 h-3.5" />
                               </button>
                             )}
+                            {/* Eye button is the only action that opens the drawer */}
                             <button
                               type="button"
                               onClick={() => setSelectedOrder(order)}
@@ -2733,8 +2733,8 @@ function LogisticsOrderManagement() {
                                   {/* Timeline node */}
                                   <div
                                     className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${isCancellation
-                                        ? 'bg-red-500'
-                                        : 'bg-blue-600'
+                                      ? 'bg-red-500'
+                                      : 'bg-blue-600'
                                       }`}
                                   />
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
