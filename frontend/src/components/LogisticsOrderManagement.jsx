@@ -1626,8 +1626,9 @@ function LogisticsOrderManagement() {
                     ORDER ID
                   </th>
                   <th className="py-3.5 px-4 whitespace-nowrap text-center">ORDER DATE</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap">TOTAL PAYMENT</th>
                   <th className="py-3.5 px-4 whitespace-nowrap text-center">PAYMENT METHOD</th>
-                  <th className="py-3.5 px-4 text-right whitespace-nowrap">TOTAL AMOUNT</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap text-center">REFERENCE #</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px]">
                     ACTION
                   </th>
@@ -1638,7 +1639,7 @@ function LogisticsOrderManagement() {
                 {loading && orders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan="6"
                       className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -1650,7 +1651,7 @@ function LogisticsOrderManagement() {
                 ) : filteredOrders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan="6"
                       className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -1688,7 +1689,12 @@ function LogisticsOrderManagement() {
                           {orderDate}
                         </td>
 
-                        {/* 3. PAYMENT METHOD (Styled Badge, Not Clickable) */}
+                        {/* 3. TOTAL PAYMENT (Not Clickable) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default select-text">
+                          ₱{total}
+                        </td>
+
+                        {/* 4. PAYMENT METHOD (Styled Badge, Not Clickable) */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default">
                           {(() => {
                             const isCod =
@@ -1708,12 +1714,40 @@ function LogisticsOrderManagement() {
                           })()}
                         </td>
 
-                        {/* 4. TOTAL AMOUNT (Not Clickable) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default select-text">
-                          ₱{total}
+                        {/* 5. REFERENCE # (Not Clickable, Shows Ref for E-Payment / N/A for COD) */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors cursor-default select-text">
+                          {(() => {
+                            const isCod =
+                              (order.paymentMethod || '').toLowerCase().includes('cod') ||
+                              (order.paymentMethod || '').toLowerCase().includes('cash on delivery');
+
+                            if (isCod) {
+                              return <span className="text-slate-400 font-bold">N/A</span>;
+                            }
+
+                            const refNumber =
+                              order.paymentDetails?.referenceNumber ||
+                              order.paymentReference ||
+                              order.paymentDetails?.paymentId ||
+                              order.paymentIntentId ||
+                              order.checkoutSessionId;
+
+                            if (refNumber) {
+                              return (
+                                <span
+                                  className="inline-flex items-center px-2.5 py-0.5 rounded-md font-mono font-bold text-[11px] bg-blue-50 text-blue-700 border border-blue-200/90 max-w-[160px] truncate shadow-2xs"
+                                  title={refNumber}
+                                >
+                                  {refNumber}
+                                </span>
+                              );
+                            }
+
+                            return <span className="text-slate-400 font-bold">N/A</span>;
+                          })()}
                         </td>
 
-                        {/* 5. ACTION (Sticky Right, Only Action Buttons Clickable) */}
+                        {/* 6. ACTION (Sticky Right, Only Action Buttons Clickable) */}
                         <td
                           className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-32 min-w-[120px] transition-colors"
                         >
