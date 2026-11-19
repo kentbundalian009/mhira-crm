@@ -1135,8 +1135,8 @@ function LogisticsOrderManagement() {
                 setFilterCancelRequestsOnly(false);
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'all'
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
@@ -1151,12 +1151,12 @@ function LogisticsOrderManagement() {
                 setFilterCancelRequestsOnly(false);
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'order-placed'
-                  ? (counts['order-placed'] || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
-                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : (counts['order-placed'] || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? (counts['order-placed'] || 0) > 0
+                  ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
+                  : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : (counts['order-placed'] || 0) > 0
+                  ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by Order Placed (Awaiting confirmation)"
             >
@@ -1197,12 +1197,12 @@ function LogisticsOrderManagement() {
                 setFilterCancelRequestsOnly(false);
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'waiting-courier'
-                  ? (counts['waiting-courier'] || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
-                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : (counts['waiting-courier'] || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? (counts['waiting-courier'] || 0) > 0
+                  ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
+                  : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : (counts['waiting-courier'] || 0) > 0
+                  ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by Waiting for Courier (To Ship / Packing)"
             >
@@ -1232,12 +1232,12 @@ function LogisticsOrderManagement() {
                 setFilterCancelRequestsOnly(false);
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'in-transit'
-                  ? (counts['in-transit'] || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
-                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : (counts['in-transit'] || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? (counts['in-transit'] || 0) > 0
+                  ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
+                  : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : (counts['in-transit'] || 0) > 0
+                  ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by In Transit (Dispatched to Courier)"
             >
@@ -1267,8 +1267,8 @@ function LogisticsOrderManagement() {
                 setFilterCancelRequestsOnly(false);
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'delivered'
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
             >
               <span>Delivered</span>
@@ -1282,8 +1282,8 @@ function LogisticsOrderManagement() {
                 setFilterCancelRequestsOnly(false);
               }}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'cancel'
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
             >
               <span>Cancel</span>
@@ -1967,10 +1967,10 @@ function LogisticsOrderManagement() {
                         selectedOrder.isEmailVerified !== undefined
                           ? Boolean(selectedOrder.isEmailVerified)
                           : selectedOrder.user?.isEmailVerified !== undefined
-                          ? Boolean(selectedOrder.user?.isEmailVerified)
-                          : selectedOrder.userId?.isEmailVerified !== undefined
-                          ? Boolean(selectedOrder.userId?.isEmailVerified)
-                          : true;
+                            ? Boolean(selectedOrder.user?.isEmailVerified)
+                            : selectedOrder.userId?.isEmailVerified !== undefined
+                              ? Boolean(selectedOrder.userId?.isEmailVerified)
+                              : true;
 
                       const computedItemsSubtotal = (selectedOrder.items || []).reduce(
                         (acc, it) => acc + Number(it.price || it.product?.price || 0) * Number(it.quantity || 1),
@@ -2068,11 +2068,10 @@ function LogisticsOrderManagement() {
                           <div className="flex justify-between items-center text-xs text-slate-600">
                             <span>Payment Method:</span>
                             {isCod ? (
-                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                                isDelivered || isPaid
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                  : 'bg-yellow-50 text-yellow-800 border-yellow-300'
-                              }`}>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${isDelivered || isPaid
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-yellow-50 text-yellow-800 border-yellow-300'
+                                }`}>
                                 Cash on Delivery
                               </span>
                             ) : (
@@ -2130,8 +2129,8 @@ function LogisticsOrderManagement() {
                     {/* 2. PURCHASED PRODUCTS & BUNDLES (BELOW SUMMARY) */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          Purchased Productss
+                        <label className="block text-[11px] font-semibold uppercase text-slate-500">
+                          Purchased Products
                         </label>
                         <span className="text-[11px] text-slate-400">
                           {selectedOrder.items?.length || 0} {selectedOrder.items?.length === 1 ? 'item' : 'items'}
@@ -2319,25 +2318,22 @@ function LogisticsOrderManagement() {
                           </div>
 
                           {/* Warehouse Finished Goods Inventory Sync Card */}
-                          <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
-                            selectedOrder.inventoryDeducted
-                              ? 'bg-blue-50/70 border-blue-200 text-blue-900'
-                              : 'bg-yellow-50/70 border-yellow-300 text-yellow-950'
-                          }`}>
+                          <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all ${selectedOrder.inventoryDeducted
+                            ? 'bg-blue-50/70 border-blue-200 text-blue-900'
+                            : 'bg-yellow-50/70 border-yellow-300 text-yellow-950'
+                            }`}>
                             <div className="flex items-center gap-2.5">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                selectedOrder.inventoryDeducted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${selectedOrder.inventoryDeducted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
                                 <PackageCheck className="w-4 h-4" />
                               </div>
                               <div>
                                 <div className="font-bold flex items-center gap-1.5">
                                   <span>Warehouse Inventory Stock:</span>
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    selectedOrder.inventoryDeducted
-                                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                      : 'bg-yellow-50 text-yellow-800 border border-yellow-300'
-                                  }`}>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedOrder.inventoryDeducted
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-yellow-50 text-yellow-800 border border-yellow-300'
+                                    }`}>
                                     {selectedOrder.inventoryDeducted ? 'Stock Deducted' : 'Pending Rider Handover'}
                                   </span>
                                 </div>
@@ -2784,13 +2780,12 @@ function LogisticsOrderManagement() {
                               <div key={tIdx} className="relative space-y-1">
                                 {/* Timeline node */}
                                 <div
-                                  className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${
-                                    isCancellation
-                                      ? 'bg-red-500'
-                                      : isWarning
+                                  className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${isCancellation
+                                    ? 'bg-red-500'
+                                    : isWarning
                                       ? 'bg-yellow-500'
                                       : 'bg-blue-600'
-                                  }`}
+                                    }`}
                                 />
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                                   <div className="flex items-center gap-2">
