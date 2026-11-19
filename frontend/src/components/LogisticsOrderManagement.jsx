@@ -2023,16 +2023,18 @@ function LogisticsOrderManagement() {
 
                           {/* Customer Delivery Info */}
                           <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-1.5 text-xs">
-                            <div className="flex justify-between items-start gap-2">
-                              <span className="text-slate-500 shrink-0">Customer Name:</span>
-                              <div className="flex flex-col items-end text-right">
+                            {isEmailVerified && (
+                              <div className="flex justify-end">
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   Email Verified
                                 </span>
-                                <span className="font-bold text-slate-900 mt-1">{customerName}</span>
                               </div>
+                            )}
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="text-slate-500 shrink-0">Customer Name:</span>
+                              <span className="font-bold text-slate-900 text-right">{customerName}</span>
                             </div>
-                            <div className="flex justify-between items-start gap-2">
+                            <div className="flex justify-between items-center gap-2">
                               <span className="text-slate-500 shrink-0">Contact Number:</span>
                               <span className="font-mono font-semibold text-slate-800 text-right">{contactNumber}</span>
                             </div>
