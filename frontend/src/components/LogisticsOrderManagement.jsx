@@ -1625,13 +1625,9 @@ function LogisticsOrderManagement() {
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">
                     ORDER ID
                   </th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">ORDER DATE</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">CUSTOMER</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">SHIPPING DESTINATION</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">PURCHASED ITEMS</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">PAYMENT</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap text-center">ORDER DATE</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap text-center">PAYMENT METHOD</th>
                   <th className="py-3.5 px-4 text-right whitespace-nowrap">TOTAL AMOUNT</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">STATUS</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-24 min-w-[90px]">
                     ACTION
                   </th>
@@ -1642,7 +1638,7 @@ function LogisticsOrderManagement() {
                 {loading && orders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="9"
+                      colSpan="5"
                       className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -1654,7 +1650,7 @@ function LogisticsOrderManagement() {
                 ) : filteredOrders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="9"
+                      colSpan="5"
                       className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -1665,19 +1661,11 @@ function LogisticsOrderManagement() {
                   </tr>
                 ) : (
                   paginatedOrders.map((order) => {
-                    const customerName =
-                      order.customerName ||
-                      order.userId?.name ||
-                      order.user?.name ||
-                      'Customer';
                     const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric'
                     });
-                    const itemsSummary = order.items
-                      ?.map((it) => `${it.name || it.product?.name || 'Item'} (x${it.quantity || 1})`)
-                      .join(', ');
                     const total = Number(order.totalAmount || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
@@ -1701,131 +1689,32 @@ function LogisticsOrderManagement() {
                           {orderDate}
                         </td>
 
-                        {/* 3. CUSTOMER (Name + Email) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-xs text-slate-900 truncate max-w-[200px]" title={customerName}>
-                              {customerName}
-                            </span>
-                            <span className="text-[11px] text-slate-500 font-mono truncate max-w-[200px] mt-0.5">
-                              {order.userId?.email || order.user?.email || 'Mhira Shopper'}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* 4. SHIPPING DESTINATION */}
-                        <td
-                          className="px-4 py-3.5 whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[200px] truncate"
-                          title={formatShippingAddress(order.shippingAddress) || 'N/A'}
-                        >
-                          <div className="flex items-center gap-1.5 text-xs text-slate-700 truncate">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate">{formatShippingAddress(order.shippingAddress) || 'Storefront Delivery Address'}</span>
-                          </div>
-                        </td>
-
-                        {/* 5. PURCHASED ITEMS */}
-                        <td
-                          className="px-4 py-3.5 whitespace-nowrap font-semibold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[220px] truncate"
-                          title={itemsSummary}
-                        >
-                          {itemsSummary || 'No items recorded'}
-                        </td>
-
-                        {/* 6. PAYMENT */}
+                        {/* 3. PAYMENT METHOD (Styled Badge) */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           {(() => {
-                            const isCod = (order.paymentMethod || '').toLowerCase().includes('cod') || (order.paymentMethod || '').toLowerCase().includes('cash on delivery');
-                            const isPaid = (order.paymentStatus || '').toLowerCase() === 'paid';
-                            const isDelivered = (order.status || '').toLowerCase() === 'delivered' || (order.status || '').toLowerCase() === 'completed';
+                            const isCod =
+                              (order.paymentMethod || '').toLowerCase().includes('cod') ||
+                              (order.paymentMethod || '').toLowerCase().includes('cash on delivery');
+                            const displayMethod = isCod ? 'Cash on Delivery' : getDisplayPaymentMethod(order);
 
-                            return (
-                              <div className="flex flex-col items-center justify-center gap-1">
-                                <span className="font-mono text-xs font-bold text-slate-800 uppercase">
-                                  {getDisplayPaymentMethod(order)}
-                                </span>
-                                {isCod ? (
-                                  isDelivered || isPaid ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1 shadow-2xs">
-                                      <Check className="w-2.5 h-2.5" />
-                                      <span>COD COLLECTED</span>
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300 inline-flex items-center gap-1 shadow-2xs" title="To be collected by courier rider upon delivery">
-                                      <Clock className="w-2.5 h-2.5" />
-                                      <span>COD</span>
-                                    </span>
-                                  )
-                                ) : (
-                                  isPaid ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1 shadow-2xs">
-                                      <Check className="w-2.5 h-2.5" />
-                                      <span>ONLINE PAID</span>
-                                    </span>
-                                  ) : (
-                                    <div className="flex items-center gap-1">
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-800 border border-yellow-300 inline-flex items-center gap-1 shadow-2xs">
-                                        <Clock className="w-2.5 h-2.5" />
-                                        <span>PAYMENT PENDING</span>
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenPaymentVerifyModal(order);
-                                        }}
-                                        className="text-[10px] text-blue-700 hover:text-blue-900 underline font-bold cursor-pointer"
-                                        title="Verify e-payment & mark as Paid"
-                                      >
-                                        Verify
-                                      </button>
-                                    </div>
-                                  )
-                                )}
-                              </div>
+                            return isCod ? (
+                              <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-bold bg-emerald-50 text-[#01390f] border border-emerald-200/90 shadow-2xs">
+                                Cash on Delivery
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200/90 shadow-2xs">
+                                {displayMethod}
+                              </span>
                             );
                           })()}
                         </td>
 
-                        {/* 7. TOTAL AMOUNT (Accent Column) */}
+                        {/* 4. TOTAL AMOUNT */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
                           ₱{total}
                         </td>
 
-                        {/* 8. STATUS */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {getStatusBadge(order.status)}
-                              {((order.status || '').toLowerCase() === 'order placed' || (order.status || '').toLowerCase() === 'to pay') &&
-                                order.cancellationRequest?.status !== 'Pending' && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUpdateStatus(order._id, 'To Ship');
-                                    }}
-                                    className="inline-flex items-center gap-1 bg-[#01390f] hover:bg-[#051609] text-white px-2 py-0.5 rounded text-[11px] font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
-                                    title="Confirm order and move to Waiting for courier (To Ship)"
-                                  >
-                                    <Check className="w-3 h-3" />
-                                    <span>Confirm</span>
-                                  </button>
-                                )}
-                            </div>
-                            {order.cancellationRequest?.status === 'Pending' && (
-                              <span
-                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 inline-flex items-center gap-1 animate-pulse"
-                                title={`Reason: ${order.cancellationRequest.reason || 'Customer requested'}`}
-                              >
-                                <AlertTriangle className="w-3 h-3 text-red-600" />
-                                <span>Cancel Requested</span>
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* 9. ACTION (Sticky Right) */}
+                        {/* 5. ACTION (Sticky Right) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
                           className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-32 min-w-[120px] transition-colors"
