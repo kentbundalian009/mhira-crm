@@ -51,6 +51,7 @@ const orderSchema = new mongoose.Schema(
     paidAt: { type: Date },
     courier: { type: String, default: "" },
     trackingNumber: { type: String, default: "" },
+    waybillPhoto: { type: String, default: "" },
     inventoryDeducted: { type: Boolean, default: false },
     isReviewed: { type: Boolean, default: false },
     proofOfDelivery: {

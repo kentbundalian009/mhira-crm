@@ -615,6 +615,10 @@ export const updateOrderStatus = async (req, res) => {
       order.trackingNumber = trackingNumber;
     }
 
+    if (req.body.waybillPhoto !== undefined) {
+      order.waybillPhoto = req.body.waybillPhoto;
+    }
+
     // Handle Proof of Delivery
     if (proofOfDelivery) {
       order.proofOfDelivery = {
@@ -652,33 +656,55 @@ export const updateOrderStatus = async (req, res) => {
       };
     }
 
-    // Append to Tracking Timeline
+    // Append to Tracking Timeline with standardized terms:
+    // Order Placed -> (if online payment: Payment Paid) -> Order Confirmation -> Preparing to Ship -> Package Picked Up -> In Transit -> Out for Delivery -> Delivered
     if (!order.trackingTimeline) order.trackingTimeline = [];
     if (status === "To Ship" || status === "Waiting for Courier") {
       order.trackingTimeline.push({
         title: "Order Confirmation",
-        description: "Seller verified customer address & confirmed order via call triage. Parcel packed for courier.",
+        description: "Seller verified customer address & confirmed order via call triage.",
         timestamp: new Date(),
         status: status,
         actor: req.body.actor || "Logistics Team",
+      });
+      order.trackingTimeline.push({
+        title: "Preparing to Ship",
+        description: "Order items packed and prepared for courier dispatch. Waybill assigned.",
+        timestamp: new Date(Date.now() + 1000),
+        status: status,
+        actor: req.body.actor || "Warehouse Staff",
       });
     } else if (status === "To Receive" || status === "In Transit") {
       const courierName = order.courier || "Courier Partner";
       const waybill = order.trackingNumber ? ` (Waybill: ${order.trackingNumber})` : "";
       const itemCount = (order.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0);
       order.trackingTimeline.push({
-        title: "Handed Over to Courier Rider & Stock Deducted",
-        description: `Parcel handed over to ${courierName} rider${waybill}. ${itemCount} item(s) deducted from warehouse finished goods inventory. Out for delivery.`,
+        title: "Package Picked Up",
+        description: `Parcel handed over to ${courierName} rider${waybill}. ${itemCount} item(s) deducted from warehouse finished goods inventory.`,
         timestamp: new Date(),
         status: status,
         actor: req.body.actor || "Logistics Dispatcher",
       });
+      order.trackingTimeline.push({
+        title: "In Transit",
+        description: `Parcel in transit to destination via ${courierName}.`,
+        timestamp: new Date(Date.now() + 1000),
+        status: status,
+        actor: req.body.actor || courierName,
+      });
+      order.trackingTimeline.push({
+        title: "Out for Delivery",
+        description: `Parcel is out for delivery with ${courierName} rider to recipient address.`,
+        timestamp: new Date(Date.now() + 2000),
+        status: status,
+        actor: req.body.actor || "Courier Rider",
+      });
     } else if (status === "Completed" || status === "Delivered") {
-      const recipient = order.proofOfDelivery?.recipientName ? ` (Received by ${order.proofOfDelivery.recipientName})` : "";
+      const recipient = order.proofOfDelivery?.recipientName ? ` (Received by ${order.proofOfDelivery.recipientName})` : " (Received by Customer)";
       const isCodOrder = String(order.paymentMethod || "").toLowerCase().includes("cod") || String(order.paymentMethod || "").toLowerCase().includes("cash on delivery");
       const codNote = isCodOrder ? " Cash on Delivery payment collected by courier rider." : " Delivery completed.";
       order.trackingTimeline.push({
-        title: isCodOrder ? "Parcel Delivered & COD Collected" : "Parcel Delivered",
+        title: "Delivered",
         description: `Order successfully delivered${recipient}.${codNote}`,
         timestamp: new Date(),
         status: "Completed",
@@ -694,15 +720,18 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Custom timeline entry if passed
-    if (req.body.timelineEntry) {
-      order.trackingTimeline.push({
-        title: req.body.timelineEntry.title || "Process Update",
-        description: req.body.timelineEntry.description || "",
-        timestamp: req.body.timelineEntry.timestamp || new Date(),
-        status: req.body.timelineEntry.status || order.status,
-        actor: req.body.timelineEntry.actor || req.body.actor || "Logistics Staff",
-      });
+    // Custom timeline entry if passed and has a valid title
+    if (req.body.timelineEntry && typeof req.body.timelineEntry === 'object' && req.body.timelineEntry.title) {
+      const entryTitle = req.body.timelineEntry.title;
+      if (!order.trackingTimeline.some((t) => t.title === entryTitle)) {
+        order.trackingTimeline.push({
+          title: entryTitle,
+          description: req.body.timelineEntry.description || "",
+          timestamp: req.body.timelineEntry.timestamp || new Date(),
+          status: req.body.timelineEntry.status || order.status,
+          actor: req.body.timelineEntry.actor || req.body.actor || "Logistics Staff",
+        });
+      }
     }
 
     // Once an order is Delivered, Completed, or To Review, Cash on Delivery is collected -> Payment is "Paid"!

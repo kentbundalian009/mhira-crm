@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 
 const returnItemSchema = new mongoose.Schema({
   product: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Collection",
+    type: mongoose.Schema.Types.Mixed,
+    required: false,
   },
   name: { type: String, required: true },
   price: { type: Number, required: true },
@@ -30,14 +30,6 @@ const returnRequestSchema = new mongoose.Schema(
     reason: {
       type: String,
       required: true,
-      enum: [
-        "Damaged / Broken Item",
-        "Wrong Item Delivered",
-        "Defective / Not Working",
-        "Expired Product",
-        "Item Not as Described",
-        "Change of Mind / Other",
-      ],
       default: "Damaged / Broken Item",
     },
     comments: {

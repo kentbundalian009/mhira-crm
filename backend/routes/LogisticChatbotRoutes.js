@@ -1,6 +1,7 @@
 import express from "express";
 import {
   handleCustomerChat,
+  getChatbotBanStatus,
   getTicketStatus,
   getUserActiveTicket,
   getUserTickets,
@@ -13,6 +14,8 @@ import {
 const router = express.Router();
 
 router.post("/chat", handleCustomerChat);
+router.get("/ban-status", getChatbotBanStatus);
+router.get("/ban-status/:userId", getChatbotBanStatus);
 router.get("/user-ticket/:userId", getUserActiveTicket);
 router.get("/user-tickets/:userId", getUserTickets);
 router.get("/ticket/:ticketId", getTicketStatus);

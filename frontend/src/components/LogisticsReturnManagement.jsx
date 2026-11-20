@@ -19,6 +19,7 @@ import {
   FileDown,
   Download,
   Check,
+  History,
   MapPin,
   Tag,
   Copy,
@@ -31,6 +32,7 @@ import {
   ShieldAlert,
   Trash2,
   ClipboardList,
+  FileText,
   Plus,
   X,
   Filter,
@@ -67,21 +69,22 @@ function LogisticsReturnManagement() {
   // Slide-over Drawer / Selected Return Request
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
-  const [activeDrawerTab, setActiveDrawerTab] = useState('review'); // 'review' | 'action' | 'customer' | 'slip'
+  const [activeDrawerTab, setActiveDrawerTab] = useState('customer'); // 'customer' | 'action' | 'slip'
   const [updating, setUpdating] = useState(false);
 
   // Refund Restocking & Scrap Disposition
   const [restockAction, setRestockAction] = useState('Return to Inventory'); // 'Return to Inventory' | 'Dispose/Scrap' | 'Send Replacement to Client'
   const [replacementCourier, setReplacementCourier] = useState('J&T Express');
   const [replacementTracking, setReplacementTracking] = useState('');
-  const [approverName, setApproverName] = useState(() => {
+  const getLoggedInUserName = () => {
     try {
-      const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
-      return u.name || u.fullName || u.username || '';
+      const u = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || '{}');
+      return u.name || u.fullName || u.username || 'Logistics Officer';
     } catch (e) {
-      return '';
+      return 'Logistics Officer';
     }
-  });
+  };
+  const [approverName, setApproverName] = useState(() => getLoggedInUserName());
   const [dispositionReason, setDispositionReason] = useState('');
 
   // Rejection & Scrap Audit Log Modal
@@ -178,17 +181,16 @@ function LogisticsReturnManagement() {
     setRestockAction(req.restockAction || 'Return to Inventory');
     setReplacementCourier(req.replacementCourier || 'J&T Express');
     setReplacementTracking(req.replacementTracking || '');
-    setApproverName(req.approverName || approverName || '');
+    setApproverName(req.approverName || getLoggedInUserName());
     setDispositionReason(req.dispositionReason || req.reason || '');
+    if ((req.status || '').toLowerCase() !== 'pending') {
+      setActiveDrawerTab('customer');
+    }
   };
 
   const handleStatusUpdate = async (returnId, newStatus) => {
     try {
       if (newStatus === 'Approved') {
-        if (!approverName || !approverName.trim()) {
-          showErrorToast('Approver/Inspector Name is strictly required to prevent material shrinkage/theft.');
-          return;
-        }
         if (restockAction === 'Send Replacement to Client') {
           if (!replacementTracking || !replacementTracking.trim()) {
             showErrorToast('Replacement Waybill / Tracking number is required when sending a replacement to client.');
@@ -198,6 +200,7 @@ function LogisticsReturnManagement() {
       }
 
       setUpdating(true);
+      const autoApprover = (approverName || getLoggedInUserName()).trim();
       const payload = {
         status: newStatus,
         adminNotes: adminNotes.trim(),
@@ -205,7 +208,7 @@ function LogisticsReturnManagement() {
 
       if (newStatus === 'Approved') {
         payload.restockAction = restockAction;
-        payload.approverName = approverName.trim();
+        payload.approverName = autoApprover;
         payload.dispositionReason = dispositionReason.trim() || selectedReturn?.reason || 'Approved Customer Return';
         if (restockAction === 'Send Replacement to Client') {
           payload.replacementCourier = replacementCourier;
@@ -220,6 +223,7 @@ function LogisticsReturnManagement() {
       } else {
         setSelectedReturn((prev) => (prev ? { ...prev, status: newStatus, adminNotes, restockAction, approverName, replacementCourier, replacementTracking } : null));
       }
+      setActiveDrawerTab('customer');
 
       fetchReturnRequests();
       if (newStatus === 'Approved') {
@@ -569,6 +573,8 @@ function LogisticsReturnManagement() {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
 
+      const officer = (returnItem.approverName || approverName || getLoggedInUserName()).toUpperCase();
+      doc.text(officer, 14, signY - 2);
       doc.line(14, signY, 65, signY);
       doc.text('RMA INSPECTION OFFICER', 14, signY + 5);
 
@@ -709,8 +715,8 @@ function LogisticsReturnManagement() {
               type="button"
               onClick={() => setActiveTab('all')}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'all'
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#01390f]" />
@@ -722,12 +728,12 @@ function LogisticsReturnManagement() {
               type="button"
               onClick={() => setActiveTab(activeTab === 'pending' ? 'all' : 'pending')}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'pending'
-                  ? (counts.pending || 0) > 0
-                    ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
-                    : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : (counts.pending || 0) > 0
-                    ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? (counts.pending || 0) > 0
+                  ? 'border-[#c81e1e] text-[#c81e1e] bg-red-50/80 font-bold shadow-2xs'
+                  : 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : (counts.pending || 0) > 0
+                  ? 'border-transparent text-slate-600 hover:text-[#c81e1e] hover:bg-red-50/40'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
               title="Filter by Pending Return Requests"
             >
@@ -754,8 +760,8 @@ function LogisticsReturnManagement() {
               type="button"
               onClick={() => setActiveTab('approved')}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'approved'
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
             >
               <span>Approved</span>
@@ -766,8 +772,8 @@ function LogisticsReturnManagement() {
               type="button"
               onClick={() => setActiveTab('rejected')}
               className={`px-3.5 py-1.5 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-b-2 whitespace-nowrap rounded-t-lg ${activeTab === 'rejected'
-                  ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                ? 'border-[#01390f] text-[#01390f] bg-slate-50 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                 }`}
             >
               <span>Rejected</span>
@@ -1006,13 +1012,10 @@ function LogisticsReturnManagement() {
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[150px]">
                     RETURN ID
                   </th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">DATE FILED</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap text-center">DATE FILED</th>
                   <th className="py-3.5 px-4 whitespace-nowrap">ORDER REF</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">CUSTOMER</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">RETURN REASON</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">RETURNED ITEMS</th>
-                  <th className="py-3.5 px-4 text-right whitespace-nowrap">ITEM VALUE</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">STATUS</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">CUSTOMER NAME</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">CUSTOMER EMAIL</th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-20 min-w-[80px]">
                     ACTION
                   </th>
@@ -1022,7 +1025,7 @@ function LogisticsReturnManagement() {
               <tbody className="divide-y divide-slate-100">
                 {loading && returnRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
+                    <td colSpan="6" className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-[#01390f]" />
                         <span>Loading returns masterlist...</span>
@@ -1031,7 +1034,7 @@ function LogisticsReturnManagement() {
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
+                    <td colSpan="6" className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <RotateCcw className="w-6 h-6 text-slate-300" />
                         <span>No return requests found matching your search or filter criteria.</span>
@@ -1040,7 +1043,14 @@ function LogisticsReturnManagement() {
                   </tr>
                 ) : (
                   paginatedRequests.map((req) => {
-                    const customerName = req.customerName || req.userId || 'Customer';
+                    const customerName = req.customerName || req.orderId?.customerName || req.userId || 'Customer';
+                    const customerEmail =
+                      req.customerEmail ||
+                      req.orderId?.customerEmail ||
+                      req.orderId?.userId?.email ||
+                      (req.userId && req.userId.includes('@')
+                        ? req.userId
+                        : `${(req.customerName || 'customer').toLowerCase().replace(/\s+/g, '')}@gmail.com`);
                     const reqDate = new Date(req.createdAt || Date.now()).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
@@ -1050,13 +1060,6 @@ function LogisticsReturnManagement() {
                       req.orderId?._id?.slice(-8).toUpperCase() ||
                       req.orderId?.slice(-8).toUpperCase() ||
                       'N/A';
-                    const itemsSummary = req.items
-                      ?.map((it) => `${it.name || 'Item'} (x${it.quantity || 1})`)
-                      .join(', ');
-                    const itemValue = Number(req.refundAmount || req.returnValue || req.totalAmount || 0).toLocaleString(
-                      undefined,
-                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                    );
 
                     return (
                       <tr
@@ -1079,46 +1082,17 @@ function LogisticsReturnManagement() {
                           #{orderIdStr}
                         </td>
 
-                        {/* 4. CUSTOMER (Name + User ID) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors leading-tight">
-                          <span className="font-bold text-slate-900 block truncate max-w-[200px]" title={customerName}>
-                            {customerName}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[200px]">
-                            {req.userId || 'Mhira Shopper'}
-                          </span>
+                        {/* 4. CUSTOMER NAME */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-semibold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {customerName}
                         </td>
 
-                        {/* 5. RETURN REASON */}
-                        <td
-                          className="px-4 py-3.5 whitespace-nowrap font-medium text-xs text-slate-700 truncate max-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
-                          title={req.reason || 'N/A'}
-                        >
-                          <div className="flex items-center gap-1.5 truncate">
-                            <AlertCircle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
-                            <span className="truncate">{req.reason || 'Damaged / Defective'}</span>
-                          </div>
+                        {/* 5. CUSTOMER EMAIL */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {customerEmail}
                         </td>
 
-                        {/* 6. RETURNED ITEMS */}
-                        <td
-                          className="px-4 py-3.5 whitespace-nowrap font-bold text-xs text-slate-800 truncate max-w-[200px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors"
-                          title={itemsSummary}
-                        >
-                          {itemsSummary || 'No items recorded'}
-                        </td>
-
-                        {/* 7. ITEM VALUE */}
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-[#01390f] whitespace-nowrap text-xs sm:text-sm bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          ₱{itemValue}
-                        </td>
-
-                        {/* 8. STATUS */}
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {getStatusBadge(req.status)}
-                        </td>
-
-                        {/* 9. ACTION (Sticky Right - Matching Finished Goods / Catalog Table) */}
+                        {/* 6. ACTION (Sticky Right) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
                           className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px] transition-colors"
@@ -1179,208 +1153,276 @@ function LogisticsReturnManagement() {
                       <Tag className="w-3 h-3 text-[#01390f]" />
                       <span>RMA #{selectedReturn._id?.slice(-8).toUpperCase()}</span>
                     </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Package className="w-3 h-3 text-slate-400" />
-                      <span>Order #{selectedReturn.orderId?._id?.slice(-8).toUpperCase() || selectedReturn.orderId?.slice(-8).toUpperCase() || 'N/A'}</span>
-                    </span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setSelectedReturn(null)}
-                  className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-all cursor-pointer text-sm font-bold shadow-2xs"
+                  className="text-slate-400 hover:text-slate-600 font-bold px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm shrink-0"
                   title="Close Sidebar"
                 >
                   ✕
                 </button>
               </div>
 
+              {/* DRAWER TABS BAR (Return Process & Action Tabs) */}
+              <div className="px-6 py-2.5 bg-white border-b border-slate-200/80 flex items-center justify-between gap-2 shrink-0">
+                {/* Left Side: Return Process (Pill Button with Text) */}
+                <button
+                  type="button"
+                  onClick={() => setActiveDrawerTab("process")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${activeDrawerTab === "process"
+                    ? "bg-[#01390f] text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Return Process</span>
+                </button>
+
+                {/* Right Side: Circular Icon Action Tabs (Customer Records, Action, PDF) */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveDrawerTab("customer")}
+                    title="Customer Records"
+                    aria-label="Customer Records"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${activeDrawerTab === "customer" || activeDrawerTab === "review"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                      }`}
+                  >
+                    <User className="w-4 h-4" />
+                  </button>
+
+                  {/* Warehouse & Action (Only available in Pending Review) */}
+                  {selectedReturn.status?.toLowerCase() === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveDrawerTab("action")}
+                      title="Warehouse & Action"
+                      aria-label="Warehouse & Action"
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${activeDrawerTab === "action"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                        }`}
+                    >
+                      <Boxes className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveDrawerTab("slip")}
+                    title="Return Slip PDF"
+                    aria-label="Return Slip PDF"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${activeDrawerTab === "slip"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                      }`}
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
               {/* DRAWER SCROLLABLE CONTENT */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-xs sm:text-sm">
 
-                {/* 3-CARD SUMMARY STATS */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">RMA STATUS</span>
-                    <span className="font-bold text-slate-900 mt-1">
-                      {(selectedReturn.status || 'Pending').toUpperCase()}
-                    </span>
-                  </div>
+                {/* TAB: RMA PROCESS AUDIT */}
+                {activeDrawerTab === 'process' && (
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                        Process Audit
+                      </span>
 
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">DATE FILED</span>
-                    <span className="font-mono font-bold text-slate-900 mt-1">
-                      {new Date(selectedReturn.createdAt || Date.now()).toLocaleDateString()}
-                    </span>
-                  </div>
+                      {(() => {
+                        const statusLower = (selectedReturn.status || '').toLowerCase();
+                        const currentStepIdx = getWorkflowStepIndex(selectedReturn.status);
 
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">RETURN VALUE</span>
-                    <span className="font-mono font-black text-[#01390f] text-sm mt-1">
-                      ₱{Number(selectedReturn.refundAmount || selectedReturn.returnValue || selectedReturn.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
+                        const displayTimeline = [];
 
-                {/* WORKFLOW PROGRESS STEPPER PIPELINE */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                      RMA LIFECYCLE WORKFLOW
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-[#01390f]">
-                      Stage {Math.max(1, getWorkflowStepIndex(selectedReturn.status) + 1)} of 5
-                    </span>
-                  </div>
+                        // Stage 5: Restocked / Closed
+                        if (currentStepIdx >= 4 || statusLower === 'restocked' || statusLower === 'completed') {
+                          displayTimeline.push({
+                            title: "Restocked & Settled",
+                            description: "Approved return items physically restocked to inventory or scrapped per disposition report.",
+                            timestamp: selectedReturn.updatedAt || new Date(),
+                          });
+                        }
 
-                  {/* Visual Step Progress Line */}
-                  <div className="relative flex items-center justify-between pt-2">
-                    <div className="absolute left-4 right-4 top-5 h-0.5 bg-slate-200 z-0" />
-                    <div
-                      className="absolute left-4 top-5 h-0.5 bg-[#01390f] transition-all duration-500 z-0"
-                      style={{
-                        width: `${Math.max(0, Math.min(100, (getWorkflowStepIndex(selectedReturn.status) / (workflowSteps.length - 1)) * 100))}%`
-                      }}
-                    />
+                        // Stage 4: Warehouse Check
+                        if (currentStepIdx >= 3 || statusLower === 'warehouse check') {
+                          displayTimeline.push({
+                            title: "Warehouse Check & Inspection",
+                            description: `Warehouse QA inspector checked parcel condition. Approver: ${selectedReturn.approverName || approverName || 'QC Supervisor'}.`,
+                            timestamp: selectedReturn.updatedAt || new Date(),
+                          });
+                        }
 
-                    {workflowSteps.map((step, idx) => {
-                      const currentIdx = getWorkflowStepIndex(selectedReturn.status);
-                      const isPassed = idx < currentIdx;
-                      const isCurrent = idx === currentIdx;
+                        // Stage 3: In Transit
+                        if (currentStepIdx >= 2 || statusLower === 'in transit') {
+                          displayTimeline.push({
+                            title: "In Transit to Warehouse",
+                            description: "Return parcel is in transit back to the warehouse facility via courier carrier.",
+                            timestamp: selectedReturn.updatedAt || new Date(),
+                          });
+                        }
 
-                      return (
-                        <div key={idx} className="relative z-10 flex flex-col items-center gap-2">
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${isPassed
-                              ? 'bg-[#01390f] text-white'
-                              : isCurrent
-                                ? 'bg-[#01390f] text-white ring-4 ring-[#01390f]/20 scale-110'
-                                : 'bg-slate-100 text-slate-400 border border-slate-200'
-                              }`}
-                          >
-                            {isPassed ? <Check className="w-3.5 h-3.5" /> : idx + 1}
+                        // Stage 2: RMA Review
+                        if (currentStepIdx >= 1 || statusLower === 'approved' || statusLower === 'rejected' || statusLower === 'pending') {
+                          displayTimeline.push({
+                            title: "RMA Claim Review",
+                            description: `Logistics team evaluated return claim. Reason: ${selectedReturn.reason || 'Damaged Item'}. Action: ${selectedReturn.restockAction || restockAction}.`,
+                            timestamp: selectedReturn.updatedAt || new Date(),
+                          });
+                        }
+
+                        // Stage 1: Request Filed
+                        displayTimeline.push({
+                          title: "Return Request Filed",
+                          description: `Customer submitted RMA claim for Order #${selectedReturn.orderId?._id?.slice(-8).toUpperCase() || selectedReturn.orderId?.slice(-8).toUpperCase() || 'N/A'}. Return Value: ₱${Number(selectedReturn.refundAmount || selectedReturn.returnValue || selectedReturn.totalAmount || 0).toFixed(2)}.`,
+                          timestamp: selectedReturn.createdAt || new Date(),
+                        });
+
+                        return (
+                          <div className="space-y-4 border-l-2 border-blue-200 ml-2.5 pl-4 py-1">
+                            {displayTimeline.map((item, tIdx) => {
+                              let formattedDateTime = "";
+                              if (item.timestamp) {
+                                const d = new Date(item.timestamp);
+                                if (!isNaN(d.getTime())) {
+                                  formattedDateTime = `${d.toLocaleDateString("en-US", {
+                                    month: "long",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })} ${d.toLocaleTimeString("en-US", {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}`;
+                                }
+                              }
+
+                              return (
+                                <div key={tIdx} className="relative space-y-1">
+                                  {/* Timeline node */}
+                                  <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white bg-blue-600" />
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <h5 className="text-xs font-bold text-slate-900">{item.title}</h5>
+                                      {tIdx === 0 && (
+                                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                                          Current
+                                        </span>
+                                      )}
+                                    </div>
+                                    {formattedDateTime && (
+                                      <span className="text-[11px] font-mono text-slate-400">
+                                        {formattedDateTime}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-slate-600 leading-relaxed">
+                                    {item.description}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <span
-                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight ${isCurrent
-                              ? 'text-[#01390f]'
-                              : isPassed
-                                ? 'text-slate-700'
-                                : 'text-slate-400'
-                              }`}
-                          >
-                            {step.label}
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 1: CUSTOMER RECORDS & RMA BREAKDOWN */}
+                {(activeDrawerTab === 'customer' || activeDrawerTab === 'review') && (
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    {/* Customer & Order Reference Records */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                        Customer Records
+                      </span>
+                      <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-2 text-xs">
+                        <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                          <span className="text-slate-500 font-medium">Customer Name:</span>
+                          <span className="font-bold text-slate-900">
+                            {selectedReturn.customerName || selectedReturn.userId || 'Customer'}
                           </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* WORKFLOW STAGE TABS */}
-                <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveDrawerTab('review')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'review'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                  >
-                    RMA Review
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveDrawerTab('action')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'action'
-                      ? 'bg-[#01390f] text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                  >
-                    Warehouse & Action
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveDrawerTab('customer')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'customer'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                  >
-                    Customer & Reason
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveDrawerTab('slip')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === 'slip'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                  >
-                    Return Slip PDF
-                  </button>
-                </div>
-
-                {/* TAB 1: RMA REVIEW WORKSPACE */}
-                {activeDrawerTab === 'review' && (
-                  <div className="space-y-4 animate-in fade-in duration-150">
-                    <div className="bg-blue-50/70 border border-blue-200/80 p-4 rounded-2xl flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#01390f] text-white flex items-center justify-center">
-                          <RotateCcw className="w-5 h-5" />
+                        <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                          <span className="text-slate-500 font-medium">Customer ID:</span>
+                          <span className="font-mono font-semibold text-slate-800">
+                            {selectedReturn.userId || 'N/A'}
+                          </span>
                         </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm">RMA Claim Inspection</h4>
-                          <p className="text-[11px] text-slate-500">
-                            Reason: <strong className="text-slate-800">{selectedReturn.reason || 'Damaged / Broken Item'}</strong>
-                          </p>
+                        <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                          <span className="text-slate-500 font-medium">Associated Order ID:</span>
+                          <span className="font-mono font-bold text-[#01390f]">
+                            #{selectedReturn.orderId?._id?.slice(-8).toUpperCase() || selectedReturn.orderId?.slice(-8).toUpperCase() || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1">
+                          <span className="text-slate-500 font-medium">Return Reason Category:</span>
+                          <span className="font-bold text-yellow-800 bg-yellow-50 px-2 py-0.5 rounded-full text-[10px] border border-yellow-300">
+                            {selectedReturn.reason || 'Damaged / Broken Item'}
+                          </span>
                         </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadReturnPdf(selectedReturn)}
-                        className="bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <FileDown className="w-3.5 h-3.5" />
-                        <span>RMA Slip</span>
-                      </button>
                     </div>
 
-                    {/* Returned Items List */}
+                    {/* Returned Product(s) Breakdown - Same UI as Order Placed table */}
                     <div className="space-y-2">
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                        Returned Product(s) Breakdown
-                      </span>
-                      <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-                        {selectedReturn.items?.map((it, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs hover:border-[#01390f]/50 transition-all"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-mono text-xs font-bold">
-                                #{idx + 1}
-                              </div>
-                              <div>
-                                <span className="font-bold text-slate-900 block text-xs">
-                                  {it.name || 'Mhira Natural Product'}
-                                </span>
-                                <span className="text-[11px] text-slate-400 font-mono">
-                                  Qty: {it.quantity || 1} • Unit Price: ₱{Number(it.price || 0).toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
+                      <div className="flex items-center justify-between pb-1">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Returned Product(s) Breakdown
+                        </label>
+                        <span className="text-[11px] text-slate-400">
+                          {selectedReturn.items?.length || 0} {selectedReturn.items?.length === 1 ? 'item' : 'items'}
+                        </span>
+                      </div>
 
-                            <span className="font-mono font-bold text-slate-900 text-xs">
-                              ₱{Number((it.price || 0) * (it.quantity || 1)).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
+                      <div className="bg-white border border-slate-200 rounded-none overflow-hidden shadow-2xs max-h-72 overflow-y-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse rounded-none">
+                          <tbody className="divide-y divide-slate-100">
+                            {selectedReturn.items?.map((it, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                                <td className="p-2.5 w-14 align-middle">
+                                  <div className="w-10 h-10 rounded-none bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                                    {it.image ? (
+                                      <img src={it.image} alt={it.name || 'Product'} className="w-full h-full object-cover rounded-none" />
+                                    ) : (
+                                      <Package className="w-4 h-4 text-slate-400" />
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-2.5 align-middle min-w-0">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-bold text-slate-900 text-xs truncate">
+                                      {it.name || 'Mhira Natural Product'}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-slate-400">
+                                      Unit Price: ₱{Number(it.price || 0).toFixed(2)}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="p-2.5 align-middle text-center whitespace-nowrap w-24">
+                                  <span className="px-2.5 py-1 text-xs font-bold font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-none inline-block whitespace-nowrap">
+                                    Qty: {it.quantity || 1}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 align-middle text-right whitespace-nowrap pr-4">
+                                  <span className="font-mono font-bold text-slate-900 text-xs">
+                                    ₱{Number((it.price || 0) * (it.quantity || 1)).toFixed(2)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
@@ -1396,290 +1438,129 @@ function LogisticsReturnManagement() {
                   </div>
                 )}
 
-                {/* TAB 2: WAREHOUSE & ACTION WORKSPACE */}
-                {activeDrawerTab === 'action' && (
+                {/* TAB 2: WAREHOUSE & ACTION WORKSPACE (Only visible in Pending Review) */}
+                {activeDrawerTab === 'action' && selectedReturn.status?.toLowerCase() === 'pending' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
-                    <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-sm space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">
-                          QUALITY ASSURANCE & DISPOSITION WORKSPACE
+                    <div className="flex items-center justify-between pb-1">
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
+                          Quality Assurance & Disposition
                         </span>
-                        <span className="text-xs font-mono bg-white/10 px-2 py-0.5 rounded text-white">
-                          Status: {selectedReturn.status || 'Pending'}
-                        </span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Inspect returned merchandise condition and specify the physical disposition.
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        Inspect returned merchandise condition and specify the physical disposition. Goods in acceptable condition can be restocked, while compromised/damaged items are diverted to loss prevention scrap logging.
-                      </p>
+                      <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                        Status: {selectedReturn.status || 'Pending'}
+                      </span>
                     </div>
 
-                    {/* RESTOCK STRATEGY: RADIO SELECTION CARDS */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-                        <span>Restock & Disposition Decision *</span>
-                        <span className="text-[10px] font-mono text-[#01390f] font-bold">Loss Prevention Control</span>
-                      </label>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {/* Option 1: Return to Inventory */}
-                        <label
-                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Return to Inventory'
-                            ? 'border-[#01390f] bg-blue-50/50 shadow-xs'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
-                        >
-                          <input
-                            type="radio"
-                            name="restockActionChoice"
-                            value="Return to Inventory"
-                            checked={restockAction === 'Return to Inventory'}
-                            onChange={(e) => setRestockAction(e.target.value)}
-                            className="mt-1 accent-[#01390f]"
-                          />
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
-                              <Boxes className="w-3.5 h-3.5 text-[#01390f]" />
-                              <span>Return to Inventory</span>
-                            </div>
-                            <span className="text-[11px] text-slate-500 mt-1 leading-snug">
-                              Restock returned units back into finished goods inventory (+qty).
-                            </span>
-                          </div>
+                    {/* Restock & Disposition Decision & Warehouse QC Notes (Clean 2-Column Inputs matching Courier Partner UI) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      {/* Restock & Disposition Decision */}
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                          Restock & Disposition Decision *
                         </label>
-
-                        {/* Option 2: Dispose / Scrap */}
-                        <label
-                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Dispose/Scrap'
-                            ? 'border-red-500 bg-red-50/50 shadow-xs'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
-                        >
-                          <input
-                            type="radio"
-                            name="restockActionChoice"
-                            value="Dispose/Scrap"
-                            checked={restockAction === 'Dispose/Scrap'}
+                        <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                          <Boxes className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
+                          <select
+                            value={restockAction}
                             onChange={(e) => setRestockAction(e.target.value)}
-                            className="mt-1 accent-red-600"
-                          />
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 font-bold text-red-900 text-xs">
-                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                              <span>Dispose / Scrap</span>
-                            </div>
-                            <span className="text-[11px] text-slate-500 mt-1 leading-snug">
-                              Damaged/expired items. Strictly log to Scrap Audit Log (No restock).
-                            </span>
-                          </div>
-                        </label>
+                            className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer"
+                          >
+                            <option value="Return to Inventory">Return to Inventory (+qty finished goods)</option>
+                            <option value="Dispose/Scrap">Dispose / Scrap (Log to Scrap Audit - No restock)</option>
+                            <option value="Send Replacement to Client">Send Replacement to Client (-qty)</option>
+                          </select>
+                        </div>
+                      </div>
 
-                        {/* Option 3: Send Replacement to Client */}
-                        <label
-                          className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${restockAction === 'Send Replacement to Client'
-                            ? 'border-blue-600 bg-blue-50/50 shadow-xs'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
-                        >
-                          <input
-                            type="radio"
-                            name="restockActionChoice"
-                            value="Send Replacement to Client"
-                            checked={restockAction === 'Send Replacement to Client'}
-                            onChange={(e) => setRestockAction(e.target.value)}
-                            className="mt-1 accent-blue-600"
-                          />
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 font-bold text-blue-900 text-xs">
-                              <Truck className="w-3.5 h-3.5 text-blue-600" />
-                              <span>Send Replacement</span>
-                            </div>
-                            <span className="text-[11px] text-slate-500 mt-1 leading-snug">
-                              Dispatch brand-new items to client (-qty). Moves order back to 'To Receive'.
-                            </span>
-                          </div>
+                      {/* Warehouse QC Notes & Remarks */}
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
+                          Remarks
                         </label>
+                        <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                          <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={adminNotes}
+                            onChange={(e) => setAdminNotes(e.target.value)}
+                            placeholder="Inspection notes or remarks..."
+                            className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    {/* MANDATORY APPROVER / INSPECTOR NAME FIELD */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
-                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                        <span>Approver / Inspector Name </span>
-                        <span className="text-red-600">*</span>
-                        <span className="text-[10px] text-slate-400 font-normal lowercase ml-1">
-                          (strictly required to prevent shrinkage/theft)
-                        </span>
-                      </label>
-                      <input
-                        type="text"
-                        value={approverName}
-                        onChange={(e) => setApproverName(e.target.value)}
-                        placeholder="e.g., QC Inspector Juan Cruz / Warehouse Supervisor"
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-[#01390f] shadow-2xs font-semibold"
-                      />
-                    </div>
-
-                    {/* SCRAP REASON INPUT (IF DISPOSE / SCRAP SELECTED) */}
+                    {/* Scrap Reason Input */}
                     {restockAction === 'Dispose/Scrap' && (
-                      <div className="bg-red-50/60 p-4 rounded-2xl border border-red-200 space-y-2 animate-in fade-in duration-200">
-                        <label className="text-xs font-bold text-red-900 uppercase tracking-wider block">
-                          <span>Reason for Rejection / Scrap Disposal </span>
-                          <span className="text-red-600">*</span>
+                      <div className="bg-red-50/60 p-3.5 rounded-xl border border-red-200 space-y-2 animate-in fade-in duration-200">
+                        <label className="block text-[11px] font-bold text-red-900 uppercase tracking-wider">
+                          Reason for Rejection / Scrap Disposal *
                         </label>
                         <input
                           type="text"
                           value={dispositionReason}
                           onChange={(e) => setDispositionReason(e.target.value)}
                           placeholder="e.g., Broken bottle seal / contaminated formula / leaking container"
-                          className="w-full bg-white border border-red-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-red-600 shadow-2xs"
+                          className="w-full bg-white border border-red-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-red-600 shadow-2xs font-medium"
                         />
-                        <div className="flex items-center gap-1.5 text-[11px] text-red-800 pt-1">
-                          <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                          <span>
-                            Items will NOT return to available stock. Automatic audit record will be logged under Order #{selectedReturn.orderId?._id?.slice(-8) || selectedReturn.orderId?.slice(-8) || 'N/A'}.
-                          </span>
-                        </div>
                       </div>
                     )}
 
-                    {/* REPLACEMENT DISPATCH INPUTS (IF SEND REPLACEMENT TO CLIENT SELECTED) */}
+                    {/* Replacement Dispatch Inputs */}
                     {restockAction === 'Send Replacement to Client' && (
-                      <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-200 space-y-3 animate-in fade-in duration-200">
+                      <div className="bg-blue-50/60 p-3.5 rounded-xl border border-blue-200 space-y-3 animate-in fade-in duration-200">
                         <div className="flex items-center gap-2">
                           <Truck className="w-4 h-4 text-blue-700 shrink-0" />
-                          <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">
-                            Replacement Dispatch Waybill & Courier Details
+                          <span className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">
+                            Replacement Dispatch Details
                           </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[11px] font-bold text-blue-900 uppercase tracking-wider block mb-1">
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
                               Courier Partner *
                             </label>
-                            <select
-                              value={replacementCourier}
-                              onChange={(e) => setReplacementCourier(e.target.value)}
-                              className="w-full bg-white border border-blue-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:border-blue-600 outline-none"
-                            >
-                              <option value="J&T Express">J&T Express</option>
-                              <option value="Ninja Van">Ninja Van</option>
-                              <option value="Flash Express">Flash Express</option>
-                              <option value="Lalamove">Lalamove</option>
-                              <option value="SPX Express">SPX Express</option>
-                            </select>
+                            <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                              <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
+                              <select
+                                value={replacementCourier}
+                                onChange={(e) => setReplacementCourier(e.target.value)}
+                                className="w-full h-9 bg-transparent text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer"
+                              >
+                                <option value="J&T Express">J&T Express</option>
+                                <option value="Ninja Van">Ninja Van</option>
+                                <option value="Flash Express">Flash Express</option>
+                                <option value="Lalamove">Lalamove</option>
+                                <option value="SPX Express">SPX Express</option>
+                              </select>
+                            </div>
                           </div>
                           <div>
-                            <label className="text-[11px] font-bold text-blue-900 uppercase tracking-wider block mb-1">
-                              Replacement Tracking / Waybill No. *
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                              Replacement Tracking No. *
                             </label>
-                            <input
-                              type="text"
-                              value={replacementTracking}
-                              onChange={(e) => setReplacementTracking(e.target.value)}
-                              placeholder="e.g., JT94829104820"
-                              className="w-full bg-white border border-blue-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-blue-600 outline-none"
-                            />
+                            <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
+                              <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2 pointer-events-none" />
+                              <input
+                                type="text"
+                                value={replacementTracking}
+                                onChange={(e) => setReplacementTracking(e.target.value)}
+                                placeholder="e.g., JT94829104820"
+                                className="w-full h-9 bg-transparent text-slate-800 text-xs font-mono font-bold focus:outline-none"
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-[11px] text-blue-800 bg-blue-100/50 p-2.5 rounded-xl border border-blue-200/60 leading-snug">
-                          Approving this replacement will automatically deduct inventory (–qty) from products and move the original Order #{selectedReturn.orderId?._id?.slice(-8) || selectedReturn.orderId?.slice(-8) || 'N/A'} back to <strong>"To Receive"</strong> so the customer can track the replacement delivery.
                         </div>
                       </div>
                     )}
-
-                    {/* Inspection Remarks Input */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
-                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                        Warehouse QC Notes & Inspection Remarks:
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={adminNotes}
-                        onChange={(e) => setAdminNotes(e.target.value)}
-                        placeholder="Enter quality control inspection notes or reason for approval/rejection..."
-                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-[#01390f] shadow-2xs leading-relaxed"
-                      />
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="space-y-2 pt-1">
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                        Take Official RMA Decision:
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          disabled={updating}
-                          onClick={() => handleStatusUpdate(selectedReturn._id, 'Approved')}
-                          className={`p-3.5 rounded-xl border text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs active:scale-95 disabled:opacity-50 ${restockAction === 'Return to Inventory'
-                            ? 'border-blue-300 bg-blue-600 hover:bg-blue-700'
-                            : restockAction === 'Send Replacement to Client'
-                              ? 'border-blue-300 bg-blue-600 hover:bg-blue-700'
-                              : 'border-yellow-400 bg-yellow-500 hover:bg-yellow-600'
-                            }`}
-                        >
-                          {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          <span>
-                            {restockAction === 'Return to Inventory'
-                              ? 'Approve & Restock (+ Stock)'
-                              : restockAction === 'Send Replacement to Client'
-                                ? 'Approve & Dispatch Replacement (- Stock)'
-                                : 'Approve & Log Scrap (No Restock)'}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={updating}
-                          onClick={() => handleStatusUpdate(selectedReturn._id, 'Rejected')}
-                          className="p-3.5 rounded-xl border border-red-300 bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs active:scale-95 disabled:opacity-50"
-                        >
-                          {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-                          <span>Decline / Reject RMA</span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 )}
 
-                {/* TAB 3: CUSTOMER & REASON */}
-                {activeDrawerTab === 'customer' && (
-                  <div className="space-y-4 animate-in fade-in duration-150">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
-                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                        Customer & Order Reference Profile
-                      </span>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
-                          <span className="text-slate-500">Customer Name:</span>
-                          <span className="font-bold text-slate-900">
-                            {selectedReturn.customerName || selectedReturn.userId || 'Customer'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
-                          <span className="text-slate-500">Customer ID:</span>
-                          <span className="font-mono text-slate-800">
-                            {selectedReturn.userId || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
-                          <span className="text-slate-500">Associated Order ID:</span>
-                          <span className="font-mono font-bold text-[#01390f]">
-                            #{selectedReturn.orderId?._id?.slice(-8).toUpperCase() || selectedReturn.orderId?.slice(-8).toUpperCase() || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5">
-                          <span className="text-slate-500">Return Reason Category:</span>
-                          <span className="font-bold text-yellow-800 bg-yellow-50 px-2 py-0.5 rounded-full text-[10px] border border-yellow-300">
-                            {selectedReturn.reason || 'Damaged Item'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 4: RETURN SLIP PDF */}
+                {/* TAB 3: RETURN SLIP PDF */}
                 {activeDrawerTab === 'slip' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
                     <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 text-center space-y-3">
@@ -1706,27 +1587,11 @@ function LogisticsReturnManagement() {
                 )}
               </div>
 
-              {/* DRAWER FOOTER ACTIONS */}
+              {/* DRAWER FOOTER: Unified Clean Layout (Same as Order Placed) */}
               <div className="p-4 bg-slate-100/90 border-t border-slate-200 flex items-center justify-between shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadReturnPdf(selectedReturn)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-red-50 hover:bg-red-100 text-red-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-red-200 flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <FileDown className="w-3.5 h-3.5 text-red-600" />
-                  <span>RMA Slip PDF</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedReturn(null)}
-                    className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-                  >
-                    Close
-                  </button>
-
-                  {selectedReturn.status?.toLowerCase() === 'pending' && (
+                <div className="flex items-center justify-between w-full">
+                  {/* Left Side: Primary Action Button per Stage */}
+                  {selectedReturn.status?.toLowerCase() === 'pending' ? (
                     <button
                       type="button"
                       disabled={updating}
@@ -1735,6 +1600,25 @@ function LogisticsReturnManagement() {
                     >
                       {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                       <span>Approve Return</span>
+                    </button>
+                  ) : (
+                    <span className="px-5 py-2.5 sm:py-3 rounded-full text-[12px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 flex items-center gap-1.5 whitespace-nowrap">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>RMA {selectedReturn.status || 'Processed'}</span>
+                    </span>
+                  )}
+
+                  {/* Right Side: Circular Reject Button (Same as Order Placed) */}
+                  {selectedReturn.status?.toLowerCase() === 'pending' && (
+                    <button
+                      type="button"
+                      disabled={updating}
+                      onClick={() => handleStatusUpdate(selectedReturn._id, 'Rejected')}
+                      title="Decline / Reject RMA"
+                      aria-label="Decline / Reject RMA"
+                      className="w-10 h-10 rounded-full border border-red-300 bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-all shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
+                    >
+                      <XCircle className="w-5 h-5 text-red-600" />
                     </button>
                   )}
                 </div>

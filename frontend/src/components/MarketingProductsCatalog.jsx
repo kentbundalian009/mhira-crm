@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../utils/apiConfig";
+﻿import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
@@ -785,7 +785,7 @@ function MarketingProductsCatalog() {
     }
 
     const itemsSummary = packageFormData.bundleItems
-      .map((bi) => `â€¢ ${bi.quantity}x ${bi.itemName} (${bi.specification ? `${bi.specification} ${bi.uom || ''}` : bi.uom || 'PCS'})`)
+      .map((bi) => `• ${bi.quantity}x ${bi.itemName} (${bi.specification ? `${bi.specification} ${bi.uom || ''}` : bi.uom || 'PCS'})`)
       .join('\n');
 
     const template = `Elevate your personal self-care regimen with the ${packageFormData.itemName || 'Mhira Botanical Package Set'}. Specially bundled to deliver synergistic skin and body nourishment using locally sourced organic botanical ingredients.\n\nPackage Set Includes:\n${itemsSummary}\n\nHow to Use:\nIntegrate these botanical essentials into your morning and evening routine for visibly rejuvenated, radiant, and hydrated results.`;
@@ -1804,7 +1804,7 @@ function MarketingProductsCatalog() {
 
                           {/* 5. STORE PRICE */}
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                            â‚±{peso(row.price || 0)}
+                            ₱{peso(row.price || 0)}
                           </td>
 
                           {/* 6. STOREFRONT QUANTITY (Blue accent column) */}
@@ -2224,7 +2224,7 @@ function MarketingProductsCatalog() {
                           <span className="font-semibold text-slate-600">
                             {formData.category || 'Skin Care'}
                           </span>
-                          <span>â€¢</span>
+                          <span>•</span>
                           <span>
                             Warehouse Stock:{' '}
                             <strong>
@@ -2343,10 +2343,10 @@ function MarketingProductsCatalog() {
                       {/* SELLING PRICE */}
                       <div>
                         <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
-                          Selling Price (â‚±) <span className="text-red-600">*</span>
+                          Selling Price (₱) <span className="text-red-600">*</span>
                         </label>
                         <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
-                          <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">â‚±</span>
+                          <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
                           <input
                             type="number"
                             step="0.01"
@@ -2545,7 +2545,7 @@ function MarketingProductsCatalog() {
                   {viewProductModal.category || 'Skin Care'}
                 </p>
                 <p className="text-slate-500">
-                  â‚±{Number(viewProductModal.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} â€¢{' '}
+                  ₱{Number(viewProductModal.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} •{' '}
                   {Number(viewProductModal.quantity ?? 0).toLocaleString()} {viewProductModal.uom || 'PCS'}
                 </p>
                 <p className="font-semibold text-[#01390f]">
@@ -2821,7 +2821,7 @@ function MarketingProductsCatalog() {
                                   </div>
                                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
                                     <span className="font-mono">{code}</span>
-                                    <span>â€¢</span>
+                                    <span>•</span>
                                     <span>
                                       Warehouse Stock: <strong>{Number(count).toLocaleString()} {uom}</strong>
                                     </span>
@@ -2831,7 +2831,7 @@ function MarketingProductsCatalog() {
 
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="text-xs font-bold text-slate-700">
-                                  â‚±{Number(p.price || p.unitPrice || 250).toFixed(2)}
+                                  ₱{Number(p.price || p.unitPrice || 250).toFixed(2)}
                                 </span>
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isAlreadyAdded
@@ -2910,10 +2910,10 @@ function MarketingProductsCatalog() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
-                                  <span>â‚±{Number(item.originalPrice || 0).toFixed(2)} each</span>
+                                  <span>₱{Number(item.originalPrice || 0).toFixed(2)} each</span>
                                   {stockCount !== null && (
                                     <>
-                                      <span>â€¢</span>
+                                      <span>•</span>
                                       <span>
                                         Warehouse Stock: <strong>{stockCount} {item.uom || 'PCS'}</strong>
                                       </span>
@@ -2949,7 +2949,7 @@ function MarketingProductsCatalog() {
 
                               <div className="text-right min-w-[65px]">
                                 <span className="font-bold text-xs text-slate-800">
-                                  â‚±{itemSubtotal.toFixed(2)}
+                                  ₱{itemSubtotal.toFixed(2)}
                                 </span>
                               </div>
 
@@ -2972,7 +2972,7 @@ function MarketingProductsCatalog() {
                       <span>
                         Grouped Total:{' '}
                         <strong className="font-mono text-sm font-bold text-[#01390f]">
-                          â‚±
+                          ₱
                           {Number(packageFormData.originalPrice || 0).toLocaleString('en-US', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -3078,17 +3078,17 @@ function MarketingProductsCatalog() {
                   <div>
                     <div className="flex items-center justify-between mb-1 gap-1">
                       <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                        Selling Price (â‚±) <span className="text-red-600">*</span>
+                        Selling Price (₱) <span className="text-red-600">*</span>
                       </label>
                       {Number(packageFormData.originalPrice) > Number(packageFormData.price) &&
                         Number(packageFormData.price) > 0 && (
                           <span className="text-[10px] font-bold text-yellow-800 bg-yellow-50 border border-yellow-300 px-2 py-0.5 rounded-full whitespace-nowrap">
-                            Save â‚±{(packageFormData.originalPrice - packageFormData.price).toFixed(2)}
+                            Save ₱{(packageFormData.originalPrice - packageFormData.price).toFixed(2)}
                           </span>
                         )}
                     </div>
                     <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
-                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">â‚±</span>
+                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
                       <input
                         type="number"
                         step="0.01"
@@ -3374,14 +3374,14 @@ function MarketingProductsCatalog() {
 
               <div className="space-y-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed">
                 <p className="font-semibold text-slate-800">
-                  {viewPackageModal.promoBadge || 'Package Set'} â€¢ {viewPackageModal.quantity || 0} Sets Available
+                  {viewPackageModal.promoBadge || 'Package Set'} • {viewPackageModal.quantity || 0} Sets Available
                 </p>
                 <p className="text-slate-500">
-                  â‚±{peso(viewPackageModal.price || 0)}
+                  ₱{peso(viewPackageModal.price || 0)}
                   {Number(viewPackageModal.originalPrice) > Number(viewPackageModal.price)
-                    ? ` (Reg. â‚±${peso(viewPackageModal.originalPrice || 0)})`
+                    ? ` (Reg. ₱${peso(viewPackageModal.originalPrice || 0)})`
                     : ''}
-                  {viewPackageModal.shippingReturns ? ` â€¢ ${viewPackageModal.shippingReturns}` : ''}
+                  {viewPackageModal.shippingReturns ? ` • ${viewPackageModal.shippingReturns}` : ''}
                 </p>
                 {Array.isArray(viewPackageModal.bundleItems) && viewPackageModal.bundleItems.length > 0 && (
                   <p className="font-semibold text-[#01390f]">

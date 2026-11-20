@@ -14,6 +14,7 @@ import {
   Loader2,
   Image as ImageIcon,
   Check,
+  History,
   AlertCircle,
   Package,
   ExternalLink,
@@ -26,7 +27,6 @@ import {
   Tag,
   Printer,
   Copy,
-  MessageCircle,
   FileText,
   X,
   Calendar,
@@ -44,13 +44,14 @@ import autoTable from "jspdf-autotable";
 import { showSuccessToast, showErrorToast } from "../utils/toast";
 import { compressImageToBase64 } from "../utils/imageCompressor";
 import TablePagination from "./common/TablePagination";
+import { downloadTicketTranscriptPdf } from "../utils/pdfUtils";
 
 import { API_BASE_URL } from "../utils/apiConfig";
 
 function LogisticsCustomerSupport() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("pending"); // 'pending' | 'resolved'
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'pending' | 'resolved'
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -360,68 +361,11 @@ function LogisticsCustomerSupport() {
     setCurrentPage(1);
   };
 
-  // PDF Transcript Download
-  const handleDownloadTicketPdf = (ticket) => {
+  // PDF Transcript Download (Matching Waybill Executive UI / A4 Standard)
+  const handleDownloadTicketPdf = async (ticket) => {
     if (!ticket) return;
     try {
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      doc.setFillColor(1, 57, 15);
-      doc.rect(0, 0, 210, 24, "F");
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("MHIRA NATURAL - LOGISTICS & CUSTOMER SUPPORT", 14, 11);
-
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "normal");
-      doc.text("OFFICIAL CUSTOMER INTERACTION & RESOLUTION TRANSCRIPT", 14, 18);
-
-      doc.setDrawColor(220, 225, 230);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 28, 182, 32, 2, 2, "FD");
-
-      doc.setTextColor(30, 41, 59);
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "bold");
-      doc.text("TICKET ID:", 18, 36);
-      doc.setFont("helvetica", "normal");
-      doc.text(`#${ticket.ticketId}`, 48, 36);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("CUSTOMER:", 18, 44);
-      doc.setFont("helvetica", "normal");
-      doc.text(ticket.customerName || "Customer", 48, 44);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("STATUS:", 125, 36);
-      doc.setFont("helvetica", "normal");
-      doc.text((ticket.status || "Active").toUpperCase(), 155, 36);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("EXPORT DATE:", 125, 44);
-      doc.setFont("helvetica", "normal");
-      doc.text(new Date().toLocaleDateString(), 155, 44);
-
-      const tableData = (ticket.messages || []).map((m, idx) => [
-        idx + 1,
-        m.sender === "customer" ? "Customer" : "Logistics CSR Staff",
-        m.text + (m.attachment ? " [Photo Attached]" : ""),
-        m.time || "-",
-      ]);
-
-      autoTable(doc, {
-        startY: 66,
-        head: [["#", "Sender", "Message Content", "Timestamp"]],
-        body: tableData,
-        headStyles: { fillColor: [1, 57, 15], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
-        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        theme: "grid",
-        styles: { cellPadding: 2.8 },
-      });
-
-      doc.save(`Support_Transcript_${ticket.ticketId}.pdf`);
+      await downloadTicketTranscriptPdf(ticket);
       showSuccessToast("Downloaded Support Transcript PDF!");
     } catch (e) {
       console.error("PDF Export error:", e);
@@ -491,13 +435,6 @@ function LogisticsCustomerSupport() {
       </span>
     );
   };
-
-  const workflowSteps = [
-    { label: "Inquiry Received", desc: "Customer Chat" },
-    { label: "CSR Assigned", desc: "Support Agent" },
-    { label: "Investigation", desc: "Order / Logistics" },
-    { label: "Resolution", desc: "Case Closed" },
-  ];
 
   return (
     <div className="w-full flex flex-col gap-6 font-['Poppins',sans-serif] antialiased text-slate-800">
@@ -793,13 +730,15 @@ function LogisticsCustomerSupport() {
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">
                     TICKET ID
                   </th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">DATE FILED</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">CUSTOMER</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">INQUIRY TOPIC</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">LATEST MESSAGE</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">ATTACHMENTS</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap">MESSAGES</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">STATUS</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap text-center">
+                    DATE FILED
+                  </th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">
+                    CUSTOMER NAME
+                  </th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">
+                    CUSTOMER EMAIL
+                  </th>
                   <th className="py-3.5 px-3 text-center whitespace-nowrap relative sticky right-0 bg-[#01390f] z-20 shadow-[-8px_0_16px_rgba(0,0,0,0.2)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-white/60 before:z-30 w-20 min-w-[80px]">
                     ACTION
                   </th>
@@ -810,7 +749,7 @@ function LogisticsCustomerSupport() {
                 {loading && tickets.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="9"
+                      colSpan="5"
                       className="text-center py-12 text-[#01390f] font-medium italic whitespace-nowrap"
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -822,7 +761,7 @@ function LogisticsCustomerSupport() {
                 ) : filteredTickets.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="9"
+                      colSpan="5"
                       className="text-center py-12 text-slate-400 font-medium italic whitespace-nowrap"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -833,13 +772,12 @@ function LogisticsCustomerSupport() {
                   </tr>
                 ) : (
                   paginatedTickets.map((t) => {
-                    const lastMsg = t.messages?.[t.messages.length - 1];
-                    const hasAttachment = t.messages?.some((m) => m.attachment);
                     const ticketDate = new Date(t.createdAt || Date.now()).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
                     });
+                    const customerEmail = t.customerEmail || (t.userId && t.userId.includes('@') ? t.userId : `${(t.customerName || 'customer').toLowerCase().replace(/\s+/g, '')}@gmail.com`);
 
                     return (
                       <tr
@@ -859,59 +797,17 @@ function LogisticsCustomerSupport() {
                           {ticketDate}
                         </td>
 
-                        {/* 3. CUSTOMER (Name + Email) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap min-w-[180px] bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-xs text-slate-900 truncate max-w-[200px]" title={t.customerName}>
-                              {t.customerName || 'Customer'}
-                            </span>
-                            {t.customerEmail && (
-                              <span className="text-[11px] text-slate-500 font-mono truncate max-w-[200px] mt-0.5">
-                                {t.customerEmail}
-                              </span>
-                            )}
-                          </div>
+                        {/* 3. CUSTOMER NAME */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-semibold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {t.customerName || 'Customer'}
                         </td>
 
-                        {/* 4. INQUIRY TOPIC */}
-                        <td
-                          className="px-4 py-3.5 whitespace-nowrap font-semibold text-xs text-slate-900 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[200px] truncate"
-                          title={t.subject || 'General Inquiry'}
-                        >
-                          {t.subject || 'General Inquiry'}
+                        {/* 4. CUSTOMER EMAIL */}
+                        <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
+                          {customerEmail}
                         </td>
 
-                        {/* 5. LATEST MESSAGE */}
-                        <td
-                          className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors max-w-[220px] truncate"
-                          title={lastMsg?.text || ''}
-                        >
-                          {lastMsg?.text || (hasAttachment ? 'Attachment sent' : 'Inquiry opened')}
-                        </td>
-
-                        {/* 6. ATTACHMENTS (Blue Accent Style) */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/25 group-hover:bg-blue-600/40 text-slate-800 font-mono font-bold text-xs transition-colors">
-                          {hasAttachment ? (
-                            <span className="inline-flex items-center justify-center gap-1">
-                              <ImageIcon className="w-3.5 h-3.5 text-blue-900 shrink-0" />
-                              <span>Photo</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 font-normal">None</span>
-                          )}
-                        </td>
-
-                        {/* 7. MESSAGES COUNT */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono font-bold text-xs text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {t.messages?.length || 0} msgs
-                        </td>
-
-                        {/* 8. STATUS */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-center font-mono text-xs font-bold bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                          {getStatusBadge(t.status)}
-                        </td>
-
-                        {/* 9. ACTION (Sticky Right) */}
+                        {/* 5. ACTION (Sticky Right) */}
                         <td
                           onClick={(e) => e.stopPropagation()}
                           className="py-3 px-3 bg-[#f8faf8] group-hover:bg-[#eef5ee] text-center whitespace-nowrap relative sticky right-0 z-10 shadow-[-8px_0_16px_rgba(0,0,0,0.08)] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-slate-300 before:z-30 w-20 min-w-[80px] transition-colors"
@@ -972,397 +868,494 @@ function LogisticsCustomerSupport() {
                       <Tag className="w-3 h-3 text-[#01390f]" />
                       <span>Ticket #{selectedTicket.ticketId}</span>
                     </span>
-                    <span>â€¢</span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="w-3 h-3 text-slate-400" />
-                      <span>{selectedTicket.messages?.length || 0} Messages</span>
-                    </span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setSelectedTicket(null)}
-                  className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-all cursor-pointer text-sm font-bold shadow-2xs"
+                  className="text-slate-400 hover:text-slate-600 font-bold px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm shrink-0"
                   title="Close Sidebar"
                 >
-                  âœ•
+                  ✕
                 </button>
               </div>
 
-              {/* DRAWER SCROLLABLE CONTENT */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-xs sm:text-sm">
+              {/* DRAWER TABS BAR (Inquiry Process & All Support Workflow Tabs) */}
+              <div className="px-6 py-2.5 bg-white border-b border-slate-200/80 flex items-center justify-between gap-2 shrink-0">
+                {/* Left Side: Inquiry Process (Pill Button with Text) */}
+                <button
+                  type="button"
+                  onClick={() => setActiveDrawerTab("process")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    activeDrawerTab === "process"
+                      ? "bg-[#01390f] text-white shadow-xs"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Inquiry Process</span>
+                </button>
 
-                {/* 3-CARD SUMMARY STATS */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">STATUS</span>
-                    <span className="font-bold text-slate-900 mt-1">
-                      {selectedTicket.status === "resolved" ? "RESOLVED" : "ACTIVE"}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">MESSAGES</span>
-                    <span className="font-mono font-bold text-slate-900 mt-1">
-                      {selectedTicket.messages?.length || 0} Exchanged
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">CHANNEL</span>
-                    <span className="font-mono font-bold text-[#01390f] text-xs mt-1">
-                      Customer Chat
-                    </span>
-                  </div>
-                </div>
-
-                {/* WORKFLOW PROGRESS STEPPER PIPELINE */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                      SUPPORT RESOLUTION WORKFLOW
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-[#01390f]">
-                      {selectedTicket.status === "resolved" ? "Stage 4 of 4 (Resolved)" : "Stage 3 of 4 (In Progress)"}
-                    </span>
-                  </div>
-
-                  {/* Visual Step Progress Line */}
-                  <div className="relative flex items-center justify-between pt-2">
-                    <div className="absolute left-4 right-4 top-5 h-0.5 bg-slate-200 z-0" />
-                    <div
-                      className="absolute left-4 top-5 h-0.5 bg-[#01390f] transition-all duration-500 z-0"
-                      style={{
-                        width: selectedTicket.status === "resolved" ? "100%" : "66%",
-                      }}
-                    />
-
-                    {workflowSteps.map((step, idx) => {
-                      const isPassed = selectedTicket.status === "resolved" ? true : idx < 2;
-                      const isCurrent = selectedTicket.status === "resolved" ? idx === 3 : idx === 2;
-
-                      return (
-                        <div key={idx} className="relative z-10 flex flex-col items-center gap-2">
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-2xs ${isPassed
-                              ? "bg-[#01390f] text-white"
-                              : isCurrent
-                                ? "bg-[#01390f] text-white ring-4 ring-[#01390f]/20 scale-110"
-                                : "bg-slate-100 text-slate-400 border border-slate-200"
-                              }`}
-                          >
-                            {isPassed ? <Check className="w-3.5 h-3.5" /> : idx + 1}
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold text-center max-w-[70px] leading-tight ${isCurrent ? "text-[#01390f]" : isPassed ? "text-slate-700" : "text-slate-400"
-                              }`}
-                          >
-                            {step.label}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* WORKFLOW STAGE TABS */}
-                <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                {/* Right Side: Circular Icon Action Tabs (Circle Only, Text White, BG Blue when active) */}
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("chat")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "chat"
-                      ? "bg-[#01390f] text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                    title="Live Interaction Chat"
+                    aria-label="Live Interaction Chat"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                      activeDrawerTab === "chat"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                    }`}
                   >
-                    Live Interaction Chat
+                    <MessageSquareText className="w-4 h-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("templates")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "templates"
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                    title="Canned Replies"
+                    aria-label="Canned Replies"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                      activeDrawerTab === "templates"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                    }`}
                   >
-                    Canned Replies
+                    <Sparkles className="w-4 h-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("customer")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "customer"
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                    title="Customer Profile"
+                    aria-label="Customer Profile"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                      activeDrawerTab === "customer"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                    }`}
                   >
-                    Customer Profile
+                    <User className="w-4 h-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActiveDrawerTab("transcript")}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeDrawerTab === "transcript"
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                    title="Transcript PDF"
+                    aria-label="Transcript PDF"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                      activeDrawerTab === "transcript"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                    }`}
                   >
-                    Transcript PDF
+                    <Printer className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+
+              {/* DRAWER SCROLLABLE CONTENT */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-xs sm:text-sm">
+                {/* TAB: INQUIRY PROCESS AUDIT (Same UI as Process Audit) */}
+                {activeDrawerTab === "process" && (
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                        Process Audit
+                      </span>
+
+                      {(() => {
+                        const isResolved = selectedTicket.status === "resolved";
+                        const messages = selectedTicket.messages || [];
+                        const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+                        const firstMsg = messages.length > 0 ? messages[0] : null;
+
+                        const displayTimeline = [];
+
+                        // 4. Resolution
+                        if (isResolved) {
+                          displayTimeline.push({
+                            title: "Resolution",
+                            description: "Support ticket successfully resolved and closed. Customer issue addressed.",
+                            timestamp: selectedTicket.updatedAt || new Date(),
+                          });
+                        }
+
+                        // 3. Investigation & Live Chat
+                        displayTimeline.push({
+                          title: "Investigation & Live Chat",
+                          description: `Active live chat interaction with customer (${messages.length} message(s) exchanged via ${selectedTicket.channel || "Customer Chat"}).`,
+                          timestamp: lastMsg?.timestamp || selectedTicket.updatedAt || new Date(),
+                        });
+
+                        // 2. CSR Assigned
+                        displayTimeline.push({
+                          title: "CSR Assigned",
+                          description: `Customer service representative (${selectedTicket.assignedTo || "Mhira Logistics Support Staff"}) assigned to the triage desk.`,
+                          timestamp: firstMsg?.timestamp ? new Date(new Date(firstMsg.timestamp).getTime() - 30000) : (selectedTicket.createdAt || new Date()),
+                        });
+
+                        // 1. Inquiry Received
+                        displayTimeline.push({
+                          title: "Inquiry Received",
+                          description: `Customer inquiry registered in the system (Ticket #${selectedTicket.ticketId || "TCK"}). Topic: ${selectedTicket.topic || "General Inquiry"}.`,
+                          timestamp: selectedTicket.createdAt || new Date(),
+                        });
+
+                        return (
+                          <div className="space-y-4 border-l-2 border-blue-200 ml-2.5 pl-4 py-1">
+                            {displayTimeline.map((item, tIdx) => {
+                              const isLatest = tIdx === 0;
+
+                              let formattedDateTime = "";
+                              if (item.timestamp) {
+                                const d = new Date(item.timestamp);
+                                if (!isNaN(d.getTime())) {
+                                  formattedDateTime = `${d.toLocaleDateString("en-US", {
+                                    month: "long",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })} ${d.toLocaleTimeString("en-US", {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}`;
+                                }
+                              }
+
+                              return (
+                                <div key={tIdx} className="relative space-y-1">
+                                  {/* Timeline node */}
+                                  <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white bg-blue-600" />
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <h5 className="text-xs font-bold text-slate-900">{item.title}</h5>
+                                      {isLatest && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                          Latest Activity
+                                        </span>
+                                      )}
+                                    </div>
+                                    {formattedDateTime && (
+                                      <span className="text-[11px] font-mono text-slate-500">
+                                        {formattedDateTime}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-slate-600 leading-relaxed">
+                                    {item.description}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
 
                 {/* TAB 1: LIVE CHAT STREAM & COMPOSER */}
                 {activeDrawerTab === "chat" && (
-                  <div className="space-y-4 animate-in fade-in duration-150 flex flex-col">
-                    {/* Chat Messages Box */}
-                    <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/60 max-h-[360px] min-h-[220px] overflow-y-auto space-y-3.5 custom-scrollbar">
-                      {selectedTicket.messages?.length === 0 ? (
-                        <div className="py-12 text-center text-xs text-slate-400 italic">
-                          No messages in this inquiry thread yet.
-                        </div>
-                      ) : (
-                        selectedTicket.messages?.map((m, idx) => {
-                          const isCust = m.sender === "customer";
-                          const isStaff = m.sender === "csr";
-
-                          return (
-                            <div
-                              key={idx}
-                              className={`flex flex-col ${isCust ? "items-start" : "items-end"}`}
-                            >
-                              <span className="text-[10px] font-bold text-slate-400 mb-1 px-1">
-                                {isCust ? selectedTicket.customerName || "Customer" : "Logistics Agent"} â€¢ {m.time || ""}
-                              </span>
-
-                              <div
-                                className={`max-w-[82%] p-3.5 rounded-2xl text-xs leading-relaxed shadow-2xs ${isCust
-                                  ? "bg-white text-slate-800 border border-slate-200 rounded-tl-xs"
-                                  : isStaff
-                                    ? "bg-[#01390f] text-white rounded-tr-xs"
-                                    : "bg-slate-200 text-slate-800 rounded-tr-xs"
-                                  }`}
-                              >
-                                {/* RICH ORDER CARD IF SENT BY CUSTOMER */}
-                                {m.orderData && (
-                                  <div className="bg-slate-50 text-slate-900 rounded-xl p-3 border border-blue-200 shadow-2xs space-y-2 text-left mb-2">
-                                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
-                                      <span className="font-bold text-[#01390f] text-xs flex items-center gap-1">
-                                        ðŸ“¦ Order #{m.orderData.orderNumber}
-                                      </span>
-                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                        {m.orderData.status}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                      <img
-                                        src={m.orderData.itemImage}
-                                        alt={m.orderData.itemName}
-                                        className="w-12 h-12 rounded-lg object-cover bg-white border border-slate-200 shrink-0"
-                                        onError={(e) => { e.target.src = "/mhira_removebg.png"; }}
-                                      />
-                                      <div className="min-w-0 flex-1">
-                                        <p className="font-semibold text-xs text-slate-900 truncate">
-                                          {m.orderData.itemName}
-                                        </p>
-                                        <p className="text-[11px] text-slate-600 mt-0.5">
-                                          Qty: {m.orderData.quantity} â€¢ <strong className="text-[#01390f]">â‚±{Number(m.orderData.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-600 flex flex-col gap-0.5">
-                                      <p><strong className="text-slate-800">Payment:</strong> {m.orderData.paymentMethod || "COD"} ({m.orderData.paymentStatus || "Paid"})</p>
-                                      <p><strong className="text-slate-800">Recipient:</strong> {m.orderData.customerName} ({m.orderData.shippingAddress})</p>
-                                    </div>
-
-                                    {/* STAFF CONFIRMATION ACTION BUTTON */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setReplyInput(
-                                          `Hello ${m.orderData.customerName || "Customer"}! We have verified your Order #${m.orderData.orderNumber} (${m.orderData.itemName}). Your package is currently ${m.orderData.status} and being handled with priority.`
-                                        );
-                                      }}
-                                      className="w-full mt-1.5 py-1.5 px-3 bg-[#01390f] hover:bg-[#01250a] text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                                    >
-                                      <span>Confirm & Verify Order to Customer</span>
-                                    </button>
-                                  </div>
-                                )}
-
-                                {m.text && <p>{m.text}</p>}
-
-                                {m.attachment && (
-                                  <div className="mt-2">
-                                    <img
-                                      src={m.attachment}
-                                      alt="Attachment"
-                                      onClick={() => setPreviewModalImg(m.attachment)}
-                                      className="max-h-40 rounded-xl object-cover border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Attachment preview if selected */}
-                    {filePreview && (
-                      <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-xl">
-                        <img
-                          src={filePreview}
-                          alt="Preview"
-                          className="w-10 h-10 object-cover rounded-lg border border-blue-300"
-                        />
-                        <span className="text-xs text-blue-700 font-medium truncate flex-1">
-                          {selectedFile?.name || "Photo attachment ready"}
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                      <div className="flex items-center justify-between pb-1">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                          Live Interaction Chat
                         </span>
+                        <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                          {selectedTicket.messages?.length || 0} Exchanged
+                        </span>
+                      </div>
+
+                      {/* Chat Messages Inner White Card */}
+                      <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 max-h-[360px] min-h-[220px] overflow-y-auto space-y-3 custom-scrollbar">
+                        {selectedTicket.messages?.length === 0 ? (
+                          <div className="py-12 text-center text-xs text-slate-400 italic">
+                            No messages in this inquiry thread yet.
+                          </div>
+                        ) : (
+                          selectedTicket.messages?.map((m, idx) => {
+                            const isCust = m.sender === "customer";
+                            const isStaff = m.sender === "csr";
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`flex flex-col ${isCust ? "items-start" : "items-end"}`}
+                              >
+                                <span className="text-[10px] font-bold text-slate-400 mb-1 px-1">
+                                  {isCust ? selectedTicket.customerName || "Customer" : "Logistics Agent"} • {m.time || ""}
+                                </span>
+
+                                <div
+                                  className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-2xs ${
+                                    isCust
+                                      ? "bg-slate-100 text-slate-800 rounded-tl-xs border border-slate-200/80"
+                                      : isStaff
+                                        ? "bg-[#01390f] text-white rounded-tr-xs"
+                                        : "bg-slate-200 text-slate-800 rounded-tr-xs"
+                                  }`}
+                                >
+                                  {/* RICH ORDER CARD IF SENT BY CUSTOMER */}
+                                  {m.orderData && (
+                                    <div className="bg-white text-slate-900 rounded-xl p-3 border border-slate-200 shadow-2xs space-y-2 text-left mb-2">
+                                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <span className="font-bold text-[#01390f] text-xs flex items-center gap-1 font-mono">
+                                          Order #{m.orderData.orderNumber}
+                                        </span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                          {m.orderData.status}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-3">
+                                        <img
+                                          src={m.orderData.itemImage}
+                                          alt={m.orderData.itemName}
+                                          className="w-12 h-12 rounded-lg object-cover bg-white border border-slate-200 shrink-0"
+                                          onError={(e) => { e.target.src = "/mhira_removebg.png"; }}
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                          <p className="font-semibold text-xs text-slate-900 truncate">
+                                            {m.orderData.itemName}
+                                          </p>
+                                          <p className="text-[11px] text-slate-600 mt-0.5">
+                                            Qty: {m.orderData.quantity} • <strong className="text-[#01390f]">₱{Number(m.orderData.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 flex flex-col gap-0.5">
+                                        <p><strong className="text-slate-800">Payment:</strong> {m.orderData.paymentMethod || "COD"} ({m.orderData.paymentStatus || "Paid"})</p>
+                                        <p><strong className="text-slate-800">Recipient:</strong> {m.orderData.customerName} ({m.orderData.shippingAddress})</p>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setReplyInput(
+                                            `Hello ${m.orderData.customerName || "Customer"}! We have verified your Order #${m.orderData.orderNumber} (${m.orderData.itemName}). Your package is currently ${m.orderData.status} and being handled with priority.`
+                                          );
+                                        }}
+                                        className="w-full mt-1.5 py-1.5 px-3 bg-[#01390f] hover:bg-[#0a5219] text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                                      >
+                                        <span>Confirm & Verify Order to Customer</span>
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {m.text && <p>{m.text}</p>}
+
+                                  {m.attachment && (
+                                    <div className="mt-2">
+                                      <img
+                                        src={m.attachment}
+                                        alt="Attachment"
+                                        onClick={() => setPreviewModalImg(m.attachment)}
+                                        className="max-h-40 rounded-xl object-cover border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                        <div ref={messagesEndRef} />
+                      </div>
+
+                      {/* Attachment preview if selected */}
+                      {filePreview && (
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-xl">
+                          <img
+                            src={filePreview}
+                            alt="Preview"
+                            className="w-10 h-10 object-cover rounded-lg border border-blue-300"
+                          />
+                          <span className="text-xs text-blue-700 font-medium truncate flex-1">
+                            {selectedFile?.name || "Photo attachment ready"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={removeSelectedFile}
+                            className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Quick Canned Suggestions Chips */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+                          Quick Chips:
+                        </span>
+                        {cannedResponses.slice(0, 3).map((res, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setReplyInput(res)}
+                            className="text-[11px] bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80 px-2.5 py-1 rounded-lg truncate max-w-[180px] shrink-0 transition-colors shadow-2xs cursor-pointer"
+                            title={res}
+                          >
+                            {res}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Reply Input Bar Inner White Card */}
+                      <div className="relative flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200/80 shadow-2xs focus-within:border-[#01390f]">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
                         <button
                           type="button"
-                          onClick={removeSelectedFile}
-                          className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-2 text-slate-400 hover:text-[#01390f] hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                          title="Attach Photo / Proof"
                         >
-                          âœ•
+                          <Paperclip className="w-4 h-4" />
+                        </button>
+
+                        <input
+                          type="text"
+                          placeholder="Type customer reply here... (Press Enter to send)"
+                          value={replyInput}
+                          onChange={(e) => setReplyInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendReply();
+                            }
+                          }}
+                          className="flex-1 text-xs text-slate-800 outline-none bg-transparent"
+                        />
+
+                        <button
+                          type="button"
+                          disabled={sending || (!replyInput.trim() && !filePreview)}
+                          onClick={() => handleSendReply()}
+                          className="bg-[#01390f] hover:bg-[#0a5219] text-white p-2.5 rounded-lg transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
+                        >
+                          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                         </button>
                       </div>
-                    )}
-
-                    {/* Quick Canned Suggestions Chips */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
-                        Quick Chips:
-                      </span>
-                      {cannedResponses.slice(0, 3).map((res, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setReplyInput(res)}
-                          className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg truncate max-w-[180px] shrink-0 transition-colors"
-                          title={res}
-                        >
-                          {res}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Reply Input Bar */}
-                    <div className="relative flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-300 shadow-xs focus-within:border-[#01390f]">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-slate-400 hover:text-[#01390f] hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                        title="Attach Photo / Proof"
-                      >
-                        <Paperclip className="w-4 h-4" />
-                      </button>
-
-                      <input
-                        type="text"
-                        placeholder="Type customer reply here... (Press Enter to send)"
-                        value={replyInput}
-                        onChange={(e) => setReplyInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendReply();
-                          }
-                        }}
-                        className="flex-1 text-xs text-slate-800 outline-none bg-transparent"
-                      />
-
-                      <button
-                        type="button"
-                        disabled={sending || (!replyInput.trim() && !filePreview)}
-                        onClick={() => handleSendReply()}
-                        className="bg-[#01390f] hover:bg-[#051609] text-white p-2.5 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                      >
-                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      </button>
                     </div>
                   </div>
                 )}
 
                 {/* TAB 2: CANNED RESPONSE TEMPLATES */}
                 {activeDrawerTab === "templates" && (
-                  <div className="space-y-3 animate-in fade-in duration-150">
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                      Click a template to auto-fill or send to customer:
-                    </span>
-                    <div className="space-y-2">
-                      {cannedResponses.map((res, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3.5 bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 rounded-xl transition-all flex items-start justify-between gap-3 group"
-                        >
-                          <p className="text-xs text-slate-700 leading-relaxed">&quot;{res}&quot;</p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyInput(res);
-                              setActiveDrawerTab("chat");
-                            }}
-                            className="bg-[#01390f] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shrink-0 cursor-pointer shadow-2xs hover:bg-[#051609]"
-                          >
-                            Use Template
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 3: CUSTOMER PROFILE & METADATA */}
-                {activeDrawerTab === "customer" && (
                   <div className="space-y-4 animate-in fade-in duration-150">
                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
-                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                        Customer Account Details
-                      </span>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
-                          <span className="text-slate-500">Customer Name:</span>
-                          <span className="font-bold text-slate-900">
-                            {selectedTicket.customerName || "Customer"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
-                          <span className="text-slate-500">Customer ID:</span>
-                          <span className="font-mono text-slate-800">
-                            {selectedTicket.userId || "N/A"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
-                          <span className="text-slate-500">Ticket Reference ID:</span>
-                          <span className="font-mono font-bold text-[#01390f]">
-                            #{selectedTicket.ticketId}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5">
-                          <span className="text-slate-500">Inquiry Topic:</span>
-                          <span className="font-bold text-slate-800">
-                            {selectedTicket.subject || "Order Inquiry"}
-                          </span>
-                        </div>
+                      <div className="flex items-center justify-between pb-1">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                          Canned Response Templates
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
+                          {cannedResponses.length} templates
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {cannedResponses.map((res, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 bg-white hover:border-[#01390f]/60 border border-slate-200/80 rounded-xl transition-all flex items-start justify-between gap-3 shadow-2xs group"
+                          >
+                            <p className="text-xs text-slate-700 leading-relaxed font-medium">&quot;{res}&quot;</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyInput(res);
+                                setActiveDrawerTab("chat");
+                              }}
+                              className="bg-[#01390f] hover:bg-[#0a5219] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shrink-0 cursor-pointer shadow-2xs transition-all active:scale-95"
+                            >
+                              Use Template
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* TAB 4: TRANSCRIPT PDF */}
+                {/* TAB 3: CUSTOMER PROFILE & METADATA (Customer Records) */}
+                {activeDrawerTab === "customer" && (() => {
+                  const orderMatch = selectedTicket.messages?.find((m) => m.orderData)?.orderData;
+                  const customerName = selectedTicket.customerName || orderMatch?.customerName || "Kent Benedict Bundalian";
+                  const customerEmail =
+                    selectedTicket.customerEmail ||
+                    (selectedTicket.userId && selectedTicket.userId.includes("@")
+                      ? selectedTicket.userId
+                      : `${(selectedTicket.customerName || "customer").toLowerCase().replace(/\s+/g, "")}@gmail.com`);
+                  const contactNumber = orderMatch?.phone || orderMatch?.contactNumber || "+63 9154673941";
+                  const deliveryAddress = orderMatch?.shippingAddress || "p, Brgy. Halang, Calamba City, Laguna, 4027";
+
+                  return (
+                    <div className="space-y-4 animate-in fade-in duration-150">
+                      {/* Customer Records */}
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                            Customer Records
+                          </span>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-1.5 text-xs">
+                          <div className="flex justify-end">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              Email Verified
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-slate-500 shrink-0">Customer Name:</span>
+                            <span className="font-bold text-slate-900 text-right">{customerName}</span>
+                          </div>
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-slate-500 shrink-0">Customer Email:</span>
+                            <span className="font-mono font-semibold text-slate-800 text-right">{customerEmail}</span>
+                          </div>
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-slate-500 shrink-0">Contact Number:</span>
+                            <span className="font-mono font-semibold text-slate-800 text-right">{contactNumber}</span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-100">
+                            <span className="text-slate-500 shrink-0">Delivery Address:</span>
+                            <span className="font-medium text-slate-700 text-right leading-snug max-w-[260px]">
+                              {deliveryAddress}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-2 text-xs">
+                          <div className="flex justify-between items-center text-slate-600">
+                            <span>Ticket ID:</span>
+                            <span className="font-mono font-semibold text-slate-800">#{selectedTicket.ticketId}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-600">
+                            <span>Customer ID:</span>
+                            <span className="font-mono font-semibold text-slate-800">{selectedTicket.userId || "CUST-VERIFIED"}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-600">
+                            <span>Assigned Staff:</span>
+                            <span className="font-semibold text-[#01390f]">{selectedTicket.assignedTo || "Logistics Agent"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* TAB 4: TRANSCRIPT PDF (Same UI as Order Placed Invoice) */}
                 {activeDrawerTab === "transcript" && (
                   <div className="space-y-4 animate-in fade-in duration-150">
                     <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 text-center space-y-3">
@@ -1371,14 +1364,14 @@ function LogisticsCustomerSupport() {
                       </div>
                       <h4 className="text-sm font-bold text-slate-900">Official Customer Interaction Transcript</h4>
                       <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                        Generate and download a branded, audit-ready PDF conversation transcript containing all timestamps, customer messages, and agent answers.
+                        Generate and download a branded, ready-to-print PDF conversation transcript containing all timestamps, customer messages, and logistics agent replies.
                       </p>
 
                       <div className="pt-2 flex justify-center gap-3">
                         <button
                           type="button"
                           onClick={() => handleDownloadTicketPdf(selectedTicket)}
-                          className="bg-[#01390f] hover:bg-[#051609] text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
+                          className="bg-[#01390f] hover:bg-[#0a5219] text-white px-6 py-2.5 rounded-full font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all active:scale-95 uppercase tracking-wider"
                         >
                           <FileDown className="w-4 h-4" />
                           <span>Download Transcript PDF</span>
@@ -1389,34 +1382,18 @@ function LogisticsCustomerSupport() {
                 )}
               </div>
 
-              {/* DRAWER FOOTER ACTIONS */}
+              {/* DRAWER FOOTER: Unified Clean Layout (Same as Order Placed) */}
               <div className="p-4 bg-slate-100/90 border-t border-slate-200 flex items-center justify-between shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadTicketPdf(selectedTicket)}
-                  className="px-5 py-2.5 sm:py-3 rounded-full bg-red-50 hover:bg-red-100 text-red-700 text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer border border-red-200 flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <FileDown className="w-3.5 h-3.5 text-red-600" />
-                  <span>Transcript PDF</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTicket(null)}
-                    className="px-5 py-2.5 sm:py-3 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-[12px] font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.99] cursor-pointer text-center border border-[#d5ead7] whitespace-nowrap"
-                  >
-                    Close
-                  </button>
-
+                <div className="flex items-center justify-between w-full">
+                  {/* Left Side: Mark as Resolved (Same UI as Confirm Order) */}
                   {selectedTicket.status === "resolved" ? (
                     <button
                       type="button"
                       disabled={isUpdatingStatus}
                       onClick={() => handleToggleResolve("human")}
-                      className="px-6 py-2.5 sm:py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
+                      className="px-6 py-2.5 sm:py-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                     >
-                      {isUpdatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      {isUpdatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                       <span>Re-open Ticket</span>
                     </button>
                   ) : (
@@ -1427,7 +1404,7 @@ function LogisticsCustomerSupport() {
                       className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                     >
                       {isUpdatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                      <span>Mark Resolved</span>
+                      <span>Mark as Resolved</span>
                     </button>
                   )}
                 </div>

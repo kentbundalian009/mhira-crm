@@ -337,6 +337,20 @@ function CustomerContactAgent() {
       });
       const data = await res.json();
 
+      if (data.banned || res.status === 429) {
+        showErrorToast(data.error || "Chat suspended due to rapid messaging.");
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            sender: "system",
+            text: data.error || "Chat suspended due to rapid messaging.",
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+        return;
+      }
+
       if (data.success) {
         if (!ticketId && data.ticketId) {
           setTicketId(data.ticketId);

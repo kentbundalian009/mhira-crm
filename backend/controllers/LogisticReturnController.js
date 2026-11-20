@@ -22,29 +22,31 @@ export const createReturnRequest = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // Check if a return request already exists for this order
-    const existingReturn = await ReturnRequest.findOne({ orderId });
+    // Clean up any previously Rejected return request for this order so the customer can re-file cleanly
+    await ReturnRequest.deleteMany({ orderId, status: "Rejected" });
+
+    // Check if an active return request already exists for this order
+    const existingReturn = await ReturnRequest.findOne({ orderId, status: { $in: ["Pending", "Approved"] } });
     if (existingReturn) {
-      return res.status(400).json({ message: "A return request for this order already exists." });
+      return res.status(400).json({ message: "A return request for this order is already pending or being processed." });
     }
 
     // Prepare items to return (if not supplied, use order items)
-    const returnItems = (items && items.length > 0)
-      ? items
-      : order.items.map((i) => ({
-          product: i.product,
-          name: i.name,
-          price: i.price,
-          quantity: i.quantity,
-          image: i.image,
-        }));
+    const rawItems = (items && items.length > 0) ? items : (order.items || []);
+    const returnItems = rawItems.map((i) => ({
+      product: i.product?._id || i.product || undefined,
+      name: i.name || "Product",
+      price: Number(i.price) || 0,
+      quantity: Number(i.quantity) || 1,
+      image: i.image || "",
+    }));
 
     const amount = Number(refundAmount) || Number(order.totalAmount) || 0;
 
     const newReturn = new ReturnRequest({
       orderId,
-      userId: userId || order.userId,
-      customerName: customerName || "Customer",
+      userId: String(userId || order.userId || "guest"),
+      customerName: customerName || order.customerName || "Customer",
       items: returnItems,
       reason: reason || "Damaged / Broken Item",
       comments: comments || "",
@@ -56,6 +58,15 @@ export const createReturnRequest = async (req, res) => {
 
     // Update the Order status to "Return Refund"
     order.status = "Return Refund";
+    if (Array.isArray(order.trackingTimeline)) {
+      order.trackingTimeline.push({
+        title: "Return Request Filed",
+        description: `Customer submitted return request. Reason: ${reason || "Damaged / Broken Item"}. Note: "${comments || ""}"`,
+        timestamp: new Date(),
+        status: "Return Refund",
+        actor: "Customer",
+      });
+    }
     await order.save();
 
     res.status(201).json({
@@ -64,7 +75,7 @@ export const createReturnRequest = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating return request:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message || "Server error", error: error.message });
   }
 };
 

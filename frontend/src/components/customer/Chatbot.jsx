@@ -21,6 +21,23 @@ function Chatbot({ isOpen: externalOpen }) {
   const [filePreview, setFilePreview] = useState(null);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
+  // Anti-Spam Rate Limiting & Cooldown Ban State
+  // Rule: 10 rapid messages = 30-min ban (1st warning), repeat = 5-hour ban
+  const [banInfo, setBanInfo] = useState(() => {
+    try {
+      const stored = localStorage.getItem("mhira_chat_ban");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.bannedUntil && parsed.bannedUntil > Date.now()) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return null;
+  });
+  const [remainingTimeText, setRemainingTimeText] = useState("");
+  const recentMsgTimestampsRef = useRef([]);
+
   // Attached Order Context state
   const [attachedOrder, setAttachedOrder] = useState(null);
 
@@ -116,6 +133,60 @@ function Chatbot({ isOpen: externalOpen }) {
   const isLoggedIn = Boolean(token && (appData?.user || activeUser));
   const activeUserId = (appData?.user?._id || appData?.user?.id) || activeUser?._id || activeUser?.id || "";
   const activeCustomerName = appData?.user?.name || appData?.user?.username || activeUser?.name || activeUser?.username || "Mhira Customer";
+
+  // Live Countdown Timer for Temporary Chat Ban
+  useEffect(() => {
+    if (!banInfo || !banInfo.bannedUntil) {
+      setRemainingTimeText("");
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const diffMs = banInfo.bannedUntil - now;
+      if (diffMs <= 0) {
+        setBanInfo(null);
+        setRemainingTimeText("");
+        try {
+          localStorage.removeItem("mhira_chat_ban");
+        } catch (e) {}
+      } else {
+        const totalSecs = Math.ceil(diffMs / 1000);
+        const hrs = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = totalSecs % 60;
+        if (hrs > 0) {
+          setRemainingTimeText(`${hrs}h ${mins}m ${secs < 10 ? "0" : ""}${secs}s`);
+        } else {
+          setRemainingTimeText(`${mins}m ${secs < 10 ? "0" : ""}${secs}s`);
+        }
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [banInfo]);
+
+  // Check backend ban status on mount
+  useEffect(() => {
+    const checkBanStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/chatbot/ban-status/${activeUserId || "guest"}`);
+        const data = await res.json();
+        if (data.success && data.banned && data.bannedUntil > Date.now()) {
+          const newBan = {
+            bannedUntil: data.bannedUntil,
+            offenseCount: data.offenseCount || 1,
+            penaltyDuration: data.penaltyDuration || "30 minutes",
+          };
+          setBanInfo(newBan);
+          localStorage.setItem("mhira_chat_ban", JSON.stringify(newBan));
+        }
+      } catch (err) {}
+    };
+    checkBanStatus();
+  }, [activeUserId]);
 
   // Load existing ticket & conversation history on login / mount
   useEffect(() => {
@@ -416,6 +487,12 @@ function Chatbot({ isOpen: externalOpen }) {
 
     if ((!text.trim() && !attachmentToSend && !orderDataToSend) || loading) return;
 
+    // Check if customer is currently banned by Anti-Spam protection
+    if (banInfo && banInfo.bannedUntil > Date.now()) {
+      showErrorToast(`Chat temporarily restricted. Cooldown remaining: ${remainingTimeText || "active"}`);
+      return;
+    }
+
     // Special quick navigation
     if (text.includes("Track my order")) {
       navigate("/orders");
@@ -429,6 +506,40 @@ function Chatbot({ isOpen: externalOpen }) {
     }
 
     const userTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    // Client-side Anti-Spam Rapid Burst Tracker (10 messages in 45s)
+    const now = Date.now();
+    recentMsgTimestampsRef.current = recentMsgTimestampsRef.current.filter((ts) => now - ts < 45000);
+    recentMsgTimestampsRef.current.push(now);
+
+    if (recentMsgTimestampsRef.current.length >= 10) {
+      const prevOffense = banInfo?.offenseCount || 0;
+      const newOffense = prevOffense + 1;
+      const banDurationMs = newOffense >= 2 ? 5 * 60 * 60 * 1000 : 30 * 60 * 1000;
+      const bannedUntil = now + banDurationMs;
+      const penaltyLabel = newOffense >= 2 ? "5 hours (2nd Penalty)" : "30 minutes (1st Warning)";
+
+      const newBanState = {
+        bannedUntil,
+        offenseCount: newOffense,
+        penaltyDuration: newOffense >= 2 ? "5 hours" : "30 minutes",
+      };
+      setBanInfo(newBanState);
+      try {
+        localStorage.setItem("mhira_chat_ban", JSON.stringify(newBanState));
+      } catch (e) {}
+
+      recentMsgTimestampsRef.current = [];
+      const warningSystemMsg = {
+        id: Date.now() + 99,
+        sender: "system",
+        text: `Chat suspended for ${penaltyLabel} due to rapid messaging.`,
+        time: userTime,
+      };
+      setMessages((prev) => [...prev, warningSystemMsg]);
+      showErrorToast(`Chat suspended for ${penaltyLabel}.`);
+      return;
+    }
 
     const userMsg = {
       id: Date.now(),
@@ -461,6 +572,32 @@ function Chatbot({ isOpen: externalOpen }) {
       });
 
       const data = await response.json();
+
+      // Handle Anti-Spam Ban Response from Backend
+      if (response.status === 429 || data.banned) {
+        const banDurationMs = data.remainingMs || (data.offenseCount >= 2 ? 5 * 60 * 60 * 1000 : 30 * 60 * 1000);
+        const newBanState = {
+          bannedUntil: data.bannedUntil || Date.now() + banDurationMs,
+          offenseCount: data.offenseCount || 1,
+          penaltyDuration: data.penaltyDuration || "30 minutes",
+        };
+        setBanInfo(newBanState);
+        try {
+          localStorage.setItem("mhira_chat_ban", JSON.stringify(newBanState));
+        } catch (e) {}
+
+        const warningSystemMsg = {
+          id: Date.now() + 99,
+          sender: "system",
+          text: data.error || `Chat suspended for ${data.penaltyDuration || "cooldown"} due to rapid messaging.`,
+          time: userTime,
+        };
+        setMessages((prev) => [...prev, warningSystemMsg]);
+        showErrorToast(data.error || "Chat suspended.");
+        setLoading(false);
+        return;
+      }
+
       if (data.ticketId) {
         setTicketId(data.ticketId);
         localStorage.setItem(`mhira_chat_ticket_${activeUserId || "guest"}`, data.ticketId);
@@ -965,6 +1102,18 @@ function Chatbot({ isOpen: externalOpen }) {
           {/* 5. Input Bar & Guided Mode Gate */}
           {!showFaqPanel && (
             <div className="p-3.5 bg-white border-t border-slate-200/90 shrink-0 space-y-2 shadow-[0_-4px_16px_rgba(15,23,42,0.04)]">
+              {/* Anti-Spam Temporary Ban Info Bar (Same Font & Size as Switch Topic, in Red) */}
+              {banInfo && banInfo.bannedUntil > Date.now() && (
+                <div className="flex items-center justify-between gap-2 px-1 text-[11px]">
+                  <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-red-600 font-bold border border-red-200 truncate tracking-wide text-[11px]">
+                    Restricted
+                  </span>
+                  <span className="text-[11px] font-semibold text-red-600 shrink-0">
+                    {remainingTimeText ? `${remainingTimeText} remaining` : (banInfo.offenseCount >= 2 ? "5h remaining" : "30m remaining")}
+                  </span>
+                </div>
+              )}
+
               {!selectedChatMode ? (
                 <div className="space-y-2">
                   <p className="text-[11px] text-slate-500 font-medium text-center">
@@ -1041,12 +1190,17 @@ function Chatbot({ isOpen: externalOpen }) {
                         e.preventDefault();
                         sendMessage();
                       }}
-                      className="flex items-center gap-2 bg-[#f6f9f6] border border-slate-200 rounded-full px-3.5 py-1.5 focus-within:border-[#01390f] focus-within:bg-white transition-all"
+                      className={`flex items-center gap-2 border rounded-full px-3.5 py-1.5 transition-all ${
+                        banInfo && banInfo.bannedUntil > Date.now()
+                          ? "bg-slate-100 border-slate-300 opacity-70 cursor-not-allowed"
+                          : "bg-[#f6f9f6] border-slate-200 focus-within:border-[#01390f] focus-within:bg-white"
+                      }`}
                     >
                       <button
                         type="button"
+                        disabled={Boolean(banInfo && banInfo.bannedUntil > Date.now())}
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-1 text-slate-400 hover:text-[#01390f] transition-colors cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-[#01390f] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         title="Attach photo/file"
                       >
                         <Paperclip className="w-4 h-4" />
@@ -1063,23 +1217,38 @@ function Chatbot({ isOpen: externalOpen }) {
                       <input
                         type="text"
                         value={input}
+                        disabled={Boolean(banInfo && banInfo.bannedUntil > Date.now())}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder={activeModeConfig?.placeholder || "Type your message..."}
-                        className="flex-1 bg-transparent outline-none text-xs text-slate-800 placeholder:text-slate-400 px-1"
+                        placeholder={
+                          banInfo && banInfo.bannedUntil > Date.now()
+                            ? `Chat restricted (${remainingTimeText || "Cooldown active"})`
+                            : (activeModeConfig?.placeholder || "Type your message...")
+                        }
+                        className={`flex-1 bg-transparent outline-none text-xs text-slate-800 placeholder:text-slate-400 px-1 ${
+                          banInfo && banInfo.bannedUntil > Date.now() ? "cursor-not-allowed italic text-slate-500" : ""
+                        }`}
                       />
 
                       <button
                         type="submit"
-                        disabled={(!input.trim() && !filePreview) || loading}
-                        className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all ${(input.trim() || filePreview) && !loading
-                          ? "bg-[#01390f] hover:bg-[#0a5219] text-white shadow-xs active:scale-[0.99] cursor-pointer"
-                          : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                          }`}
+                        disabled={(!input.trim() && !filePreview) || loading || Boolean(banInfo && banInfo.bannedUntil > Date.now())}
+                        className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all ${
+                          (input.trim() || filePreview) && !loading && !(banInfo && banInfo.bannedUntil > Date.now())
+                            ? "bg-[#01390f] hover:bg-[#0a5219] text-white shadow-xs active:scale-[0.99] cursor-pointer"
+                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                        }`}
                       >
                         Send
                       </button>
                     </form>
                   )}
+
+                  {/* Informational Security & Anti-Spam Policy Note */}
+                  <div className="pt-1 flex items-center justify-between px-1 text-[10px] text-slate-400">
+                    <span className="font-medium leading-tight">
+                      Note: 10 rapid messages triggers a 30m ban (1st warning); repeat offenses trigger a 5hr ban.
+                    </span>
+                  </div>
                 </>
               )}
             </div>

@@ -117,6 +117,54 @@ CUSTOMER QUESTION: ${question}`;
   return buildLocalProductFallback(question, products);
 };
 
+// Anti-Spam Rate Limiting State (Per user/IP in-memory tracker)
+// Rule: Sending 10 messages rapidly triggers temporary chat bans:
+// 1st violation: 30 minutes cooldown
+// 2nd violation (repeat offense): 5 hours cooldown
+const spamTracker = new Map();
+
+const getSpamRecord = (key) => {
+  const now = Date.now();
+  if (!spamTracker.has(key)) {
+    spamTracker.set(key, { timestamps: [], offenseCount: 0, bannedUntil: 0 });
+  }
+  const record = spamTracker.get(key);
+  // Keep timestamps within a 45-second sliding window
+  record.timestamps = record.timestamps.filter((ts) => now - ts < 45000);
+  return record;
+};
+
+// Check current ban status endpoint
+export const getChatbotBanStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userKey = userId || req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "client";
+    const record = getSpamRecord(userKey);
+    const now = Date.now();
+
+    if (record.bannedUntil && now < record.bannedUntil) {
+      const remainingMs = record.bannedUntil - now;
+      const penaltyDuration = record.offenseCount >= 2 ? "5 hours" : "30 minutes";
+      const penaltyTier = record.offenseCount >= 2 ? "2nd Penalty" : "1st Warning Penalty";
+
+      return res.status(200).json({
+        success: true,
+        banned: true,
+        bannedUntil: record.bannedUntil,
+        offenseCount: record.offenseCount,
+        penaltyDuration,
+        penaltyTier,
+        remainingMs,
+        remainingMins: Math.ceil(remainingMs / 60000),
+      });
+    }
+
+    return res.status(200).json({ success: true, banned: false });
+  } catch (err) {
+    return res.status(200).json({ success: true, banned: false });
+  }
+};
+
 // 1. Customer Chat Logic (Guided 3-Mode: Product AI with Limit + Inquiry + Live Human CSR)
 export const handleCustomerChat = async (req, res) => {
   try {
@@ -124,6 +172,57 @@ export const handleCustomerChat = async (req, res) => {
 
     if (!message && !attachment && !orderData) {
       return res.status(400).json({ success: false, error: "Message, attachment, or order details required." });
+    }
+
+    // --- ANTI-SPAM PROTECTION CHECK ---
+    const userKey = userId || req.headers["x-forwarded-for"] || req.socket?.remoteAddress || ticketId || "client";
+    const spamRecord = getSpamRecord(userKey);
+    const now = Date.now();
+
+    // 1. If user is currently in a temporary ban, block immediately
+    if (spamRecord.bannedUntil && now < spamRecord.bannedUntil) {
+      const remainingMs = spamRecord.bannedUntil - now;
+      const remainingMins = Math.ceil(remainingMs / 60000);
+      const penaltyDuration = spamRecord.offenseCount >= 2 ? "5 hours" : "30 minutes";
+      const penaltyTier = spamRecord.offenseCount >= 2 ? "2nd Penalty" : "1st Warning Penalty";
+
+      return res.status(429).json({
+        success: false,
+        banned: true,
+        bannedUntil: spamRecord.bannedUntil,
+        offenseCount: spamRecord.offenseCount,
+        penaltyDuration,
+        penaltyTier,
+        remainingMs,
+        remainingMins,
+        error: `Chat suspended for ${penaltyDuration} (${penaltyTier}) due to rapid messaging.`,
+      });
+    }
+
+    // 2. Track message timestamp
+    spamRecord.timestamps.push(now);
+
+    // 3. Check if user sent 10 messages within the 45-second window
+    if (spamRecord.timestamps.length >= 10) {
+      spamRecord.offenseCount += 1;
+      const banDurationMs = spamRecord.offenseCount >= 2 ? 5 * 60 * 60 * 1000 : 30 * 60 * 1000;
+      spamRecord.bannedUntil = now + banDurationMs;
+      spamRecord.timestamps = []; // Clear current queue after applying ban
+
+      const penaltyDuration = spamRecord.offenseCount >= 2 ? "5 hours" : "30 minutes";
+      const penaltyTier = spamRecord.offenseCount >= 2 ? "2nd Penalty (5 Hours)" : "1st Warning Penalty (30 Minutes)";
+
+      return res.status(429).json({
+        success: false,
+        banned: true,
+        bannedUntil: spamRecord.bannedUntil,
+        offenseCount: spamRecord.offenseCount,
+        penaltyDuration,
+        penaltyTier,
+        remainingMs: banDurationMs,
+        remainingMins: Math.ceil(banDurationMs / 60000),
+        error: `Chat suspended for ${penaltyDuration} (${penaltyTier}) due to rapid messaging.`,
+      });
     }
 
     const timeString = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

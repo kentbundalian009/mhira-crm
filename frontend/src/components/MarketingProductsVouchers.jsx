@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../utils/apiConfig";
+﻿import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
@@ -175,7 +175,7 @@ function MarketingProductsVouchers() {
   const handleAutoGenerateVoucherNote = () => {
     const codeStr = newCoupon.code ? newCoupon.code.toUpperCase() : 'MHIRA VOUCHER';
     const discStr = newCoupon.discount ? `${newCoupon.discount}% OFF` : 'Special Discount';
-    const minStr = Number(newCoupon.minSpend) > 0 ? `with a minimum spend of â‚±${Number(newCoupon.minSpend).toLocaleString()}` : 'with no minimum spend required';
+    const minStr = Number(newCoupon.minSpend) > 0 ? `with a minimum spend of ₱${Number(newCoupon.minSpend).toLocaleString()}` : 'with no minimum spend required';
     const segStr = newCoupon.targetSegment && newCoupon.targetSegment !== 'All' ? `exclusively for ${newCoupon.targetSegment} members` : 'valid for all verified Mhira Natural shoppers';
     const expStr = newCoupon.expiry ? `Valid until ${new Date(newCoupon.expiry).toLocaleDateString()}.` : 'Valid on regular and promotional items at checkout.';
 
@@ -678,14 +678,14 @@ function MarketingProductsVouchers() {
 
                         {/* 2. DISCOUNT RATE (Volume / Accent Blue Column) */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-center bg-blue-600/20 group-hover:bg-blue-600/30 text-slate-800 font-mono font-bold text-xs transition-colors">
-                          {rawDiscount.includes('%') || rawDiscount.includes('â‚±')
+                          {rawDiscount.includes('%') || rawDiscount.includes('₱')
                             ? `${rawDiscount} OFF`
                             : `${rawDiscount}% OFF`}
                         </td>
 
                         {/* 3. MIN SPEND */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-bold text-slate-800 bg-slate-50/50 group-hover:bg-blue-50/30 transition-colors">
-                          {minSpendNum > 0 ? `â‚±${minSpendNum.toFixed(2)}` : 'No Minimum'}
+                          {minSpendNum > 0 ? `₱${minSpendNum.toFixed(2)}` : 'No Minimum'}
                         </td>
 
                         {/* 4. USAGE LIMIT */}
@@ -963,10 +963,10 @@ function MarketingProductsVouchers() {
                   {/* MIN SPEND REQUIREMENT */}
                   <div>
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 whitespace-nowrap">
-                      Min Spend Requirement (â‚±)
+                      Min Spend Requirement (₱)
                     </label>
                     <div className="flex items-center border-b-2 border-slate-200 focus-within:border-[#01390f] transition-colors">
-                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">â‚±</span>
+                      <span className="text-xs font-bold text-slate-400 shrink-0 mr-2">₱</span>
                       <input
                         type="number"
                         min="0"
@@ -1154,18 +1154,18 @@ function MarketingProductsVouchers() {
                   {viewCouponModal.expiry && !isNaN(new Date(viewCouponModal.expiry).getTime())
                     ? new Date(viewCouponModal.expiry).toLocaleDateString()
                     : 'No Expiry'}{' '}
-                  â€¢{' '}
+                  •{' '}
                   {Number(viewCouponModal.usageLimit || 0) > 0
                     ? `${Number(viewCouponModal.usedCount || 0)} / ${Number(viewCouponModal.usageLimit)} Used`
                     : 'Unlimited Usage'}
                 </p>
                 <p className="font-semibold text-[#01390f]">
                   {String(viewCouponModal.discount || '0').includes('%') ||
-                    String(viewCouponModal.discount || '0').includes('â‚±')
+                    String(viewCouponModal.discount || '0').includes('₱')
                     ? `${viewCouponModal.discount} OFF`
                     : `${viewCouponModal.discount}% OFF`}
                   {Number(viewCouponModal.minSpend || 0) > 0
-                    ? ` (Min. Spend â‚±${Number(viewCouponModal.minSpend).toFixed(2)})`
+                    ? ` (Min. Spend ₱${Number(viewCouponModal.minSpend).toFixed(2)})`
                     : ' (No Minimum Spend)'}
                 </p>
                 {viewCouponModal.description && (

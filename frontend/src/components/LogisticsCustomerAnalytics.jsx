@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../utils/apiConfig";
+﻿import { API_BASE_URL } from "../utils/apiConfig";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   TrendingUp,
@@ -908,7 +908,7 @@ function LogisticsCustomerAnalytics() {
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Sales Revenue</p>
             <h3 className="text-xl font-black text-slate-800 font-mono mt-1">
-              â‚±{calculatedTotalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              ₱{calculatedTotalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </h3>
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 mt-1">
               <CheckCircle2 className="w-3 h-3 text-blue-600" />
@@ -974,7 +974,7 @@ function LogisticsCustomerAnalytics() {
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Average Order Value</p>
             <h3 className="text-xl font-black text-slate-800 font-mono mt-1">
-              â‚±{averageOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              ₱{averageOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </h3>
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 mt-1">
               <ShoppingBag className="w-3 h-3 text-slate-400" />
@@ -1058,7 +1058,7 @@ function LogisticsCustomerAnalytics() {
                   <div>
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Spent</span>
                     <span className="font-mono font-black text-base text-[#01390f]">
-                      â‚±{Number(topThreeCustomers[0].totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ₱{Number(topThreeCustomers[0].totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="text-right">
@@ -1113,7 +1113,7 @@ function LogisticsCustomerAnalytics() {
                   <div>
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Spent</span>
                     <span className="font-mono font-black text-base text-[#01390f]">
-                      â‚±{Number(topThreeCustomers[1].totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ₱{Number(topThreeCustomers[1].totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="text-right">
@@ -1168,7 +1168,7 @@ function LogisticsCustomerAnalytics() {
                   <div>
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Spent</span>
                     <span className="font-mono font-black text-base text-[#01390f]">
-                      â‚±{Number(topThreeCustomers[2].totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ₱{Number(topThreeCustomers[2].totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="text-right">
@@ -1308,8 +1308,8 @@ function LogisticsCustomerAnalytics() {
                         className="w-full h-[22px] text-xs bg-slate-50 border border-slate-200 rounded pl-7 pr-5 focus:outline-none focus:border-[#01390f] focus:bg-white text-slate-700 cursor-pointer appearance-none truncate font-medium"
                       >
                         <option value="All">All Shoppers</option>
-                        <option value="Gold">Gold Tier (â‚±5k+ or 3+ orders)</option>
-                        <option value="Silver">Silver Tier (â‚±1k+ or 1+ order)</option>
+                        <option value="Gold">Gold Tier (₱5k+ or 3+ orders)</option>
+                        <option value="Silver">Silver Tier (₱1k+ or 1+ order)</option>
                         <option value="Bronze">Bronze Tier (New Shopper / 0 orders)</option>
                       </select>
                       <ChevronDown className="w-3 h-3 absolute right-1.5 top-1.5 text-slate-400 pointer-events-none" />
@@ -1474,7 +1474,7 @@ function LogisticsCustomerAnalytics() {
 
                             {/* 4. TOTAL SPENT */}
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-xs text-slate-800 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              â‚±{Number(c.totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              ₱{Number(c.totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
 
                             {/* 5. ORDERS PLACED (Blue Accent Column) */}
@@ -1487,20 +1487,20 @@ function LogisticsCustomerAnalytics() {
                               {Number(c.totalDiscounts || 0) > 0 ? (
                                 <div className="flex flex-col items-center">
                                   <span className="font-bold text-blue-800 text-xs">
-                                    -â‚±{Number(c.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    -₱{Number(c.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                   </span>
                                   <span className="text-[10px] text-slate-500 font-sans mt-0.5">
                                     {c.discountCount || 1} {c.discountCount === 1 ? 'voucher' : 'vouchers'}
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-slate-400 italic">â‚±0.00 (0)</span>
+                                <span className="text-slate-400 italic">₱0.00 (0)</span>
                               )}
                             </td>
 
                             {/* 7. AVG / ORDER */}
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono text-xs font-semibold text-slate-700 bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07] transition-colors">
-                              â‚±{Number(avg || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              ₱{Number(avg || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
 
                             {/* 8. LAST PURCHASE */}
@@ -1855,7 +1855,7 @@ function LogisticsCustomerAnalytics() {
                               {sale.items}
                             </td>
                             <td className="py-3 px-4 font-mono font-bold text-[#01390f] text-right">
-                              â‚±{Number(sale.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              ₱{Number(sale.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
                             <td className="py-3 px-4 text-center whitespace-nowrap">
                               {getStatusBadge(sale.status)}
@@ -1966,7 +1966,7 @@ function LogisticsCustomerAnalytics() {
                 <div className="flex justify-between items-center pt-2 border-t border-slate-200">
                   <span className="text-slate-700 font-bold">Total Sales Amount:</span>
                   <span className="font-mono font-black text-[#01390f] text-base">
-                    â‚±{Number(selectedSale.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    ₱{Number(selectedSale.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -2022,7 +2022,7 @@ function LogisticsCustomerAnalytics() {
                     Customer Profile & Information
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    {selectedCustomer.customerCode ? `ID: ${selectedCustomer.customerCode} â€¢ ` : ''}Customer Analytics
+                    {selectedCustomer.customerCode ? `ID: ${selectedCustomer.customerCode} • ` : ''}Customer Analytics
                   </p>
                 </div>
               </div>
@@ -2167,7 +2167,7 @@ function LogisticsCustomerAnalytics() {
                   <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Spent</span>
                     <span className="font-mono font-bold text-xs sm:text-sm text-[#01390f] mt-0.5 block">
-                      â‚±{Number(selectedCustomer.totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ₱{Number(selectedCustomer.totalSpent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -2181,7 +2181,7 @@ function LogisticsCustomerAnalytics() {
                   <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/70 text-center">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Discounts</span>
                     <span className="font-mono font-bold text-xs sm:text-sm text-blue-700 mt-0.5 block">
-                      â‚±{Number(selectedCustomer.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ₱{Number(selectedCustomer.totalDiscounts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -2228,7 +2228,7 @@ function LogisticsCustomerAnalytics() {
                         </div>
                         <div className="text-right shrink-0">
                           <span className="font-mono font-bold text-slate-800 block">
-                            â‚±{Number(ord.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            ₱{Number(ord.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                           </span>
                           <div className="mt-0.5">
                             {getStatusBadge(ord.status)}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import {
   Mail,
   Send,
@@ -86,7 +86,7 @@ const SMART_MARKETING_PRESETS = [
     bodyText:
       'As one of our most distinguished customers, we invite you to experience our newest organic collection before the official public launch.\n\nUse your personal VIP token below for instant savings on your next checkout.',
     discountCode: 'VIPMHIRA',
-    discountNote: 'â‚±250 OFF on orders above â‚±1,200',
+    discountNote: '₱250 OFF on orders above ₱1,200',
     ctaText: 'Explore VIP Collection',
     ctaUrl: `${FRONTEND_BASE_URL}/collection`,
   },
@@ -186,7 +186,7 @@ export default function MarketingProductsPromotions() {
         recipientEmail: 'vip.client@gmail.com',
         recipientsCount: 1,
         discountCode: 'VIPMHIRA',
-        discountNote: 'â‚±250 OFF on orders above â‚±1,200',
+        discountNote: '₱250 OFF on orders above ₱1,200',
         ctaText: 'Explore VIP Collection',
         ctaUrl: `${FRONTEND_BASE_URL}/collection`,
         dispatchedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
@@ -1446,7 +1446,7 @@ export default function MarketingProductsPromotions() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-14">From:</span>
                 <span className="font-semibold text-[#01390f]">Mhira Natural</span>
                 <span className="text-slate-400 font-mono text-[11px]">&lt;noreply@mhira.shop&gt;</span>
-                <span className="mx-1 text-slate-300">â€¢</span>
+                <span className="mx-1 text-slate-300">•</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">To:</span>
                 <span className="text-slate-600 font-medium">
                   {previewCampaignData.targetAudience === 'CUSTOM' && previewCampaignData.recipientEmail

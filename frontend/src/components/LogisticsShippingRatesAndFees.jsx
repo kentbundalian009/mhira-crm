@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Plus,
@@ -324,7 +324,7 @@ function LogisticsShippingRatesAndFees() {
 
     const ok = await persistSettings(
       nextSettings,
-      `Saved shipping rate for "${locName}" (â‚±${fee.toFixed(2)}) & synced to PayMongo!`
+      `Saved shipping rate for "${locName}" (₱${fee.toFixed(2)}) & synced to PayMongo!`
     );
     if (ok) {
       await runSimulator(testAddress, testSubtotal);
@@ -567,7 +567,7 @@ function LogisticsShippingRatesAndFees() {
       key: '',
       overrideIdx: null,
       name: computedName,
-      description: `${defaultReg?.regionName || ''} â€¢ ${defaultProv}`,
+      description: `${defaultReg?.regionName || ''} • ${defaultProv}`,
       rate: preset?.rate ?? defaultReg?.defaultFee ?? 65,
       estimatedDays: defaultReg?.defaultTransit || '1 - 3 Days',
       isActive: true,
@@ -705,7 +705,7 @@ function LogisticsShippingRatesAndFees() {
 
     const ok = await persistSettings(
       nextSettings,
-      `Saved shipping rate for "${finalLocationName}" (â‚±${Number(
+      `Saved shipping rate for "${finalLocationName}" (₱${Number(
         locationForm.rate || 0
       ).toFixed(2)}) & synced to PayMongo!`
     );
@@ -1324,7 +1324,7 @@ function LogisticsShippingRatesAndFees() {
                                 title={`Click to set shipping rate for ${city}, ${item.province}`}
                               >
                                 {city}
-                                {cityOverride ? ` (â‚±${cityOverride.rate})` : ''}
+                                {cityOverride ? ` (₱${cityOverride.rate})` : ''}
                               </button>
                             );
                           })}
@@ -1333,7 +1333,7 @@ function LogisticsShippingRatesAndFees() {
                       <td className="py-3.5 px-4 text-center bg-[#01390f]/[0.04] group-hover:bg-[#01390f]/[0.07]">
                         <div className="flex flex-col items-center gap-0.5">
                           <span className="font-mono font-bold text-slate-900 text-sm">
-                            â‚±{Number(item.effectiveFee).toFixed(2)}
+                            ₱{Number(item.effectiveFee).toFixed(2)}
                           </span>
                           <span className="text-[10px] text-slate-500 font-medium">
                             {item.defaultTransit}
@@ -1475,7 +1475,7 @@ function LogisticsShippingRatesAndFees() {
                             <div className="flex flex-col items-center gap-1">
                               <div className="inline-flex items-center bg-white border border-slate-200 rounded-md px-2 py-0.5 focus-within:border-[#01390f] shadow-2xs">
                                 <span className="text-slate-400 font-bold text-xs mr-1">
-                                  â‚±
+                                  ₱
                                 </span>
                                 <input
                                   type="number"
@@ -1879,7 +1879,7 @@ function LogisticsShippingRatesAndFees() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Shipping Fee (â‚±) *
+                      Shipping Fee (₱) *
                     </label>
                     <div className="relative">
                       <Truck className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -2216,11 +2216,11 @@ function LogisticsShippingRatesAndFees() {
                   <div className="space-y-3 pt-2">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        Cart Merchandise Subtotal (â‚±)
+                        Cart Merchandise Subtotal (₱)
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
-                          â‚±
+                          ₱
                         </span>
                         <input
                           type="number"
@@ -2292,11 +2292,11 @@ function LogisticsShippingRatesAndFees() {
                         {simulatedResult?.isFreeShipping &&
                           simulatedResult?.baseRegionRate > 0 && (
                             <span className="text-xs text-slate-400 line-through mr-2 font-mono">
-                              â‚±{Number(simulatedResult.baseRegionRate).toFixed(2)}
+                              ₱{Number(simulatedResult.baseRegionRate).toFixed(2)}
                             </span>
                           )}
                         <span className="text-2xl font-mono font-black text-[#01390f]">
-                          â‚±{Number(simulatedResult?.shippingFee ?? 0).toFixed(2)}
+                          ₱{Number(simulatedResult?.shippingFee ?? 0).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -2312,7 +2312,7 @@ function LogisticsShippingRatesAndFees() {
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
                       <div className="sm:col-span-3">
                         <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                          Shipping Fee (â‚±)
+                          Shipping Fee (₱)
                         </label>
                         <input
                           type="number"

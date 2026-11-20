@@ -142,9 +142,10 @@ export const authorize = (...roles) => {
       return next();
     }
 
-    const isAuthorized = roles.some(
-      (role) => String(role).trim().toLowerCase() === currentRole
-    );
+    const isAuthorized = roles.some((role) => {
+      const r = String(role).trim().toLowerCase();
+      return r === currentRole || r.replace(/s$/, "") === currentRole.replace(/s$/, "");
+    });
 
     if (!isAuthorized) {
       return res.status(403).json({

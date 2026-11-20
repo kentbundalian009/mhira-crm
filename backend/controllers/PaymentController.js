@@ -508,7 +508,7 @@ export const verifyPayMongoPayment = async (req, res) => {
 
       // Add timeline entry
       order.trackingTimeline.push({
-        title: "Payment Confirmed",
+        title: "Payment Paid",
         description: `Payment received via ${cleanPaymentLabel} (PayMongo). Order is now in 'To Ship' status and is being prepared.`,
         timestamp: new Date(),
         status: "To Ship",
@@ -591,7 +591,7 @@ export const handlePayMongoWebhook = async (req, res) => {
             paidAt: new Date(),
           };
           order.trackingTimeline.push({
-            title: "Payment Confirmed (Webhook)",
+            title: "Payment Paid",
             description: `Payment confirmed via ${cleanPaymentLabel} (PayMongo webhook). Order queued for packing and shipping.`,
             timestamp: new Date(),
             status: "To Ship",
@@ -939,7 +939,7 @@ export const syncPayMongoOrderReference = async (req, res) => {
 
     if (!alreadyLogged) {
       order.trackingTimeline.push({
-        title: "PayMongo Reference Auto-Captured",
+        title: "Payment Paid",
         description: `Verified online payment via PayMongo API (${channel}). Reference No: ${refNumber}. Gross: ₱${grossAmount.toFixed(2)}, Fee: ₱${fee.toFixed(2)}, Net: ₱${netAmount.toFixed(2)}.`,
         timestamp: new Date(),
         status: order.status,

@@ -33,10 +33,9 @@ import {
   CreditCard,
   Loader2,
   PackageCheck,
+  XCircle,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import axios, { API } from "../../axios";
 
 import HeaderContainer from "../common/HeaderContainer";
@@ -49,7 +48,7 @@ import { useLiveSync, notifyLiveSync } from "../../utils/liveSync";
 import { API_BASE_URL, getImageUrl as resolveImgUrl } from "../../utils/apiConfig";
 import { formatShippingAddress } from "../../utils/addressUtils";
 import { getDisplayPaymentMethod } from "../../utils/paymentUtils";
-import { downloadWaybillPdf } from "../../utils/pdfUtils";
+import { downloadWaybillPdf, downloadReceiptPdf } from "../../utils/pdfUtils";
 
 const getImageUrl = (url) => resolveImgUrl(url, "");
 
@@ -195,10 +194,8 @@ function CustomerOrders() {
   const [selectedProductForReview, setSelectedProductForReview] = useState(null);
   const [ratingValue, setRatingValue] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
-  const [reviewMedia, setReviewMedia] = useState([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
-  const reviewMediaInputRef = useRef(null);
 
   // Cancel Order Modal States
   const [selectedOrderForCancel, setSelectedOrderForCancel] = useState(null);
@@ -728,223 +725,14 @@ function CustomerOrders() {
     );
   };
 
-  // Download Official PDF Receipt (Paper Document Style matching TikTok Shop preview)
-  const handleDownloadReceiptPdf = (order) => {
+  // Download Official PDF Receipt (Matches Waybill Thermal 100x150mm UI & Executive styling)
+  const handleDownloadReceiptPdf = async (order) => {
     if (!order) return;
     try {
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const fullOrderId = String(order.orderNumber || order._id || "51ACE3DD").toUpperCase();
-      const orderIdShort = fullOrderId.slice(-8);
-      const receiptNum = `20261009-${String(order._id || fullOrderId).replace(/[^a-zA-Z0-9]/g, "").slice(-18).toUpperCase()}`;
-
-      const customerName =
-        order.customerName ||
-        order.userId?.name ||
-        order.user?.name ||
-        (() => {
-          try {
-            const u = JSON.parse(localStorage.getItem("user") || "{}");
-            return u.name || u.fullName || "Kent Bundalian";
-          } catch {
-            return "Kent Bundalian";
-          }
-        })();
-
-      const customerPhone =
-        order.phone ||
-        order.shippingPhone ||
-        order.contactNumber ||
-        (() => {
-          try {
-            const u = JSON.parse(localStorage.getItem("user") || "{}");
-            return u.phone || u.contactNumber || "+63 9154673941";
-          } catch {
-            return "+63 9154673941";
-          }
-        })();
-
-      const customerAddress =
-        formatShippingAddress(order.shippingAddress) || "ccc, Brgy. Uwisan, Calamba City, Laguna, 4027, Philippines";
-
-      const orderCreated = order.createdAt ? new Date(order.createdAt) : new Date();
-      const orderDateFormatted = orderCreated.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
-      const orderTimeFormatted = orderCreated.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-      const receiptDateTime = `${orderDateFormatted} ${orderTimeFormatted}`;
-
-      // Clean white document header
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(15);
-      doc.text("MHIRA NATURAL BOTANICALS", 15, 18);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-      doc.text("Pure Organic Botanicals & Skin Care", 15, 23);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Order Receipt", 195, 20, { align: "right" });
-
-      // Shaded Receipt Box (#F8F9FA)
-      doc.setFillColor(248, 249, 250);
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(15, 28, 180, 14, 1.5, 1.5, "FD");
-
-      doc.setFontSize(8);
-      doc.setTextColor(71, 85, 105);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Receipt Number : ${receiptNum}`, 19, 34);
-      doc.text(`Receipt Date : ${receiptDateTime}`, 19, 39);
-
-      // 3 Columns: Delivery Details, Sold By, Order Details
-      // Column 1: Delivery Details
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Delivery Details", 15, 50);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(51, 65, 85);
-      doc.text(customerName, 15, 55);
-
-      const splitAddr = doc.splitTextToSize(customerAddress, 58);
-      doc.text(splitAddr, 15, 59);
-      const addrBottomY = 59 + (splitAddr.length * 3.5);
-      if (customerPhone) {
-        doc.text(customerPhone, 15, addrBottomY);
+      const fileName = await downloadReceiptPdf(order);
+      if (fileName) {
+        showSuccessToast("Official Receipt PDF downloaded! 📄");
       }
-
-      // Column 2: Sold By
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Sold By", 80, 50);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(51, 65, 85);
-      doc.text("MHIRA NATURAL BOTANICALS", 80, 55);
-      doc.text("Calamba City, Laguna, Philippines", 80, 59);
-
-      // Column 3: Order Details
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Order Details", 145, 50);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-      doc.text("Order Number :", 145, 55);
-      doc.setTextColor(15, 23, 42);
-      doc.text(fullOrderId, 168, 55);
-
-      doc.setTextColor(100, 116, 139);
-      doc.text("Order Date :", 145, 59);
-      doc.setTextColor(15, 23, 42);
-      doc.text(orderDateFormatted, 168, 59);
-
-      doc.setTextColor(100, 116, 139);
-      doc.text("Payment :", 145, 63);
-      doc.setTextColor(15, 23, 42);
-      doc.text(getDisplayPaymentMethod(order), 168, 63);
-
-      const startTableY = Math.max(addrBottomY + 7, 72);
-
-      // Table Header and Body
-      const tableHead = [["Item Description", "Quantity"]];
-      const itemsList = Array.isArray(order.items) && order.items.length > 0 ? order.items : [
-        { name: "FACE SERUM COLLAGEN", price: order.totalAmount || 300, quantity: 1 }
-      ];
-
-      const tableBody = itemsList.map((it) => [
-        `${it.name || it.itemDescription || "Botanical Product"} (PHP ${Number(it.price || 0).toFixed(2)})`,
-        String(it.quantity || 1),
-      ]);
-
-      autoTable(doc, {
-        startY: startTableY,
-        head: tableHead,
-        body: tableBody,
-        headStyles: {
-          fillColor: [248, 249, 250],
-          textColor: [15, 23, 42],
-          fontStyle: "bold",
-          fontSize: 8.5,
-          lineColor: [226, 232, 240],
-          lineWidth: 0.15,
-        },
-        bodyStyles: {
-          fontSize: 8,
-          textColor: [30, 41, 59],
-          lineColor: [241, 245, 249],
-          lineWidth: 0.1,
-        },
-        alternateRowStyles: {
-          fillColor: [255, 255, 255],
-        },
-        columnStyles: {
-          0: { cellWidth: 150 },
-          1: { cellWidth: 30, halign: "right" },
-        },
-        margin: { left: 15, right: 15 },
-      });
-
-      const finalY = doc.lastAutoTable.finalY + 6;
-      const totalAmount = Number(order.totalAmount || 0);
-
-      // Financial breakdown aligned right
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-      doc.text("Subtotal", 130, finalY);
-      doc.setTextColor(15, 23, 42);
-      doc.text(`PHP ${totalAmount.toFixed(2)}`, 195, finalY, { align: "right" });
-
-      doc.setTextColor(100, 116, 139);
-      doc.text("Handling fee", 130, finalY + 5);
-      doc.setTextColor(15, 23, 42);
-      doc.text("PHP 0.00", 195, finalY + 5, { align: "right" });
-
-      doc.setTextColor(100, 116, 139);
-      doc.text("Shipping", 130, finalY + 10);
-      doc.setTextColor(1, 57, 15);
-      doc.setFont("helvetica", "bold");
-      doc.text("FREE", 195, finalY + 10, { align: "right" });
-
-      // Shaded grand total box
-      doc.setFillColor(248, 249, 250);
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(125, finalY + 14, 70, 9.5, 1, 1, "FD");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Grand total (includes VAT)", 128, finalY + 20);
-      doc.text(`PHP ${totalAmount.toFixed(2)}`, 192, finalY + 20, { align: "right" });
-
-      // Disclaimer footer centered
-      const disclaimerY = finalY + 36;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(148, 163, 184);
-      doc.text("This receipt serves as proof of purchase and does not qualify as a tax invoice.", 105, disclaimerY, { align: "center" });
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(100, 116, 139);
-      doc.text("Thank you for your purchase.", 105, disclaimerY + 4.5, { align: "center" });
-
-      doc.save(`Mhira_Receipt_${orderIdShort}.pdf`);
-      showSuccessToast("Official Receipt PDF downloaded! 📄");
     } catch (err) {
       console.error("Download PDF receipt error:", err);
       showErrorToast("Failed to generate receipt PDF.");
@@ -1057,32 +845,18 @@ function CustomerOrders() {
     }
   };
 
-  // Handle Review Media Selection (Photos or Videos)
-  const handleReviewMediaSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    const newMedia = files.map((file) => ({
-      file,
-      type: file.type,
-      previewUrl: URL.createObjectURL(file),
-    }));
-
-    setReviewMedia((prev) => [...prev, ...newMedia].slice(0, 5));
-    if (reviewMediaInputRef.current) reviewMediaInputRef.current.value = "";
-  };
-
-  const handleRemoveReviewMedia = (index) => {
-    setReviewMedia((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Handle Review Submit
+  // Handle Review Submit (No minimum characters, maximum 500 characters, no photo upload)
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
     if (!selectedProductForReview) return;
 
-    if (!reviewComment || reviewComment.trim().length < 30) {
-      showErrorToast("Please write at least 30 characters in your review.");
+    if (!reviewComment || !reviewComment.trim()) {
+      showErrorToast("Please enter your review / feedback.");
+      return;
+    }
+
+    if (reviewComment.length > 500) {
+      showErrorToast("Review cannot exceed 500 characters.");
       return;
     }
 
@@ -1099,29 +873,6 @@ function CustomerOrders() {
         } catch (err) {}
       }
 
-      // Upload photos / videos if any
-      let uploadedUrls = [];
-      if (reviewMedia.length > 0) {
-        for (const m of reviewMedia) {
-          if (m.file) {
-            const formData = new FormData();
-            formData.append("file", m.file);
-            try {
-              const upRes = await axios.post(`${API_BASE_URL}/api/upload`, formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-              });
-              if (upRes.data?.results?.[0]?.url) {
-                uploadedUrls.push(upRes.data.results[0].url);
-              } else if (upRes.data?.url) {
-                uploadedUrls.push(upRes.data.url);
-              }
-            } catch (upErr) {
-              console.warn("Media upload error:", upErr);
-            }
-          }
-        }
-      }
-
       await axios.post(`${API_BASE_URL}/api/reviews`, {
         productId: selectedProductForReview.productId,
         orderId: selectedProductForReview.orderId,
@@ -1129,7 +880,7 @@ function CustomerOrders() {
         userName: isAnonymous ? "Anonymous" : userName,
         rating: ratingValue,
         comment: reviewComment.trim(),
-        images: uploadedUrls,
+        images: [],
         isAnonymous: isAnonymous,
       });
 
@@ -1165,7 +916,6 @@ function CustomerOrders() {
       }
       setSelectedProductForReview(null);
       setReviewComment("");
-      setReviewMedia([]);
       setIsAnonymous(false);
       setRatingValue(5);
       window.dispatchEvent(new Event("ordersUpdated"));
@@ -1944,7 +1694,6 @@ function CustomerOrders() {
                 onClick={() => {
                   setSelectedProductForReview(null);
                   setReviewComment("");
-                  setReviewMedia([]);
                   setIsAnonymous(false);
                 }}
                 className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-sm"
@@ -1994,68 +1743,26 @@ function CustomerOrders() {
                 />
               </div>
 
-              {/* REVIEW TEXTAREA (WRITE 30+ CHARACTERS) */}
+              {/* REVIEW TEXTAREA (NO MINIMUM, MAXIMUM 500 CHARACTERS) */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Your Review / Feedback *
+                  Your Review / Feedback
                 </label>
                 <textarea
                   rows={4}
                   required
-                  placeholder="Write 30+ characters..."
+                  maxLength={500}
+                  placeholder="Write your review here (maximum 500 characters)..."
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
                   className="w-full bg-slate-50 border border-[#E1E9EF] text-[#243746] rounded-xl p-3.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-[#79A94B] transition-all resize-none placeholder:text-slate-400"
                 />
-                <div className="flex items-center justify-between text-[11px] mt-1">
-                  <span className="text-slate-500 font-medium">Write 30+ characters</span>
-                  <span className={`font-semibold ${reviewComment.trim().length >= 30 ? "text-blue-700" : "text-slate-400"}`}>
-                    {reviewComment.trim().length >= 30 ? `✓ ${reviewComment.trim().length} chars` : `${reviewComment.trim().length} / 30`}
+                <div className="flex items-center justify-between text-[11px] mt-1 text-slate-500">
+                  <span className="font-medium">Maximum 500 characters</span>
+                  <span className={`font-semibold ${reviewComment.length >= 500 ? "text-red-600" : "text-slate-500"}`}>
+                    {reviewComment.length} / 500
                   </span>
                 </div>
-              </div>
-
-              {/* ADD A PHOTO OR VIDEO */}
-              <div>
-                <input
-                  type="file"
-                  ref={reviewMediaInputRef}
-                  onChange={handleReviewMediaSelect}
-                  accept="image/*,video/*"
-                  multiple
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => reviewMediaInputRef.current?.click()}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 hover:bg-slate-100/80 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
-                >
-                  <Camera size={15} className="text-slate-500" />
-                  <span>Add a photo or video</span>
-                </button>
-
-                {/* MEDIA PREVIEWS */}
-                {reviewMedia.length > 0 && (
-                  <div className="flex flex-wrap gap-2.5 mt-2.5">
-                    {reviewMedia.map((m, idx) => (
-                      <div key={idx} className="relative w-16 h-16 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden group">
-                        {m.type?.startsWith("video") ? (
-                          <video src={m.previewUrl} className="w-full h-full object-cover" />
-                        ) : (
-                          <img src={m.previewUrl} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveReviewMedia(idx)}
-                          className="absolute top-1 right-1 w-4 h-4 rounded-full bg-slate-900/80 text-white flex items-center justify-center text-[10px] hover:bg-slate-900 cursor-pointer shadow-xs"
-                          title="Remove"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* POST ANONYMOUSLY CHECKBOX */}
@@ -2076,7 +1783,6 @@ function CustomerOrders() {
                   onClick={() => {
                     setSelectedProductForReview(null);
                     setReviewComment("");
-                    setReviewMedia([]);
                     setIsAnonymous(false);
                   }}
                   className="px-5 py-2.5 rounded-full text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -2633,138 +2339,234 @@ function CustomerOrders() {
               </button>
             </div>
 
-            {/* 3 Status KPI Cards in Modal */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              {/* Payment Card */}
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Payment Audit</span>
-                {(() => {
-                  const isCod = (selectedOrderForTimeline.paymentMethod || "").toLowerCase().includes("cod") || (selectedOrderForTimeline.paymentMethod || "").toLowerCase().includes("cash on delivery");
-                  const s = (selectedOrderForTimeline.status || "").toLowerCase();
-                  const isPaid = (selectedOrderForTimeline.paymentStatus || "").toLowerCase() === "paid" || s === "delivered" || s === "completed";
-                  const payRef = selectedOrderForTimeline.paymentDetails?.referenceNumber;
-                  return (
-                    <div className="space-y-1">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block ${isPaid ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-yellow-50 text-yellow-800 border border-yellow-300"}`}>
-                        {isPaid ? (isCod ? "COD Collected" : "Online Paid") : (isCod ? "COD" : "Payment Pending")}
-                      </span>
-                      {payRef && (
-                        <p className="text-[10px] font-mono font-bold text-blue-800 truncate" title={payRef}>
-                          Ref: {payRef}
+            {/* Chronological Timeline with Exact Template Matching Admin Process Audit */}
+            {(() => {
+              const rawTimeline = selectedOrderForTimeline.trackingTimeline || [];
+              const s = (selectedOrderForTimeline.status || '').toLowerCase().trim();
+              const isCancelled = s.includes('cancel');
+              
+              let currentStep = 0;
+              if (s === 'completed' || s === 'delivered' || s === 'paid' || s === 'to-review' || s === 'to review') currentStep = 3;
+              else if (s === 'to receive' || s === 'to-receive' || s === 'in transit' || s === 'in-transit') currentStep = 2;
+              else if (s === 'to ship' || s === 'to-ship' || s === 'waiting for courier' || s === 'waiting-for-courier') currentStep = 1;
+
+              const isCod = (selectedOrderForTimeline.paymentMethod || '').toLowerCase().includes('cod') ||
+                (selectedOrderForTimeline.paymentMethod || '').toLowerCase().includes('cash on delivery');
+              const isOnlinePaid = !isCod && (
+                (selectedOrderForTimeline.paymentStatus || '').toLowerCase() === 'paid' ||
+                Boolean(selectedOrderForTimeline.paymentDetails?.referenceNumber) ||
+                rawTimeline.some((t) => {
+                  const tl = (t.title || '').toLowerCase();
+                  return tl.includes('paymongo') || tl.includes('payment paid') || tl.includes('payment confirmed');
+                })
+              );
+
+              const findLog = (keywords) => {
+                return rawTimeline.find((item) => {
+                  const t = (item.title || '').toLowerCase();
+                  const d = (item.description || '').toLowerCase();
+                  return keywords.some((k) => t.includes(k) || d.includes(k));
+                });
+              };
+
+              const orderPlacedLog = findLog(['order placed', 'registered', 'checkout']);
+              const paymentLog = findLog(['paymongo', 'payment paid', 'payment confirmed', 'paid']);
+              const confirmLog = findLog(['order confirmation', 'confirmation', 'call triage', 'confirmed', 'called']);
+              const preparingLog = findLog(['preparing to ship', 'packing', 'packed', 'waybill']);
+              const pickupLog = findLog(['package picked up', 'picked up', 'handed over to courier', 'rider handover', 'stock deducted']);
+              const transitLog = findLog(['in transit', 'transit', 'dispatched']);
+              const outForDeliveryLog = findLog(['out for delivery', 'out of delivery']);
+              const deliveredLog = findLog(['delivered', 'parcel delivered', 'completed', 'received by']);
+              const cancelLog = findLog(['cancel']);
+
+              const orderShortId = String(selectedOrderForTimeline._id || '').slice(-8).toUpperCase();
+              const courierName = selectedOrderForTimeline.courier || 'J&T Express';
+              const trackingNo = selectedOrderForTimeline.trackingNumber || '';
+              const tracingTag = trackingNo ? ` (Tracing no: ${trackingNo})` : '';
+
+              const displayTimeline = [];
+
+              // If order is cancelled
+              if (isCancelled) {
+                displayTimeline.push({
+                  title: 'Order Cancelled',
+                  description: cancelLog?.description || 'Order fulfillment cancelled. Warehouse inventory stock restored.',
+                  timestamp: cancelLog?.timestamp || selectedOrderForTimeline.updatedAt || new Date(),
+                  isCancelled: true,
+                });
+              }
+
+              // 8. Delivered (Stage 3)
+              if (currentStep >= 3 || deliveredLog) {
+                displayTimeline.push({
+                  title: 'Delivered',
+                  description: 'Order successfully delivered and received by the customer. Transaction completed.',
+                  timestamp: deliveredLog?.timestamp || selectedOrderForTimeline.proofOfDelivery?.deliveredAt || selectedOrderForTimeline.updatedAt || new Date(),
+                });
+              }
+
+              // 7. Out for Delivery (Stage 2 or 3)
+              if (currentStep >= 2 || outForDeliveryLog || deliveredLog) {
+                displayTimeline.push({
+                  title: 'Out for Delivery',
+                  description: `Parcel is out for delivery with the ${courierName} rider${tracingTag}.`,
+                  timestamp: outForDeliveryLog?.timestamp || (deliveredLog?.timestamp ? new Date(new Date(deliveredLog.timestamp).getTime() - 60000) : (pickupLog?.timestamp ? new Date(new Date(pickupLog.timestamp).getTime() + 60000) : new Date())),
+                });
+              }
+
+              // 6. In Transit (Stage 2 or 3)
+              if (currentStep >= 2 || transitLog || pickupLog || deliveredLog) {
+                displayTimeline.push({
+                  title: 'In Transit',
+                  description: `Parcel is in transit to the destination delivery hub via ${courierName}${tracingTag}.`,
+                  timestamp: transitLog?.timestamp || (pickupLog?.timestamp ? new Date(new Date(pickupLog.timestamp).getTime() + 1000) : new Date()),
+                });
+              }
+
+              // 5. Package Picked Up (Stage 2 or 3)
+              if (currentStep >= 2 || pickupLog || transitLog || deliveredLog) {
+                displayTimeline.push({
+                  title: 'Package Picked Up',
+                  description: `Parcel has been picked up by the ${courierName} rider from the warehouse${tracingTag}.`,
+                  timestamp: pickupLog?.timestamp || selectedOrderForTimeline.updatedAt || new Date(),
+                });
+              }
+
+              // 4. Preparing to Ship (Waiting for Courier) (Stage 1, 2, or 3)
+              if (currentStep >= 1 || preparingLog || pickupLog || transitLog || deliveredLog) {
+                displayTimeline.push({
+                  title: 'Preparing to Ship (Waiting for Courier)',
+                  description: `Item(s) packed and deducted from warehouse inventory. Waiting for ${courierName} courier pickup${tracingTag}.`,
+                  timestamp: preparingLog?.timestamp || (confirmLog?.timestamp ? new Date(new Date(confirmLog.timestamp).getTime() + 1000) : new Date()),
+                });
+              }
+
+              // 3. Order Confirmation (Stage 1, 2, or 3) OR Pending if Stage 0
+              if (currentStep >= 1 || confirmLog || preparingLog || pickupLog || transitLog || deliveredLog) {
+                displayTimeline.push({
+                  title: 'Order Confirmation',
+                  description: 'Seller confirmed the order and verified the delivery address via triage desk.',
+                  timestamp: confirmLog?.timestamp || (orderPlacedLog?.timestamp ? new Date(new Date(orderPlacedLog.timestamp).getTime() + 30000) : new Date()),
+                });
+              } else if (currentStep === 0) {
+                displayTimeline.push({
+                  title: 'Order Confirmation',
+                  description: 'Pending customer call confirmation and address verification by logistics desk.',
+                  isPending: true,
+                });
+              }
+
+              // 2. Payment Paid (If online payment: GCash / Card / PayMongo)
+              if (isOnlinePaid) {
+                const refNo = selectedOrderForTimeline.paymentDetails?.referenceNumber || selectedOrderForTimeline.paymentReference || '';
+                const payChannel = selectedOrderForTimeline.paymentDetails?.channel || selectedOrderForTimeline.paymentMethod || 'GCash';
+                displayTimeline.push({
+                  title: 'Payment Paid',
+                  description: `${payChannel} payment confirmed via PayMongo${refNo ? ` (Reference no: ${refNo})` : ''}.`,
+                  timestamp: paymentLog?.timestamp || selectedOrderForTimeline.paymentDetails?.paidAt || selectedOrderForTimeline.createdAt || new Date(),
+                });
+              }
+
+              // 1. Order Placed
+              displayTimeline.push({
+                title: 'Order Placed',
+                description: `Order placed and registered in the system (Order ID: #${orderShortId}).${isCod ? ' Cash on Delivery checkout.' : ' Awaiting payment completion.'}`,
+                timestamp: orderPlacedLog?.timestamp || selectedOrderForTimeline.createdAt || new Date(),
+              });
+
+              return (
+                <div className="max-h-80 overflow-y-auto pr-1 space-y-4 border-l-2 border-blue-200 ml-2 pl-4 py-1">
+                  {displayTimeline.map((item, tIdx) => {
+                    const isLatest = tIdx === 0 && !item.isPending;
+                    const titleLower = (item.title || '').toLowerCase();
+                    const isCancellation = titleLower.includes('cancel') || titleLower.includes('declined');
+
+                    let formattedDateTime = '';
+                    if (item.timestamp) {
+                      const d = new Date(item.timestamp);
+                      if (!isNaN(d.getTime())) {
+                        formattedDateTime = `${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                      }
+                    } else if (item.isPending) {
+                      formattedDateTime = 'Pending Confirmation';
+                    }
+
+                    return (
+                      <div key={tIdx} className="relative space-y-1">
+                        <div
+                          className={`absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white ${
+                            isCancellation ? 'bg-red-500' : 'bg-blue-600'
+                          }`}
+                        />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-xs font-bold text-slate-900">{item.title}</h5>
+                            {isLatest && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                Latest Activity
+                              </span>
+                            )}
+                          </div>
+                          {formattedDateTime && (
+                            <span className={`text-[11px] font-mono ${item.isPending ? 'text-amber-600 font-semibold' : 'text-slate-500'}`}>
+                              {formattedDateTime}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          {item.description}
                         </p>
-                      )}
-                    </div>
-                  );
-                })()}
-                <p className="text-[10px] text-slate-500 truncate">{selectedOrderForTimeline.paymentMethod || "COD"}</p>
-              </div>
 
-              {/* Warehouse Inventory Sync Card */}
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Warehouse Stock</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block ${
-                  selectedOrderForTimeline.inventoryDeducted || (selectedOrderForTimeline.status || '').toLowerCase().includes('transit') || (selectedOrderForTimeline.status || '').toLowerCase() === 'delivered' || (selectedOrderForTimeline.status || '').toLowerCase() === 'completed'
-                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "bg-yellow-50 text-yellow-800 border border-yellow-300"
-                }`}>
-                  {selectedOrderForTimeline.inventoryDeducted || (selectedOrderForTimeline.status || '').toLowerCase().includes('transit') || (selectedOrderForTimeline.status || '').toLowerCase() === 'delivered' || (selectedOrderForTimeline.status || '').toLowerCase() === 'completed'
-                    ? "Stock Deducted"
-                    : "Stock Reserved"}
-                </span>
-                <p className="text-[10px] text-slate-500 truncate">Finished Goods</p>
-              </div>
-
-              {/* Waybill Status Card */}
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Waybill Label</span>
-                <button
-                  type="button"
-                  onClick={() => handleDownloadWaybillPdf(selectedOrderForTimeline)}
-                  className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <Printer size={9} className="text-blue-600" />
-                  <span>Waybill PDF</span>
-                </button>
-                <p className="text-[10px] font-mono text-slate-500 truncate">{selectedOrderForTimeline.trackingNumber || "Assigned"}</p>
-              </div>
-            </div>
-
-            {/* Chronological Timeline */}
-            <div className="max-h-80 overflow-y-auto pr-1 space-y-4 border-l-2 border-blue-200 ml-2 pl-4 py-1">
-              {(selectedOrderForTimeline.trackingTimeline || []).map((step, sIdx) => {
-                const titleLower = (step.title || "").toLowerCase();
-                const isCancellation = titleLower.includes("cancel") || titleLower.includes("declined");
-                const isWarning = titleLower.includes("waiting") || titleLower.includes("pending") || titleLower.includes("delay");
-
-                return (
-                  <div key={sIdx} className="relative space-y-1">
-                    <div className={`absolute -left-[23px] top-1 w-3 h-3 rounded-full ring-4 ring-white ${
-                      isCancellation
-                        ? "bg-red-500"
-                        : isWarning
-                        ? "bg-yellow-500"
-                        : "bg-blue-600"
-                    }`} />
-                    <div className="flex items-center justify-between gap-2">
-                      <h5 className="text-xs font-bold text-slate-900">{step.title}</h5>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {step.actor || "Logistics Team"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-snug">{step.description}</p>
-                    <span className="text-[10px] font-mono text-slate-400 block">
-                      {new Date(step.timestamp).toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })}
-
-              {/* Proof of Delivery Photo embedded directly under Delivered Milestone */}
-              {selectedOrderForTimeline.proofOfDelivery?.image && (
-                <div className="mt-3 p-3 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-blue-900 flex items-center gap-1.5">
-                      <Camera size={13} className="text-blue-700" /> Proof of Delivery (Photo)
-                    </span>
-                    <span className="text-[11px] text-slate-600">
-                      Received by: <strong className="text-slate-800 font-semibold">{selectedOrderForTimeline.proofOfDelivery.recipientName || 'Customer'}</strong>
-                    </span>
-                  </div>
-                  <div
-                    className="rounded-xl overflow-hidden border border-blue-200/60 bg-white shadow-2xs group relative cursor-pointer"
-                    onClick={() => window.open(selectedOrderForTimeline.proofOfDelivery.image, '_blank')}
-                    title="Click to view full photo"
-                  >
-                    <img
-                      src={selectedOrderForTimeline.proofOfDelivery.image}
-                      alt="Proof of Delivery Photo"
-                      className="w-full max-h-56 object-cover transition-transform group-hover:scale-[1.02] duration-200"
-                    />
-                  </div>
-                  {selectedOrderForTimeline.proofOfDelivery.notes && (
-                    <p className="text-[11px] text-slate-600 italic">
-                      Courier note: "{selectedOrderForTimeline.proofOfDelivery.notes}"
-                    </p>
-                  )}
+                        {/* Proof of Delivery Photo embedded directly under Delivered Milestone */}
+                        {item.title === 'Delivered' && selectedOrderForTimeline.proofOfDelivery?.image && (
+                          <div className="mt-2.5 p-3 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                                <Camera size={13} className="text-blue-700" />
+                                <span>Proof of Delivery (Photo)</span>
+                              </span>
+                              <span className="text-[11px] text-slate-600">
+                                Received by: <strong className="text-slate-800 font-semibold">{selectedOrderForTimeline.proofOfDelivery.recipientName || 'Customer'}</strong>
+                              </span>
+                            </div>
+                            <div
+                              onClick={() => window.open(selectedOrderForTimeline.proofOfDelivery.image, '_blank')}
+                              className="rounded-xl overflow-hidden border border-blue-200 bg-white shadow-2xs group relative cursor-pointer"
+                              title="Click to view full photo"
+                            >
+                              <img
+                                src={selectedOrderForTimeline.proofOfDelivery.image}
+                                alt="Proof of Delivery Photo"
+                                className="w-full max-h-52 object-cover transition-transform group-hover:scale-[1.02] duration-200"
+                              />
+                              <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                                <Eye size={14} />
+                                <span>View Full Photo</span>
+                              </div>
+                            </div>
+                            {selectedOrderForTimeline.proofOfDelivery.notes && (
+                              <p className="text-[11px] text-slate-600 italic">
+                                Delivery note: "{selectedOrderForTimeline.proofOfDelivery.notes}"
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
-            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+            {/* Modal Footer with Single Receipt Button */}
+            <div className="pt-3 flex items-center justify-end border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => handleDownloadWaybillPdf(selectedOrderForTimeline)}
-                className="px-4 py-2 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                onClick={() => handleDownloadReceiptPdf(selectedOrderForTimeline)}
+                className="px-6 py-2.5 sm:py-3 rounded-full bg-[#01390f] hover:bg-[#0a5219] text-white text-[12px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
               >
-                <Printer size={13} className="text-blue-600" />
-                <span>Waybill PDF</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedOrderForTimeline(null)}
-                className="px-5 py-2 rounded-full bg-[#EDF7EE] hover:bg-[#d8eed9] text-[#01390f] text-xs font-bold transition-all shadow-xs cursor-pointer border border-[#d5ead7]"
-              >
-                Close
+                <Check className="w-3.5 h-3.5" />
+                <span>Receipt</span>
               </button>
             </div>
           </div>
